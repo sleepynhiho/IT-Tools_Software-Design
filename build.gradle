@@ -1,0 +1,30 @@
+plugins {
+    id 'java-library'
+    id 'org.springframework.boot' version '2.7.0'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+}
+
+subprojects {
+    apply plugin: 'java-library'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(':plugin-api')
+    testImplementation('org.springframework.boot:spring-boot-starter-test') {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+}
+
+bootJar {
+    enabled = true
+    mainClass = 'vn.hcmus.fit.sd.it_tools.server.ServerApplication'
+}
+
+bootRun {
+    // systemProperty 'pf4j.mode', 'development'
+    // systemProperty 'pf4j.pluginsDir', '../build/plugins-deploy'
+}

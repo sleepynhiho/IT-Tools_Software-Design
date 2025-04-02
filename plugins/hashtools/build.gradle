@@ -1,0 +1,22 @@
+plugins {
+    id 'java'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(':plugin-api')
+    implementation 'org.pf4j:pf4j:3.6.0'
+}
+
+jar {
+    manifest {
+        attributes(
+                'Plugin-Class': 'kostovite.hashtools.HashToolsPlugin',
+                'Plugin-Version': '1.0.0',
+                'Plugin-Id': 'hash-tools'
+        )
+    }
+}

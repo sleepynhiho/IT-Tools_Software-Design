@@ -1,0 +1,52 @@
+plugins {
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+    id 'java'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(':plugin-api')
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation "org.pf4j:pf4j-spring:0.7.0"
+    testImplementation('org.springframework.boot:spring-boot-starter-test') {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+}
+
+bootJar {
+    mainClass = 'kostovite.ServerApplication' // Specify the main class
+}
+
+bootRun {
+    // systemProperty 'pf4j.mode', 'development'
+    // systemProperty 'pf4j.pluginsDir', '../build/plugins-deploy'
+}
+
+java {
+    sourceSets {
+        main {
+            java {
+                srcDirs = ['src/main/java']
+            }
+            resources {
+                srcDirs = ['src/main/resources']
+            }
+        }
+        test {
+            java {
+                srcDirs = ['src/test/java']
+            }
+            resources {
+                srcDirs = ['src/test/resources']
+            }
+        }
+    }
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
