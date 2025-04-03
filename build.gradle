@@ -1,4 +1,5 @@
 plugins {
+    id 'java'
     id 'java-library'
     id 'org.springframework.boot' version '2.7.0'
     id 'io.spring.dependency-management' version '1.0.11.RELEASE'
@@ -8,8 +9,21 @@ subprojects {
     apply plugin: 'java-library'
 }
 
-repositories {
-    mavenCentral()
+allprojects {
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    if (project.name != 'plugins') {  // Skip the plugins container project
+        apply plugin: 'java'
+
+        java {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+    }
 }
 
 dependencies {
@@ -21,7 +35,7 @@ dependencies {
 
 bootJar {
     enabled = true
-    mainClass = 'vn.hcmus.fit.sd.it_tools.server.ServerApplication'
+    mainClass = 'kostovite.ServerApplication'
 }
 
 bootRun {

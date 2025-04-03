@@ -1,6 +1,6 @@
 Manifest-Version: 1.0
 Main-Class: org.springframework.boot.loader.JarLauncher
-Start-Class: vn.hcmus.fit.sd.it_tools.server.ServerApplication
+Start-Class: kostovite.ServerApplication
 Spring-Boot-Version: 2.7.0
 Spring-Boot-Classes: BOOT-INF/classes/
 Spring-Boot-Lib: BOOT-INF/lib/

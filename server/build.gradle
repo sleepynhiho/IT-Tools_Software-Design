@@ -8,25 +8,85 @@ repositories {
     mavenCentral()
 }
 
+// Define versions to ensure compatibility
+ext {
+    set('slf4jVersion', '2.0.7')  // Use a consistent version for slf4j
+    set('logbackVersion', '1.4.8') // Use a version compatible with Spring Boot 3.x
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.1.5"
+    }
+    dependencies {
+        dependency "org.slf4j:slf4j-api:${slf4jVersion}"
+        dependency "ch.qos.logback:logback-classic:${logbackVersion}"
+        dependency "ch.qos.logback:logback-core:${logbackVersion}"
+    }
+}
+
 dependencies {
     implementation project(':plugin-api')
+
+    // Use Spring Boot starters which handle logging dependencies correctly
     implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation "org.pf4j:pf4j-spring:0.7.0"
+
+    // Add Jakarta annotation dependency
+    implementation 'jakarta.annotation:jakarta.annotation-api:2.1.1'
+
+    // PF4J dependencies
+    implementation 'org.pf4j:pf4j:3.10.0'
+    implementation 'org.pf4j:pf4j-spring:0.8.0'
+
+    // Explicitly specify logging dependencies (let Spring Boot manage versions)
+    implementation "org.slf4j:slf4j-api"
+    implementation "ch.qos.logback:logback-classic"
+    implementation "ch.qos.logback:logback-core"
+
+    // Exclude conflicting logging implementations
+    configurations.all {
+        exclude group: 'commons-logging', module: 'commons-logging'
+        exclude group: 'org.slf4j', module: 'slf4j-reload4j'
+        exclude group: 'log4j', module: 'log4j'
+    }
+
+    // For file watching capabilities
+    implementation 'commons-io:commons-io:2.11.0'
+
+    // For RESTful API documentation (optional)
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.1.0'
+
     testImplementation('org.springframework.boot:spring-boot-starter-test') {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }
 }
 
 bootJar {
-    mainClass = 'kostovite.ServerApplication' // Specify the main class
+    mainClass = 'kostovite.ServerApplication'
+
+    // Include META-INF directory for plugin system
+    filesMatching('**/META-INF/**') {
+        include()
+    }
 }
 
 bootRun {
-    // systemProperty 'pf4j.mode', 'development'
-    // systemProperty 'pf4j.pluginsDir', '../build/plugins-deploy'
+    // Configure plugin system for development
+    systemProperty 'pf4j.mode', 'development'
+    systemProperty 'pf4j.pluginsDir', 'plugins-deploy'
+
+    // Enable hot reload for development
+    systemProperty 'spring.devtools.restart.enabled', 'true'
+    systemProperty 'spring.devtools.livereload.enabled', 'true'
+
+    // Set logging configuration
+    systemProperty 'logging.config', 'classpath:logback-spring.xml'
 }
 
 java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+
     sourceSets {
         main {
             java {
@@ -50,3 +110,44 @@ java {
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
 }
+
+// Task to create plugins-deploy directory
+task createPluginsDir {
+    doLast {
+        def pluginsDir = new File("${projectDir}/plugins-deploy")
+        if (!pluginsDir.exists()) {
+            pluginsDir.mkdirs()
+            println "Created plugins directory at: ${pluginsDir.absolutePath}"
+        } else {
+            println "Plugins directory already exists at: ${pluginsDir.absolutePath}"
+        }
+    }
+}
+
+// Make processResources depend on createPluginsDir
+processResources.dependsOn createPluginsDir
+
+// Task to copy example plugins for development
+task copyExamplePlugins(type: Copy, dependsOn: ':plugins:hashtools:jar') {
+    from project(':plugins:hashtools').buildDir.toString() + '/libs'
+    into 'plugins-deploy'
+    include '*.jar'
+    println "Copying example plugins from ${project(':plugins:hashtools').buildDir.toString() + '/libs'} to plugins-deploy"
+}
+
+// Hook the copyExamplePlugins task to run before bootRun
+bootRun.dependsOn copyExamplePlugins
+
+// Create logs directory for logging
+task createLogsDir {
+    doLast {
+        def logsDir = new File("${projectDir}/logs")
+        if (!logsDir.exists()) {
+            logsDir.mkdirs()
+            println "Created logs directory at: ${logsDir.absolutePath}"
+        }
+    }
+}
+
+// Make bootRun depend on createLogsDir
+bootRun.dependsOn createLogsDir

@@ -1,4 +1,4 @@
-package kostovite.hashtools;
+package kostovite;
 
 import org.pf4j.Plugin;
 import org.pf4j.PluginWrapper;

@@ -7,16 +7,49 @@ repositories {
 }
 
 dependencies {
-    implementation project(':plugin-api')
-    implementation 'org.pf4j:pf4j:3.6.0'
+    compileOnly project(':plugin-api')
+    compileOnly 'org.pf4j:pf4j:3.10.0'
+
+    // Use annotationProcessor instead of compile-time dependency
+    annotationProcessor 'org.pf4j:pf4j:3.10.0'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 jar {
+    archiveBaseName = 'hashtools'
+    archiveVersion = '1.0.0'
+
     manifest {
         attributes(
-                'Plugin-Class': 'kostovite.hashtools.HashToolsPlugin',
+                'Plugin-Class': 'kostovite.HashToolsPlugin',
+                'Plugin-Id': 'hash-tools',
                 'Plugin-Version': '1.0.0',
-                'Plugin-Id': 'hash-tools'
+                'Plugin-Provider': 'kostovite',
+                'Plugin-Description': 'Hash tools plugin for IT-Tools'
         )
     }
+
+    // Don't include dependencies - they should be provided by the host application
+    // Remove any "from" statements that include dependencies
+
+    // Handle duplicates
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
+
+// Manual extension index creation just to be safe
+tasks.register('createExtensionsIdx') {
+    doLast {
+        def metaInfDir = new File(sourceSets.main.output.classesDirs.first(), 'META-INF')
+        metaInfDir.mkdirs()
+        def extensionsFile = new File(metaInfDir, 'extensions.idx')
+        extensionsFile.text = 'kostovite.HashTools\n'
+        println "Created extensions.idx at ${extensionsFile.absolutePath}"
+    }
+}
+
+// Run before jar
+classes.finalizedBy createExtensionsIdx

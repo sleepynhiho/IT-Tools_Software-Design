@@ -1,10 +1,11 @@
-package kostovite.hashtools;
+package kostovite;
 
-import kostovite.PluginInterface;
+import org.pf4j.Extension;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+@Extension
 public class HashTools implements PluginInterface {
     @Override
     public String getName() {
