@@ -1,18 +1,28 @@
 import { Card, Typography, IconButton, Box } from "@mui/material";
 import * as MuiIcons from "@mui/icons-material";
 import FavoriteIcon from "@mui/icons-material/Favorite";
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useFavoriteTools } from "../context/FavoriteToolsContext";
 
 const ToolCard = ({
   tool,
+  onFavoriteToggle,
 }: {
   tool: { id: string; name: string; description: string; icon: string };
+  onFavoriteToggle: (tool: any) => void;
 }) => {
   const IconComponent =
     MuiIcons[tool.icon as keyof typeof MuiIcons] || MuiIcons.HelpOutline;
-  const [liked, setLiked] = useState(false);
+
+  const { favoriteTools } = useFavoriteTools();
+  const isFavorite = favoriteTools.some((fav) => fav.id === tool.id);
+
   const navigate = useNavigate();
+
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onFavoriteToggle(tool);
+  };
 
   return (
     <Card
@@ -50,13 +60,8 @@ const ToolCard = ({
           }}
         >
           <IconComponent sx={{ fontSize: 50, color: "custom.icon" }} />
-          <IconButton
-            onClick={(e) => {
-              e.stopPropagation();
-              setLiked(!liked);
-            }}
-          >
-            {liked ? (
+          <IconButton onClick={handleFavoriteClick}>
+            {isFavorite ? (
               <FavoriteIcon color="error" />
             ) : (
               <FavoriteIcon sx={{ color: "custom.icon" }} />

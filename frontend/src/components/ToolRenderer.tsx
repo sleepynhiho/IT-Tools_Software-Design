@@ -62,7 +62,12 @@ const ToolRenderer = () => {
   if (!metadata) return <Typography>Loading...</Typography>;
 
   return (
-    <CommonLayout title={metadata.name} description={metadata.description}>
+    <CommonLayout
+      title={metadata.name}
+      description={metadata.description}
+      toolId={id || ""}
+      icon={metadata.icon}
+    >
       <Grid container spacing={3}>
         {metadata.uiConfig.sections.map((section, index) => (
           <Grid item xs={12} sm={12} md={12} key={index}>
@@ -106,23 +111,6 @@ const ToolRenderer = () => {
             </Paper>
           </Grid>
         ))}
-        {/* 
-        <Grid item xs={12}>
-          <Paper
-            sx={{ p: 3, bgcolor: "#212121", color: "white", borderRadius: 2 }}
-          >
-            <Box display="flex" justifyContent="space-between">
-              <Button
-                variant="contained"
-                startIcon={<RefreshIcon />}
-                onClick={handleExecute}
-                sx={{ bgcolor: "#f57c00" }}
-              >
-                Execute
-              </Button>
-            </Box>
-          </Paper>
-        </Grid> */}
 
         {/* Outputs ngoài section */}
         {(metadata.uiConfig.outputs ?? []).map((output) => (

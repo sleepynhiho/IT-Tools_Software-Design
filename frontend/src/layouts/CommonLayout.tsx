@@ -1,10 +1,25 @@
 import { Box, Typography, IconButton } from "@mui/material";
 import FavoriteIcon from "@mui/icons-material/Favorite";
-import { useState } from "react";
+import { useFavoriteTools } from "../context/FavoriteToolsContext";
 
-const CommonLayout = ({ title, description, children }: any) => {
-  const [liked, setLiked] = useState(false);
+interface CommonLayoutProps {
+  title: string;
+  description: string;
+  toolId: string;
+  icon: string;
+  children: React.ReactNode;
+}
 
+const CommonLayout: React.FC<CommonLayoutProps> = ({
+  title,
+  description,
+  toolId,
+  icon,
+  children,
+}) => {
+  const { toggleFavorite, isFavorite } = useFavoriteTools();
+
+  console.log("CommonLayout", { title, description, toolId, icon });
   return (
     <Box
       component="main"
@@ -30,13 +45,19 @@ const CommonLayout = ({ title, description, children }: any) => {
           <Typography variant="h4" sx={{ fontWeight: "bold" }}>
             {title}
           </Typography>
+
           <IconButton
             onClick={(e) => {
               e.stopPropagation();
-              setLiked(!liked);
+              toggleFavorite({
+                id: toolId,
+                name: title,
+                icon,
+                category: "",
+              });
             }}
           >
-            {liked ? (
+            {isFavorite(toolId) ? (
               <FavoriteIcon color="error" />
             ) : (
               <FavoriteIcon sx={{ color: "custom.icon" }} />
@@ -50,7 +71,6 @@ const CommonLayout = ({ title, description, children }: any) => {
         </Box>
         <Typography sx={{ color: "gray", mb: 3 }}>{description}</Typography>
 
-        {/* Nội dung riêng của từng công cụ */}
         {children}
       </Box>
     </Box>

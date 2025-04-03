@@ -19,104 +19,12 @@ const fetchFromBackend = async (toolId: string, input: Record<string, any>) => {
   }
 };
 
-// export const mockMetadata = [
-//   {
-//     id: "advanced-data-transformer",
-//     name: "Advanced Data Transformer",
-//     icon: "Transform",
-//     description:
-//       "Perform complex transformations on input data with customizable options.",
-//     uiConfig: {
-//       sections: [
-//         {
-//           header: "Input Configuration",
-//           fields: [
-//             {
-//               name: "inputText",
-//               label: "Input Text",
-//               type: "text",
-//               default: "",
-//             },
-//             {
-//               name: "inputNumber",
-//               label: "Input Number",
-//               type: "number",
-//               default: 10,
-//               min: 1,
-//               max: 100,
-//             },
-//             {
-//               name: "inputSwitch",
-//               label: "Enable Advanced Mode",
-//               type: "switch",
-//               default: false,
-//             },
-//             {
-//               name: "inputSlider",
-//               label: "Processing Intensity",
-//               type: "slider",
-//               min: 1,
-//               max: 10,
-//               default: 5,
-//             },
-//             {
-//               name: "inputDropdown",
-//               label: "Transformation Type",
-//               type: "select",
-//               options: [
-//                 "Uppercase",
-//                 "Lowercase",
-//                 "Reverse",
-//                 "Base64 Encode",
-//                 "Base64 Decode",
-//               ],
-//               default: "Uppercase",
-//             },
-//           ],
-//         },
-//         {
-//           header: "Action Selection",
-//           fields: [
-//             {
-//               name: "inputButtons",
-//               label: "Choose Operation",
-//               type: "buttons",
-//               options: [
-//                 { name: "Transform", value: "transform" },
-//                 { name: "Analyze", value: "analyze" },
-//                 { name: "Optimize", value: "optimize" },
-//               ],
-//               default: "transform",
-//             },
-//           ],
-//         },
-//       ],
-//       outputs: [
-//         {
-//           title: "Transformed Output",
-//           name: "transformedOutput",
-//           type: "text",
-//           buttons: ["copy", "refresh"],
-//         },
-//         {
-//           title: "Analysis Report",
-//           name: "analysisReport",
-//           type: "text",
-//           buttons: ["copy"],
-//         },
-//       ],
-//     },
-//     processFunction: async (input) => {
-//       return await fetchFromBackend("advanced-data-transformer", input);
-//     },
-//   },
-// ];
-
 export const mockMetadata = [
   {
     id: "token-generator",
     name: "Token Generator",
     icon: "VpnKey",
+    category: "Crypto",
     description:
       "Generate a random string with uppercase, lowercase, numbers, and symbols.",
     uiConfig: {
@@ -175,6 +83,7 @@ export const mockMetadata = [
     id: "hash-text",
     name: "Hash Text",
     icon: "Lock",
+    category: "Crypto",
     description:
       "Hash a text string using MD5, SHA1, SHA256, SHA224, SHA512, SHA384, SHA3, or RIPEMD160.",
     uiConfig: {
@@ -182,22 +91,6 @@ export const mockMetadata = [
         {
           header: "Hash Configuration",
           fields: [
-            // {
-            //   name: "algorithm",
-            //   label: "Algorithm",
-            //   type: "select",
-            //   options: [
-            //     "MD5",
-            //     "SHA1",
-            //     "SHA256",
-            //     "SHA224",
-            //     "SHA512",
-            //     "SHA384",
-            //     "SHA3",
-            //     "RIPEMD160",
-            //   ],
-            //   default: "SHA256",
-            // },
             {
               name: "input",
               label: "Your text to hash: ",
@@ -277,6 +170,7 @@ export const mockMetadata = [
     id: "ulid-generator",
     name: "ULID Generator",
     icon: "FormatListNumbered",
+    category: "Crypto",
     description:
       "Generate random Universally Unique Lexicographically Sortable Identifier (ULID).",
     uiConfig: {
@@ -319,6 +213,7 @@ export const mockMetadata = [
     id: "password-strength-analyzer",
     name: "Password Strength Analyzer",
     icon: "Shield",
+    category: "Crypto",
     description:
       "Analyze the strength of your password and estimate crack time.",
     uiConfig: {
@@ -375,6 +270,7 @@ export const mockMetadata = [
     id: "integer-base-converter",
     name: "Integer Base Converter",
     icon: "Functions",
+    category: "Converter",
     description:
       "Convert a number between different bases (decimal, hexadecimal, binary, octal, base64, etc.)",
     uiConfig: {
@@ -438,6 +334,7 @@ export const mockMetadata = [
     name: "XML to JSON Converter",
     icon: "Transform",
     description: "Convert XML to JSON format.",
+    category: "Converter",
     uiConfig: {
       sections: [
         {
