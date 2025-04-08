@@ -10,15 +10,20 @@ import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class ManualPluginLoader {
     private static final Logger log = LoggerFactory.getLogger(ManualPluginLoader.class);
     private final List<PluginInterface> loadedPlugins = new ArrayList<>();
+    private final Map<String, PluginInterface> pluginsByName = new ConcurrentHashMap<>();
 
     public List<PluginInterface> loadPlugins(Path pluginsDir) {
         loadedPlugins.clear();
+        pluginsByName.clear();
 
         // Get all jar files in the plugins directory
         File dir = pluginsDir.toFile();
@@ -45,6 +50,7 @@ public class ManualPluginLoader {
                 for (PluginInterface plugin : serviceLoader) {
                     log.info("Found plugin: {}", plugin.getName());
                     loadedPlugins.add(plugin);
+                    pluginsByName.put(plugin.getName(), plugin);
                 }
 
             } catch (Exception e) {
@@ -57,5 +63,80 @@ public class ManualPluginLoader {
 
     public List<PluginInterface> getLoadedPlugins() {
         return new ArrayList<>(loadedPlugins);
+    }
+
+    /**
+     * Find a plugin by name
+     * @param name Name of the plugin to find
+     * @return The plugin if found, null otherwise
+     */
+    public PluginInterface getPluginByName(String name) {
+        return pluginsByName.get(name);
+    }
+
+    /**
+     * Get metadata for all loaded plugins
+     * @return List of plugin metadata
+     */
+    public List<Map<String, Object>> getAllPluginMetadata() {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (PluginInterface plugin : loadedPlugins) {
+            try {
+                Map<String, Object> metadata = new HashMap<>();
+                metadata.put("name", plugin.getName());
+                // Add additional metadata if the plugin supports it
+                if (plugin instanceof ExtendedPluginInterface) {
+                    metadata.putAll(plugin.getMetadata());
+                }
+                result.add(metadata);
+            } catch (Exception e) {
+                log.error("Error getting metadata for plugin {}: {}", plugin.getName(), e.getMessage());
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Process data with a specific plugin
+     * @param pluginName Name of the plugin to use
+     * @param input Input data for the plugin
+     * @return Processed output data
+     * @throws IllegalArgumentException if plugin not found
+     */
+    public Map<String, Object> processWithPlugin(String pluginName, Map<String, Object> input) {
+        PluginInterface plugin = getPluginByName(pluginName);
+        if (plugin == null) {
+            throw new IllegalArgumentException("Plugin not found: " + pluginName);
+        }
+
+        // If plugin supports extended interface, use it
+        if (plugin instanceof ExtendedPluginInterface) {
+            return plugin.process(input);
+        }
+
+        // Otherwise, return basic info
+        Map<String, Object> result = new HashMap<>();
+        result.put("pluginName", plugin.getName());
+        result.put("success", true);
+        result.put("message", "Plugin executed, but doesn't implement advanced processing");
+        return result;
+    }
+
+    /**
+     * Extended interface for plugins with advanced functionality
+     */
+    public interface ExtendedPluginInterface extends PluginInterface {
+        /**
+         * Get metadata about the plugin
+         * @return Map containing plugin metadata
+         */
+        Map<String, Object> getMetadata();
+
+        /**
+         * Process data universally
+         * @param input Map containing input data
+         * @return Map containing processed output data
+         */
+        Map<String, Object> process(Map<String, Object> input);
     }
 }

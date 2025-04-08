@@ -2,6 +2,8 @@ package kostovite.controllers;
 
 import kostovite.CustomPluginManager;
 import kostovite.PluginInterface;
+import kostovite.ManualPluginLoader;
+import kostovite.ManualPluginLoader.ExtendedPluginInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +33,7 @@ public class DebugController {
     private CustomPluginManager customPluginManager;
 
     @Autowired
-    private kostovite.ManualPluginLoader manualPluginLoader;
+    private ManualPluginLoader manualPluginLoader;
 
     @GetMapping("/inspect-jar")
     public Map<String, Object> inspectJar() {
@@ -168,6 +170,40 @@ public class DebugController {
 
             response.put("loadedPlugins", pluginNames);
             response.put("status", "success");
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+        }
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/extended-plugins-info")
+    public ResponseEntity<Map<String, Object>> extendedPluginsInfo() {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            List<PluginInterface> plugins = manualPluginLoader.getLoadedPlugins();
+
+            List<Map<String, Object>> pluginsInfo = new ArrayList<>();
+            for (PluginInterface plugin : plugins) {
+                Map<String, Object> pluginInfo = new HashMap<>();
+                pluginInfo.put("name", plugin.getName());
+
+                // Check if plugin implements the extended interface
+                if (plugin instanceof ExtendedPluginInterface) {
+                    pluginInfo.put("supportsUniversalInterface", true);
+                    pluginInfo.put("metadata", plugin.getMetadata());
+                } else {
+                    pluginInfo.put("supportsUniversalInterface", false);
+                }
+
+                pluginsInfo.add(pluginInfo);
+            }
+
+            response.put("plugins", pluginsInfo);
+            response.put("status", "success");
+
         } catch (Exception e) {
             response.put("status", "error");
             response.put("message", e.getMessage());
