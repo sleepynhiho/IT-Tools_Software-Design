@@ -4,17 +4,18 @@ import org.pf4j.Plugin;
 import org.pf4j.PluginWrapper;
 
 public class HashToolsPlugin extends Plugin {
+
     public HashToolsPlugin(PluginWrapper wrapper) {
         super(wrapper);
     }
 
     @Override
     public void start() {
-        System.out.println("HashToolsPlugin started");
+        System.out.println("HashTools plugin started");
     }
 
     @Override
     public void stop() {
-        System.out.println("HashToolsPlugin stopped");
+        System.out.println("HashTools plugin stopped");
     }
 }

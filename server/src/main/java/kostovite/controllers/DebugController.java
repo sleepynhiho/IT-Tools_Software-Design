@@ -1,10 +1,11 @@
 package kostovite.controllers;
 
 import kostovite.CustomPluginManager;
-import org.pf4j.*;
+import kostovite.PluginInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,6 +29,9 @@ public class DebugController {
 
     @Autowired
     private CustomPluginManager customPluginManager;
+
+    @Autowired
+    private kostovite.ManualPluginLoader manualPluginLoader;
 
     @GetMapping("/inspect-jar")
     public Map<String, Object> inspectJar() {
@@ -96,6 +100,7 @@ public class DebugController {
                     );
 
                     // Try to load the plugin class
+                    assert manifest != null;
                     String pluginClass = manifest.getMainAttributes().getValue("Plugin-Class");
                     if (pluginClass != null) {
                         try {
@@ -146,56 +151,28 @@ public class DebugController {
     }
 
     @GetMapping("/manual-load")
-    public Map<String, Object> manualLoad() {
-        Map<String, Object> result = new HashMap<>();
+    public ResponseEntity<Map<String, Object>> manualLoad() {
+        Map<String, Object> response = new HashMap<>();
 
         try {
+            // Get path to plugins directory
             String workingDir = System.getProperty("user.dir");
-            Path pluginsDir = Paths.get(workingDir, "plugins-deploy");
-            File[] jarFiles = pluginsDir.toFile().listFiles((dir, name) -> name.toLowerCase().endsWith(".jar"));
+            Path pluginsPath = Paths.get(workingDir, "plugins-deploy").toAbsolutePath();
 
-            if (jarFiles == null || jarFiles.length == 0) {
-                result.put("status", "error");
-                result.put("message", "No JAR files found in plugins-deploy directory");
-                return result;
-            }
+            // Load plugins and get list of loaded plugins
+            List<PluginInterface> plugins = manualPluginLoader.loadPlugins(pluginsPath);
 
-            // Create a fresh DefaultPluginManager to test loading
-            DefaultPluginManager testManager = new DefaultPluginManager(pluginsDir);
-            testManager.loadPlugins();
+            List<String> pluginNames = plugins.stream()
+                    .map(PluginInterface::getName)
+                    .collect(Collectors.toList());
 
-            List<Map<String, Object>> loadedPlugins = new ArrayList<>();
-            for (PluginWrapper plugin : testManager.getPlugins()) {
-                Map<String, Object> pluginInfo = new HashMap<>();
-                pluginInfo.put("id", plugin.getPluginId());
-                pluginInfo.put("version", plugin.getDescriptor().getVersion());
-                pluginInfo.put("state", plugin.getPluginState().toString());
-
-                try {
-                    testManager.startPlugin(plugin.getPluginId());
-                    pluginInfo.put("startResult", "Started successfully");
-                    pluginInfo.put("stateAfterStart", plugin.getPluginState().toString());
-                } catch (Exception e) {
-                    pluginInfo.put("startError", e.toString());
-                }
-
-                List<String> extensions = (List<String>) testManager.getExtensions(plugin.getPluginId())
-                        .stream()
-                        .map(ext -> ext.getClass().getName())
-                        .collect(Collectors.toList());
-                pluginInfo.put("extensions", extensions);
-
-                loadedPlugins.add(pluginInfo);
-            }
-
-            result.put("loadedPlugins", loadedPlugins);
-            result.put("status", "success");
+            response.put("loadedPlugins", pluginNames);
+            response.put("status", "success");
         } catch (Exception e) {
-            result.put("status", "error");
-            result.put("message", e.getMessage());
-            result.put("stackTrace", Arrays.toString(e.getStackTrace()));
+            response.put("status", "error");
+            response.put("message", e.getMessage());
         }
 
-        return result;
+        return ResponseEntity.ok(response);
     }
 }

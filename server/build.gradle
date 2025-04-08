@@ -34,10 +34,6 @@ dependencies {
     // Add Jakarta annotation dependency
     implementation 'jakarta.annotation:jakarta.annotation-api:2.1.1'
 
-    // PF4J dependencies
-    implementation 'org.pf4j:pf4j:3.10.0'
-    implementation 'org.pf4j:pf4j-spring:0.8.0'
-
     // Explicitly specify logging dependencies (let Spring Boot manage versions)
     implementation "org.slf4j:slf4j-api"
     implementation "ch.qos.logback:logback-classic"

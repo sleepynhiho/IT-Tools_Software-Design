@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import kostovite.PluginInterface;
 import kostovite.CustomPluginManager;
+import kostovite.ManualPluginLoader;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,11 +23,13 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/plugins")
 public class PluginController {
     private final CustomPluginManager customPluginManager;
+    private final ManualPluginLoader manualPluginLoader;
     private final Path pluginsDirectory = Paths.get("plugins-deploy");
 
     @Autowired
-    public PluginController(CustomPluginManager customPluginManager) {
+    public PluginController(CustomPluginManager customPluginManager, ManualPluginLoader manualPluginLoader) {
         this.customPluginManager = customPluginManager;
+        this.manualPluginLoader = manualPluginLoader;
 
         // Ensure plugins directory exists
         try {
@@ -54,7 +57,8 @@ public class PluginController {
 
     @GetMapping("/extensions")
     public List<Map<String, Object>> getExtensions() {
-        return customPluginManager.getPlugins().stream()
+        List<PluginInterface> plugins = manualPluginLoader.getLoadedPlugins();
+        return plugins.stream()
                 .map(plugin -> {
                     Map<String, Object> extensionInfo = new HashMap<>();
                     extensionInfo.put("name", plugin.getName());
@@ -66,11 +70,21 @@ public class PluginController {
     @GetMapping("/extensions/{extensionName}/execute")
     public ResponseEntity<Map<String, String>> executePlugin(@PathVariable String extensionName) {
         try {
-            customPluginManager.executePlugin(extensionName);
+            List<PluginInterface> plugins = manualPluginLoader.getLoadedPlugins();
+            for (PluginInterface plugin : plugins) {
+                if (plugin.getName().equals(extensionName)) {
+                    plugin.execute();
+                    Map<String, String> response = new HashMap<>();
+                    response.put("status", "success");
+                    response.put("message", "Extension '" + extensionName + "' executed successfully");
+                    return ResponseEntity.ok(response);
+                }
+            }
+
             Map<String, String> response = new HashMap<>();
-            response.put("status", "success");
-            response.put("message", "Extension '" + extensionName + "' executed successfully");
-            return ResponseEntity.ok(response);
+            response.put("status", "error");
+            response.put("message", "Extension not found: " + extensionName);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         } catch (Exception e) {
             Map<String, String> response = new HashMap<>();
             response.put("status", "error");
@@ -102,18 +116,20 @@ public class PluginController {
             Path targetPath = pluginsDirectory.resolve(file.getOriginalFilename());
             Files.copy(file.getInputStream(), targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 
-            // File system watcher should detect the new file and load the plugin automatically
-            // But we can also explicitly load it for immediate feedback
+            // Use PF4J for metadata, but manually load the plugin afterwards
             String pluginId = customPluginManager.loadPlugin(targetPath);
 
+            // Now reload all plugins using the manual loader
+            Path pluginsPath = Paths.get(System.getProperty("user.dir"), "plugins-deploy").toAbsolutePath();
+            manualPluginLoader.loadPlugins(pluginsPath);
+
+            Map<String, String> response = new HashMap<>();
             if (pluginId != null) {
-                Map<String, String> response = new HashMap<>();
                 response.put("status", "success");
                 response.put("message", "Plugin uploaded and loaded successfully");
                 response.put("pluginId", pluginId);
                 return ResponseEntity.ok(response);
             } else {
-                Map<String, String> response = new HashMap<>();
                 response.put("status", "error");
                 response.put("message", "Failed to load plugin");
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
@@ -148,11 +164,15 @@ public class PluginController {
             // Get plugin file path
             Path pluginPath = pluginWrapper.getPluginPath();
 
-            // Unload the plugin
+            // Unload the plugin from PF4J
             customPluginManager.unloadPlugin(pluginId);
 
             // Delete the file
             Files.deleteIfExists(pluginPath);
+
+            // Reload plugins using manual loader after deletion
+            Path pluginsPath = Paths.get(System.getProperty("user.dir"), "plugins-deploy").toAbsolutePath();
+            manualPluginLoader.loadPlugins(pluginsPath);
 
             Map<String, String> response = new HashMap<>();
             response.put("status", "success");

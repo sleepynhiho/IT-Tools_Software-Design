@@ -2,54 +2,46 @@ plugins {
     id 'java'
 }
 
+group = 'kostovite'
+version = '1.0.0'
+
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    compileOnly project(':plugin-api')
-    compileOnly 'org.pf4j:pf4j:3.10.0'
-
-    // Use annotationProcessor instead of compile-time dependency
-    annotationProcessor 'org.pf4j:pf4j:3.10.0'
+    implementation project(':plugin-api')
+    implementation 'org.pf4j:pf4j:3.10.0'
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-}
+tasks.named('jar') {
+    dependsOn(':plugin-api:jar')
 
-jar {
-    archiveBaseName = 'hashtools'
-    archiveVersion = '1.0.0'
+    // Use INCLUDE strategy for duplicates
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
 
+    // Include all dependencies in the JAR
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    // Make sure plugin.properties is included
+    from("src/main/resources")
+
+    // Include the ServiceLoader metadata file
+    from("src/main/resources/META-INF/services") {
+        into "META-INF/services"
+    }
+
+    // Set manifest attributes for PF4J
     manifest {
         attributes(
+                'Manifest-Version': '1.0',
                 'Plugin-Class': 'kostovite.HashToolsPlugin',
                 'Plugin-Id': 'hash-tools',
-                'Plugin-Version': '1.0.0',
+                'Plugin-Version': project.version,
                 'Plugin-Provider': 'kostovite',
                 'Plugin-Description': 'Hash tools plugin for IT-Tools'
         )
     }
-
-    // Don't include dependencies - they should be provided by the host application
-    // Remove any "from" statements that include dependencies
-
-    // Handle duplicates
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
-
-// Manual extension index creation just to be safe
-tasks.register('createExtensionsIdx') {
-    doLast {
-        def metaInfDir = new File(sourceSets.main.output.classesDirs.first(), 'META-INF')
-        metaInfDir.mkdirs()
-        def extensionsFile = new File(metaInfDir, 'extensions.idx')
-        extensionsFile.text = 'kostovite.HashTools\n'
-        println "Created extensions.idx at ${extensionsFile.absolutePath}"
-    }
-}
-
-// Run before jar
-classes.finalizedBy createExtensionsIdx

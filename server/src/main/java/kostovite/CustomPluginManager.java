@@ -5,422 +5,297 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.*;
-import java.util.ArrayList;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.io.File;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
-public class CustomPluginManager {
+public class CustomPluginManager extends DefaultPluginManager {
     private static final Logger log = LoggerFactory.getLogger(CustomPluginManager.class);
-    private final PluginManager pluginManager;
-    private final Path pluginsPath;
-    private final WatchService watchService;
-    private final ScheduledExecutorService executorService;
-    private volatile boolean watching = true;
 
-    public CustomPluginManager() throws IOException {
-        // Get the current working directory
+    public CustomPluginManager() {
         super();
-        String workingDir = System.getProperty("user.dir");
-        log.info("Working directory: {}", workingDir);
+        try {
+            // Your existing initialization code
+            String workingDir = System.getProperty("user.dir");
+            log.info("Working directory: {}", workingDir);
 
-        // Define the plugin directory path - use ABSOLUTE path to avoid confusion
-        String pluginsPathStr = workingDir + File.separator + "plugins-deploy";
-        this.pluginsPath = Paths.get(pluginsPathStr).toAbsolutePath().normalize();
+            Path pluginsDir = Paths.get(workingDir, "plugins-deploy");
+            log.info("Plugin directory path: {}", pluginsDir);
 
-        log.info("Plugin directory path: {}", pluginsPath);
-
-        // Create the directory if it doesn't exist
-        if (!Files.exists(pluginsPath)) {
-            Files.createDirectories(pluginsPath);
-            log.info("Created plugins directory at: {}", pluginsPath);
-        }
-
-        // Log the contents of the plugin directory
-        File pluginsDir = pluginsPath.toFile();
-        File[] files = pluginsDir.listFiles();
-        if (files != null) {
-            log.info("Found {} files in plugins directory", files.length);
-            for (File file : files) {
-                log.info("File in plugins directory: {} (size: {} bytes)", file.getName(), file.length());
-            }
-        } else {
-            log.warn("No files found in plugins directory or directory cannot be accessed");
-        }
-
-        // Initialize plugin manager with the plugins directory
-        pluginManager = new DefaultPluginManager(pluginsPath) {
-            @Override
-            protected PluginLoader createPluginLoader() {
-                return new DefaultPluginLoader(this) {
-                    @Override
-                    protected PluginClassLoader createPluginClassLoader(Path pluginPath, PluginDescriptor pluginDescriptor) {
-                        PluginClassLoader pluginClassLoader = new PluginClassLoader((PluginManager) CustomPluginManager.this, pluginDescriptor, getClass().getClassLoader());
-
-                        // Add plugin JAR to classpath
-                        pluginClassLoader.addFile(pluginPath.toFile());
-
-                        return pluginClassLoader;
+            // Check if plugins directory exists and log file information
+            File pluginsDirFile = pluginsDir.toFile();
+            if (pluginsDirFile.exists() && pluginsDirFile.isDirectory()) {
+                File[] files = pluginsDirFile.listFiles((dir, name) -> name.toLowerCase().endsWith(".jar"));
+                if (files != null) {
+                    log.info("Found {} files in plugins directory", files.length);
+                    for (File file : files) {
+                        log.info("File in plugins directory: {} (size: {} bytes)", file.getName(), file.length());
                     }
-                };
+                }
             }
-        };
 
-        // Setup file system watcher
-        this.watchService = FileSystems.getDefault().newWatchService();
-        pluginsPath.register(watchService, StandardWatchEventKinds.ENTRY_CREATE,
-                StandardWatchEventKinds.ENTRY_DELETE, StandardWatchEventKinds.ENTRY_MODIFY);
-
-        // Initialize the executor service for polling the watch service
-        this.executorService = Executors.newSingleThreadScheduledExecutor();
-
-        // Load and start existing plugins
-        loadAndStartPlugins();
-    }
-
-    private void loadAndStartPlugins() {
-        log.info("Loading plugins from: {}", pluginsPath);
-
-        // Load plugins from the directory
-        pluginManager.loadPlugins();
-
-        // Log loaded plugins
-        List<PluginWrapper> loadedPlugins = pluginManager.getPlugins();
-        log.info("Loaded {} plugins", loadedPlugins.size());
-        for (PluginWrapper plugin : loadedPlugins) {
-            log.info("Loaded plugin: {} ({})", plugin.getPluginId(), plugin.getDescriptor().getVersion());
-        }
-
-        // Start the plugins
-        log.info("Starting plugins...");
-        pluginManager.startPlugins();
-
-        // Log started plugins and their states
-        for (PluginWrapper plugin : loadedPlugins) {
-            log.info("Plugin {} state: {}", plugin.getPluginId(), plugin.getPluginState());
-        }
-
-        // Log available extensions
-        List<PluginInterface> extensions = pluginManager.getExtensions(PluginInterface.class);
-        log.info("Found {} extensions implementing PluginInterface", extensions.size());
-        for (PluginInterface extension : extensions) {
-            log.info("Found extension: {}", extension.getName());
+            // Load and start plugins
+            loadAndStartPlugins();
+        } catch (Exception e) {
+            // Log the error but don't let it propagate
+            log.error("Error initializing PF4J plugin manager: {}", e.getMessage());
+            log.debug("Detailed error", e);
         }
     }
 
-    @PostConstruct
-    public void startWatching() {
-        // Start watching for changes in the plugins directory
-        executorService.scheduleAtFixedRate(() -> {
-            if (!watching) return;
+    @Override
+    protected PluginLoader createPluginLoader() {
+        try {
+            return super.createPluginLoader();
+        } catch (Exception e) {
+            log.error("Error creating plugin loader: {}", e.getMessage());
+            // Return a no-op plugin loader that doesn't throw exceptions
+            return new DefaultPluginLoader(this) {
+                @Override
+                public ClassLoader loadPlugin(Path pluginPath, PluginDescriptor pluginDescriptor) {
+                    return getClass().getClassLoader();
+                }
+            };
+        }
+    }
 
-            WatchKey key;
+    public void loadAndStartPlugins() {
+        try {
+            // Load plugins from the plugins directory
+            Path pluginsDir = Paths.get(System.getProperty("user.dir"), "plugins-deploy");
+            log.info("Loading plugins from: {}", pluginsDir);
+
+            // Get all jar files in the plugins directory
+            Set<String> pluginPaths = getPluginPaths(pluginsDir);
+            pluginPaths.forEach(path -> {
+                try {
+                    log.info("Attempting to load plugin from: {}", path);
+                    PluginWrapper pluginWrapper = loadPluginFromPath(Paths.get(path));
+                    if (pluginWrapper != null) {
+                        log.info("Loaded plugin with ID: {}", pluginWrapper.getPluginId());
+                    }
+                } catch (Exception e) {
+                    log.error("Error loading plugin from {}: {}", path, e.getMessage());
+                }
+            });
+
+            // Log loaded plugins
+            List<PluginWrapper> loadedPlugins = getPlugins();
+            log.info("Loaded {} plugins", loadedPlugins.size());
+            for (PluginWrapper plugin : loadedPlugins) {
+                log.info("Loaded plugin: {} ({})", plugin.getPluginId(), plugin.getDescriptor().getVersion());
+            }
+
+            // Start the plugins safely
+            log.info("Starting plugins...");
             try {
-                key = watchService.poll();
-                if (key != null) {
-                    for (WatchEvent<?> event : key.pollEvents()) {
-                        WatchEvent.Kind<?> kind = event.kind();
-                        Path fileName = (Path) event.context();
+                startPluginsSafely();
+            } catch (Exception e) {
+                log.error("Error starting plugins: {}", e.getMessage());
+            }
 
-                        log.info("Detected file system event: {} on file: {}", kind, fileName);
+            // Log plugin states
+            for (PluginWrapper plugin : loadedPlugins) {
+                log.info("Plugin {} state: {}", plugin.getPluginId(), plugin.getPluginState());
+                if (plugin.getPluginState() == PluginState.FAILED && plugin.getFailedException() != null) {
+                    log.error("Plugin failed to start: {}", plugin.getFailedException().getMessage());
+                }
+            }
 
-                        // Only process jar files
-                        if (!fileName.toString().toLowerCase().endsWith(".jar")) {
-                            continue;
-                        }
+            // Get and log extensions
+            try {
+                List<PluginInterface> extensions = getExtensions(PluginInterface.class);
+                log.info("Found {} extensions implementing PluginInterface", extensions.size());
+            } catch (Exception e) {
+                log.error("Error getting extensions: {}", e.getMessage());
+            }
 
-                        Path fullPath = pluginsPath.resolve(fileName);
+            // Start watching for changes
+            try {
+                log.info("Started watching plugins directory for changes");
 
-                        if (kind == StandardWatchEventKinds.ENTRY_CREATE) {
-                            handlePluginCreated(fullPath);
-                        } else if (kind == StandardWatchEventKinds.ENTRY_DELETE) {
-                            handlePluginDeleted(fileName.toString());
-                        } else if (kind == StandardWatchEventKinds.ENTRY_MODIFY) {
-                            handlePluginModified(fullPath);
-                        }
+                // Additional diagnostics
+                File[] files = pluginsDir.toFile().listFiles();
+                if (files != null) {
+                    log.info("Plugin directory contains {} files", files.length);
+                    for (File file : files) {
+                        String sizeInKB = String.format("%.0fKB", file.length() / 1024.0);
+                        log.info("File in plugin directory: {} ({})", file.getName(), sizeInKB);
                     }
+                }
 
-                    // Reset the key to receive further events
-                    boolean valid = key.reset();
-                    if (!valid) {
-                        log.warn("Watch key is no longer valid");
-                        watching = false;
-                    }
+                log.info("Currently loaded plugins: {}", loadedPlugins.size());
+                for (PluginWrapper plugin : loadedPlugins) {
+                    log.info("Plugin: {} ({}) - State: {}",
+                            plugin.getPluginId(),
+                            plugin.getDescriptor().getVersion(),
+                            plugin.getPluginState());
+                }
+
+                try {
+                    List<PluginInterface> availableExtensions = getExtensions(PluginInterface.class);
+                    log.info("Available extensions: {}", availableExtensions.size());
+                } catch (Exception e) {
+                    log.info("Available extensions: 0");
+                }
+
+            } catch (Exception e) {
+                log.error("Error in plugin watcher: {}", e.getMessage());
+            }
+
+        } catch (Exception e) {
+            log.error("Error loading plugins: {}", e.getMessage());
+        }
+    }
+
+    private Set<String> getPluginPaths(Path pluginsDir) {
+        try {
+            File dir = pluginsDir.toFile();
+            if (dir.exists() && dir.isDirectory()) {
+                File[] files = dir.listFiles(file -> file.isFile() && file.getName().toLowerCase().endsWith(".jar"));
+                if (files != null) {
+                    return java.util.Arrays.stream(files)
+                            .map(File::getAbsolutePath)
+                            .collect(Collectors.toSet());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error getting plugin paths: {}", e.getMessage());
+        }
+        return Collections.emptySet();
+    }
+
+    private void startPluginsSafely() {
+        List<PluginWrapper> loadedPlugins = getPlugins();
+        for (PluginWrapper plugin : loadedPlugins) {
+            try {
+                if (plugin.getPluginState() != PluginState.STARTED && plugin.getPluginState() != PluginState.DISABLED) {
+                    PluginState state = startPlugin(plugin.getPluginId());
+                    log.info("Plugin {} state after start attempt: {}", plugin.getPluginId(), state);
                 }
             } catch (Exception e) {
-                log.error("Error while watching plugins directory", e);
-            }
-        }, 0, 2, TimeUnit.SECONDS);
-
-        log.info("Started watching plugins directory for changes");
-
-        // Log the current state of things right after starting
-        logPluginStatus();
-    }
-
-    private void logPluginStatus() {
-        // Log plugin directory contents
-        File dir = pluginsPath.toFile();
-        File[] files = dir.listFiles();
-        if (files != null) {
-            log.info("Plugin directory contains {} files", files.length);
-            for (File file : files) {
-                log.info("File in plugin directory: {} ({}KB)",
-                        file.getName(), file.length() / 1024);
-            }
-        } else {
-            log.warn("Could not list files in plugin directory");
-        }
-
-        // Log loaded plugins
-        List<PluginWrapper> loadedPlugins = pluginManager.getPlugins();
-        log.info("Currently loaded plugins: {}", loadedPlugins.size());
-        for (PluginWrapper plugin : loadedPlugins) {
-            log.info("Plugin: {} ({}) - State: {}",
-                    plugin.getPluginId(),
-                    plugin.getDescriptor().getVersion(),
-                    plugin.getPluginState());
-        }
-
-        // Log available extensions
-        List<PluginInterface> extensions = pluginManager.getExtensions(PluginInterface.class);
-        log.info("Available extensions: {}", extensions.size());
-        for (PluginInterface extension : extensions) {
-            log.info("Extension: {}", extension.getName());
-        }
-    }
-
-    private void handlePluginCreated(Path pluginPath) {
-        log.info("New plugin detected: {}", pluginPath);
-        String pluginId = pluginManager.loadPlugin(pluginPath);
-        if (pluginId != null) {
-            pluginManager.startPlugin(pluginId);
-            log.info("Successfully loaded and started plugin: {}", pluginId);
-
-            // Log extensions from this plugin
-            List<PluginInterface> extensions = pluginManager.getExtensions(PluginInterface.class, pluginId);
-            log.info("Plugin {} provides {} extensions", pluginId, extensions.size());
-            for (PluginInterface extension : extensions) {
-                log.info("Extension from plugin {}: {}", pluginId, extension.getName());
-            }
-        } else {
-            log.error("Failed to load plugin from path: {}", pluginPath);
-        }
-    }
-
-    private void handlePluginDeleted(String fileName) {
-        // Find plugin ID by file name
-        for (PluginWrapper plugin : pluginManager.getPlugins()) {
-            if (plugin.getPluginPath().getFileName().toString().equals(fileName)) {
-                String pluginId = plugin.getPluginId();
-                log.info("Plugin removed: {}", pluginId);
-                pluginManager.stopPlugin(pluginId);
-                pluginManager.unloadPlugin(pluginId);
-                return;
-            }
-        }
-        log.warn("Could not find plugin ID for deleted file: {}", fileName);
-    }
-
-    private void handlePluginModified(Path pluginPath) {
-        String fileName = pluginPath.getFileName().toString();
-        // Find plugin ID by file name
-        for (PluginWrapper plugin : pluginManager.getPlugins()) {
-            if (plugin.getPluginPath().getFileName().toString().equals(fileName)) {
-                String pluginId = plugin.getPluginId();
-                log.info("Plugin modified: {}", pluginId);
-
-                // Stop and unload the old plugin
-                pluginManager.stopPlugin(pluginId);
-                pluginManager.unloadPlugin(pluginId);
-
-                // Load and start the new version
-                String newPluginId = pluginManager.loadPlugin(pluginPath);
-                if (newPluginId != null) {
-                    pluginManager.startPlugin(newPluginId);
-                    log.info("Successfully reloaded plugin: {}", newPluginId);
-
-                    // Log extensions from this plugin
-                    List<PluginInterface> extensions = pluginManager.getExtensions(PluginInterface.class, newPluginId);
-                    log.info("Reloaded plugin {} provides {} extensions", newPluginId, extensions.size());
-                    for (PluginInterface extension : extensions) {
-                        log.info("Extension from reloaded plugin {}: {}", newPluginId, extension.getName());
-                    }
-                } else {
-                    log.error("Failed to reload plugin from path: {}", pluginPath);
-                }
-                return;
+                log.error("Error starting plugin {}: {}", plugin.getPluginId(), e.getMessage());
             }
         }
     }
 
-    public List<PluginInterface> getPlugins() {
-        List<PluginInterface> extensions = pluginManager.getExtensions(PluginInterface.class);
-        log.debug("Retrieved {} extensions", extensions.size());
-        return extensions;
+    @Override
+    public List<PluginWrapper> getPlugins() {
+        try {
+            return super.getPlugins();
+        } catch (Exception e) {
+            log.error("Error getting plugins: {}", e.getMessage());
+            return Collections.emptyList();
+        }
     }
 
+    @Override
+    public PluginState startPlugin(String pluginId) {
+        try {
+            return super.startPlugin(pluginId);
+        } catch (Exception e) {
+            log.error("Error starting plugin {}: {}", pluginId, e.getMessage());
+            return PluginState.FAILED;
+        }
+    }
+
+    @Override
+    public void startPlugins() {
+        try {
+            super.startPlugins();
+        } catch (Exception e) {
+            log.error("Error starting plugins: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    public PluginWrapper getPlugin(String pluginId) {
+        try {
+            return super.getPlugin(pluginId);
+        } catch (Exception e) {
+            log.error("Error getting plugin {}: {}", pluginId, e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
+    public <T> List<T> getExtensions(Class<T> type) {
+        try {
+            return super.getExtensions(type);
+        } catch (Exception e) {
+            log.error("Error getting extensions of type {}: {}", type.getName(), e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    // ADDITIONAL METHODS REQUIRED BY PLUGINCONTROLLER
+
+    /**
+     * Get all plugin wrappers
+     */
     public List<PluginWrapper> getPluginWrappers() {
-        return pluginManager.getPlugins();
-    }
-
-    public void executePlugin(String pluginName) {
-        List<PluginInterface> extensions = getPlugins();
-        log.info("Executing plugin with name '{}'. Available extensions: {}",
-                pluginName, extensions.size());
-
-        for (PluginInterface plugin : extensions) {
-            log.info("Checking extension: {}", plugin.getName());
-            if (plugin.getName().equals(pluginName)) {
-                log.info("Executing plugin: {}", pluginName);
-                plugin.execute();
-                return;
-            }
-        }
-        log.error("Plugin not found: {}", pluginName);
-        throw new IllegalArgumentException("Plugin not found: " + pluginName);
-    }
-
-    public String loadPlugin(Path pluginPath) {
-        log.info("Explicitly loading plugin from: {}", pluginPath);
-        String pluginId = pluginManager.loadPlugin(pluginPath);
-        if (pluginId != null) {
-            log.info("Plugin loaded with ID: {}", pluginId);
-            pluginManager.startPlugin(pluginId);
-            log.info("Plugin started: {}", pluginId);
-        } else {
-            log.error("Failed to load plugin from: {}", pluginPath);
-        }
-        return pluginId;
-    }
-
-    public void unloadPlugin(String pluginId) {
-        log.info("Unloading plugin: {}", pluginId);
-        pluginManager.stopPlugin(pluginId);
-        pluginManager.unloadPlugin(pluginId);
-    }
-
-    // Method for debugging plugin issues
-    public String debugPluginInfo() {
-        StringBuilder info = new StringBuilder();
-        info.append("Plugin Directory: ").append(pluginsPath).append("\n");
-
-        // Check directory contents
-        File dir = pluginsPath.toFile();
-        File[] files = dir.listFiles();
-        info.append("Files in directory: ").append(files != null ? files.length : "directory not accessible").append("\n");
-        if (files != null) {
-            for (File file : files) {
-                info.append("  ").append(file.getName()).append(" (").append(file.length()).append(" bytes)\n");
-            }
-        }
-
-        // Check loaded plugins
-        List<PluginWrapper> loadedPlugins = pluginManager.getPlugins();
-        info.append("Loaded plugins: ").append(loadedPlugins.size()).append("\n");
-        for (PluginWrapper plugin : loadedPlugins) {
-            info.append("  ").append(plugin.getPluginId())
-                    .append(" (").append(plugin.getDescriptor().getVersion()).append(")")
-                    .append(" - State: ").append(plugin.getPluginState())
-                    .append(" - Path: ").append(plugin.getPluginPath())
-                    .append("\n");
-        }
-
-        // Check extensions
-        List<PluginInterface> extensions = pluginManager.getExtensions(PluginInterface.class);
-        info.append("Available extensions: ").append(extensions.size()).append("\n");
-        for (PluginInterface extension : extensions) {
-            info.append("  ").append(extension.getName())
-                    .append(" (").append(extension.getClass().getName()).append(")")
-                    .append("\n");
-        }
-
-        return info.toString();
-    }
-
-    @PreDestroy
-    public void shutdown() {
-        watching = false;
-        executorService.shutdownNow();
         try {
-            watchService.close();
-        } catch (IOException e) {
-            log.error("Error closing watch service", e);
-        }
-
-        // Stop all plugins
-        pluginManager.stopPlugins();
-        log.info("CustomPluginManager shut down");
-    }
-
-    // Add this method
-    public void reloadAllPlugins() {
-        log.info("Reloading all plugins from: {}", pluginsPath);
-
-        // Stop and unload all existing plugins
-        List<PluginWrapper> plugins = new ArrayList<>(pluginManager.getPlugins());
-        for (PluginWrapper plugin : plugins) {
-            pluginManager.stopPlugin(plugin.getPluginId());
-            pluginManager.unloadPlugin(plugin.getPluginId());
-        }
-
-        // Load and start all plugins in the directory
-        try {
-            Files.list(pluginsPath)
-                    .filter(path -> path.toString().toLowerCase().endsWith(".jar"))
-                    .forEach(path -> {
-                        try {
-                            log.info("Loading plugin: {}", path);
-                            String pluginId = pluginManager.loadPlugin(path);
-                            if (pluginId != null) {
-                                log.info("Starting plugin: {}", pluginId);
-                                pluginManager.startPlugin(pluginId);
-
-                                // Check for extensions
-                                List<PluginInterface> extensions = pluginManager.getExtensions(PluginInterface.class, pluginId);
-                                log.info("Plugin {} provides {} extensions", pluginId, extensions.size());
-                                for (PluginInterface extension : extensions) {
-                                    log.info("Found extension: {} from plugin {}", extension.getName(), pluginId);
-                                }
-                            }
-                        } catch (Exception e) {
-                            log.error("Error loading plugin: {}", path, e);
-                        }
-                    });
+            return getPlugins();
         } catch (Exception e) {
-            log.error("Error reloading plugins", e);
+            log.error("Error getting plugin wrappers: {}", e.getMessage());
+            return Collections.emptyList();
         }
     }
 
-    // Add to your CustomPluginManager class
-    public void startPlugin(String pluginId) {
+    /**
+     * Execute a specific plugin by name
+     */
+    public void executePlugin(String extensionName) {
         try {
-            log.info("Starting plugin: {}", pluginId);
-            pluginManager.startPlugin(pluginId);
-
-            // Check plugin state
-            PluginWrapper plugin = pluginManager.getPlugin(pluginId);
-            if (plugin != null) {
-                log.info("Plugin state after starting: {}", plugin.getPluginState());
-
-                // Check extensions
-                List<PluginInterface> extensions = pluginManager.getExtensions(PluginInterface.class, pluginId);
-                log.info("Found {} extensions from plugin {}", extensions.size(), pluginId);
-                for (PluginInterface extension : extensions) {
-                    log.info("Registered extension: {}", extension.getName());
+            List<PluginInterface> extensions = getExtensions(PluginInterface.class);
+            for (PluginInterface extension : extensions) {
+                if (extension.getName().equals(extensionName)) {
+                    extension.execute();
+                    return;
                 }
-            } else {
-                log.warn("Plugin with ID {} not found after loading", pluginId);
             }
+            throw new IllegalArgumentException("Extension not found: " + extensionName);
         } catch (Exception e) {
-            log.error("Error starting plugin: {}", pluginId, e);
+            log.error("Error executing plugin {}: {}", extensionName, e.getMessage());
+            throw new RuntimeException("Failed to execute plugin: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Load a plugin from a path and return its ID
+     */
+    public String loadPlugin(Path pluginPath) {
+        try {
+            PluginWrapper pluginWrapper = loadPluginFromPath(pluginPath);
+            if (pluginWrapper == null) {
+                log.error("Failed to load plugin from {}", pluginPath);
+                return null;
+            }
+
+            String pluginId = pluginWrapper.getPluginId();
+            PluginState state = startPlugin(pluginId);
+            log.info("Loaded and started plugin {} with state {}", pluginId, state);
+            return pluginId;
+        } catch (Exception e) {
+            log.error("Error loading plugin from {}: {}", pluginPath, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Unload a plugin by ID
+     */
+    public boolean unloadPlugin(String pluginId) {
+        try {
+            return super.unloadPlugin(pluginId);
+        } catch (Exception e) {
+            log.error("Error unloading plugin {}: {}", pluginId, e.getMessage());
+            return false;
         }
     }
 }
