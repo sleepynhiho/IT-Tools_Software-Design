@@ -18,6 +18,8 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { mockMetadata } from "../data/mockMetadata";
 import CommonLayout from "../layouts/CommonLayout";
+import { ChromePicker } from "react-color";
+import { DownloadIcon } from "lucide-react";
 
 const ToolRenderer = () => {
   const { id } = useParams();
@@ -128,6 +130,58 @@ const ToolRenderer = () => {
   );
 };
 
+const ColorPickerField = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+}) => {
+  const [showPicker, setShowPicker] = useState(false);
+
+  return (
+    <Box position="relative" display="flex" flexDirection="column" gap={1}>
+      {/* Thanh màu, click vào sẽ mở picker */}
+      <Box
+        sx={{
+          width: "100%",
+          height: 40,
+          borderRadius: 1,
+          bgcolor: value,
+          border: "1px solid #aaa",
+          cursor: "pointer",
+        }}
+        onClick={() => setShowPicker((prev) => !prev)}
+      />
+
+      {/* Chrome Picker - chỉ hiện khi showPicker === true */}
+      {showPicker && (
+        <Box position="absolute" zIndex={10} top={50}>
+          <ChromePicker
+            color={value}
+            onChange={(color) => onChange(color.hex)}
+            disableAlpha
+            styles={{
+              default: {
+                picker: { background: "#222", borderRadius: "8px" },
+              },
+            }}
+          />
+        </Box>
+      )}
+
+      {/* TextField để chỉnh HEX trực tiếp */}
+      <TextField
+        fullWidth
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        sx={{ bgcolor: "#333", borderRadius: 1 }}
+      />
+    </Box>
+  );
+};
+
 /** Render các input field */
 const renderField = (
   field: any,
@@ -135,7 +189,28 @@ const renderField = (
   onChange: (value: any) => void
 ) => {
   switch (field.type) {
+    case "button":
+      return (
+        <Button
+          variant="contained"
+          onClick={() => onChange(field.value)}
+          sx={{ bgcolor: "#36ad6a" }}
+        >
+          {field.label}
+        </Button>
+      );
     case "text":
+      return (
+        <TextField
+          fullWidth
+          multiline={field.type === "textarea"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          sx={{ bgcolor: "#333", borderRadius: 1 }}
+        />
+      );
+    case "color":
+      return <ColorPickerField value={value} onChange={onChange} />;
     case "number":
       return (
         <TextField
@@ -223,10 +298,13 @@ const renderField = (
 };
 
 /** Render output fields */
+
 const renderOutput = (output: any, value: string, onRefresh: () => void) => {
   if (!output) return null;
+
   const displayValue = value || output.default;
   let content;
+
   switch (output.type) {
     case "typography":
       content = (
@@ -235,6 +313,19 @@ const renderOutput = (output: any, value: string, onRefresh: () => void) => {
         </Typography>
       );
       break;
+
+    case "image":
+      content = (
+        <Box textAlign="center">
+          <img
+            src={displayValue}
+            alt={output.title || "Generated image"}
+            style={{ maxWidth: "100%", borderRadius: 8 }}
+          />
+        </Box>
+      );
+      break;
+
     case "text":
     default:
       content = (
@@ -251,9 +342,12 @@ const renderOutput = (output: any, value: string, onRefresh: () => void) => {
 
   return (
     <Paper sx={{ p: 2, bgcolor: "#212121", color: "white", borderRadius: 2 }}>
+      <Typography variant="subtitle1" sx={{ mb: 2 }}>
+        {output.title}
+      </Typography>
       {content}
       <Box mt={2} display="flex" gap={2}>
-        {output.buttons?.includes("copy") && (
+        {output.buttons?.includes("copy") && output.type !== "image" && (
           <Button
             variant="contained"
             startIcon={<ContentCopyIcon />}
@@ -271,6 +365,23 @@ const renderOutput = (output: any, value: string, onRefresh: () => void) => {
             sx={{ bgcolor: "#f57c00" }}
           >
             Refresh
+          </Button>
+        )}
+        {output.buttons?.includes("download") && output.type === "image" && (
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={() => {
+              const link = document.createElement("a");
+              link.href = displayValue;
+              link.download = `${output.name || "image"}.png`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+            sx={{ bgcolor: "#1976d2" }}
+          >
+            Download
           </Button>
         )}
       </Box>
