@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
-Plugin-Class: kostovite.HashToolsPlugin
-Plugin-Id: hash-tools
+Plugin-Class: kostovite.CryptoToolsPlugin
+Plugin-Id: cryptotools
 Plugin-Version: 1.0.0
 Plugin-Provider: kostovite
-Plugin-Description: Hash tools plugin for IT-Tools
+Plugin-Description: Crypto processing plugin for IT-Tools
 
