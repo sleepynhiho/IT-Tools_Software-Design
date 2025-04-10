@@ -8,6 +8,7 @@
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="gradleHome" value="" />
         <option name="gradleJvm" value="#GRADLE_LOCAL_JAVA_HOME" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
@@ -18,6 +19,10 @@
           </set>
         </option>
         <option name="resolveExternalAnnotations" value="false" />
+            <option value="$PROJECT_DIR$/plugins/mediatools" />
+            <option value="$PROJECT_DIR$/server" />
+          </set>
+        </option>
       </GradleProjectSettings>
     </option>
   </component>

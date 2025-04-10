@@ -1,0 +1,44 @@
+plugins {
+    id 'java'
+    id 'java-library'
+    id 'org.springframework.boot' version '2.7.0'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+}
+
+subprojects {
+    apply plugin: 'java-library'
+}
+
+allprojects {
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    if (project.name != 'plugins') {  // Skip the plugins container project
+        apply plugin: 'java'
+
+        java {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+    }
+}
+
+dependencies {
+    implementation project(':plugin-api')
+    testImplementation('org.springframework.boot:spring-boot-starter-test') {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+}
+
+bootJar {
+    enabled = true
+    mainClass = 'kostovite.ServerApplication'
+}
+
+bootRun {
+    // systemProperty 'pf4j.mode', 'development'
+    // systemProperty 'pf4j.pluginsDir', '../build/plugins-deploy'
+}
