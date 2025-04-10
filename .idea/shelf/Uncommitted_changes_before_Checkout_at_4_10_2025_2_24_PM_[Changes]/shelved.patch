@@ -1,0 +1,865 @@
+Index: frontend/src/data/mockMetadata.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import { Label } from \"@mui/icons-material\";\n\nconst fetchFromBackend = async (toolId: string, input: Record<string, any>) => {\n  try {\n    const response = await fetch(\n      `https://api.example.com/tools/${toolId}/execute`,\n      {\n        method: \"POST\",\n        headers: { \"Content-Type\": \"application/json\" },\n        body: JSON.stringify(input),\n      }\n    );\n\n    if (!response.ok) {\n      throw new Error(`API error: ${response.status}`);\n    }\n\n    return await response.json();\n  } catch (error) {\n    return { error: \"Backend not available or request failed.\" };\n  }\n};\n\nexport const mockMetadata = [\n  {\n    id: \"token-generator\",\n    name: \"Token Generator\",\n    icon: \"VpnKey\",\n    category: \"Crypto\",\n    description:\n      \"Generate a random string with uppercase, lowercase, numbers, and symbols.\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"Token Settings\",\n          fields: [\n            {\n              name: \"uppercase\",\n              label: \"Uppercase (ABC...)\",\n              type: \"switch\",\n              default: true,\n            },\n            {\n              name: \"lowercase\",\n              label: \"Lowercase (abc...)\",\n              type: \"switch\",\n              default: true,\n            },\n            {\n              name: \"numbers\",\n              label: \"Numbers (123...)\",\n              type: \"switch\",\n              default: true,\n            },\n            {\n              name: \"symbols\",\n              label: \"Symbols (!@#...)\",\n              type: \"switch\",\n              default: false,\n            },\n            {\n              name: \"length\",\n              label: \"Length\",\n              type: \"slider\",\n              min: 8,\n              max: 128,\n              default: 64,\n            },\n          ],\n          outputs: [\n            {\n              title: \"Generated Token\",\n              name: \"tokenOutput\",\n              type: \"text\",\n              buttons: [\"copy\", \"refresh\"],\n            },\n          ],\n        },\n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"token-generator\", input),\n  },\n  {\n    id: \"hash-text\",\n    name: \"Hash Text\",\n    icon: \"Lock\",\n    category: \"Crypto\",\n    description:\n      \"Hash a text string using MD5, SHA1, SHA256, SHA224, SHA512, SHA384, SHA3, or RIPEMD160.\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"Hash Configuration\",\n          fields: [\n            {\n              name: \"input\",\n              label: \"Your text to hash: \",\n              type: \"text\",\n              default: \"\",\n            },\n            {\n              name: \"encoding\",\n              label: \"Digest Encoding\",\n              type: \"select\",\n              options: [\n                \"Binary (base 2)\",\n                \"Hexadecimal (base 16)\",\n                \"Base64 (base 64)\",\n                \"Base64url (base 64url)\",\n              ],\n              default: \"Binary (base 2)\",\n            },\n          ],\n        },\n      ],\n\n      outputs: [\n        {\n          title: \"MD5\",\n          name: \"MD5\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"SHA1\",\n          name: \"SHA1\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"SHA256\",\n          name: \"SHA256\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"SHA224\",\n          name: \"SHA224\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"SHA512\",\n          name: \"SHA512\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"SHA384\",\n          name: \"SHA384\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"SHA3\",\n          name: \"SHA3\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"RIPEMD160\",\n          name: \"RIPEMD160\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n      ],\n    },\n    processFunction: async (input) => fetchFromBackend(\"hash-text\", input),\n  },\n  {\n    id: \"ulid-generator\",\n    name: \"ULID Generator\",\n    icon: \"FormatListNumbered\",\n    category: \"Crypto\",\n    description:\n      \"Generate random Universally Unique Lexicographically Sortable Identifier (ULID).\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"Settings\",\n          fields: [\n            {\n              name: \"quantity\",\n              label: \"Quantity\",\n              type: \"number\",\n              default: 1,\n              min: 1,\n            },\n            {\n              name: \"format\",\n              label: \"Format\",\n              type: \"buttons\",\n              options: [\n                { name: \"Raw\", value: \"raw\" },\n                { name: \"JSON\", value: \"json\" },\n              ],\n              default: \"raw\",\n            },\n          ],\n        },\n      ],\n      outputs: [\n        {\n          title: \"Generated ULID\",\n          name: \"ulid\",\n          type: \"text\",\n          buttons: [\"copy\", \"refresh\"],\n        },\n      ],\n    },\n    processFunction: async () => fetchFromBackend(\"ulid-generator\", {}),\n  },\n  {\n    id: \"password-strength-analyzer\",\n    name: \"Password Strength Analyzer\",\n    icon: \"Shield\",\n    category: \"Crypto\",\n    description:\n      \"Analyze the strength of your password and estimate crack time.\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"Password Input\",\n          fields: [\n            {\n              name: \"password\",\n              label: \"Password\",\n              type: \"password\",\n              default: \"\",\n            },\n          ],\n          outputs: [\n            {\n              title: \"Duration to crack this password with brute force\",\n              name: \"duration\",\n              type: \"typography\",\n              default: \"Instantly\",\n            },\n            {\n              title: \"Password length\",\n              name: \"passwordLength\",\n              type: \"typography\",\n              default: 0,\n            },\n            {\n              title: \"Entropy\",\n              name: \"entropy\",\n              type: \"typography\",\n              default: 0,\n            },\n            {\n              title: \"Character set size\",\n              name: \"charSetSize\",\n              type: \"typography\",\n              default: 0,\n            },\n            {\n              title: \"Score\",\n              name: \"score\",\n              type: \"typography\",\n              default: \"0 / 100\",\n            },\n          ],\n        },\n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"password-strength\", input),\n  },\n  {\n    id: \"integer-base-converter\",\n    name: \"Integer Base Converter\",\n    icon: \"Functions\",\n    category: \"Converter\",\n    description:\n      \"Convert a number between different bases (decimal, hexadecimal, binary, octal, base64, etc.)\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"Conversion Settings\",\n          fields: [\n            {\n              name: \"Input number\",\n              label: \"Number\",\n              type: \"number\",\n              default: \"42\",\n            },\n            {\n              name: \"Input base\",\n              label: \"Base\",\n              type: \"number\",\n              default: \"10\",\n            },\n          ],\n        },\n      ],\n      outputs: [\n        {\n          title: \"Binary (2)\",\n          name: \"binary\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"Octal (8)\",\n          name: \"octal\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"Decimal (10)\",\n          name: \"decimal\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"Hexadecimal (16)\",\n          name: \"hexadecimal\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"Base64 (64)\",\n          name: \"base64\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"integer-base-converter\", input),\n  },\n  {\n    id: \"xml-to-json\",\n    name: \"XML to JSON Converter\",\n    icon: \"Transform\",\n    description: \"Convert XML to JSON format.\",\n    category: \"Converter\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"XML Input\",\n          fields: [\n            { name: \"xml\", label: \"XML Input\", type: \"text\", default: \"\" },\n          ],\n        },\n      ],\n      outputs: [\n        {\n          title: \"JSON Output\",\n          name: \"jsonOutput\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n      ],\n    },\n    processFunction: async (input) => fetchFromBackend(\"xml-to-json\", input),\n  },\n  {\n    id: \"date-time-converter\",\n    name: \"Date-time converter\",\n    icon: \"CalendarToday\",\n    category: \"Converter\",\n    description: \"Convert date and time into the various different formats\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"\",\n          fields: [\n            {\n              name: \"input\",\n              label: \"Put your date string here...\",\n              type: \"text\",\n              default: \"\",\n            },\n            {\n              name: \"date-type\",\n              label: \"Date type\",\n              type: \"select\",\n              options: [\n                \"JS locale date string\",\n                \"ISO 8601\",\n                \"ISO 9075\",\n                \"RFC 3339\",\n                \"RFC 7231\",\n                \"Unix timestamp\",\n                \"Timestamp\",\n                \"UTC format\",\n                \"Mongo ObjectID\",\n                \"Excel date/time\",\n              ],\n              default: \"Timestamp\",\n            },\n          ],\n        },\n      ],\n\n      outputs: [\n        {\n          title: \"JS locale date string\",\n          name: \"JS-locale-date-string\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"ISO 8601\",\n          name: \"ISO-8601\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"ISO 9075\",\n          name: \"ISO-9075\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"RFC 3339\",\n          name: \"RFC-3339\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"RFC 7231\",\n          name: \"RFC-7231\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"Unix timestamp\",\n          name: \"Unix-timestamp\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"Timestamp\",\n          name: \"Timestamp\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"UTC format\",\n          name: \"UTC-format\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"Mongo ObjectID\",\n          name: \"Mongo-ObjectID\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n        {\n          title: \"Excel date/time\",\n          name: \"Excel-date-time\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"date-time-converter\", input),\n  },\n  {\n    id: \"qr-code-generator\",\n    name: \"QR Code Generator\",\n    icon: \"QrCode\",\n    category: \"Images & Videos\",\n    description:\n      \"Generate and download a QR code for a URL (or just plain text), and customize the background and foreground colors.\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"\",\n          fields: [\n            {\n              name: \"input\",\n              label: \"Text: \",\n              type: \"text\",\n              default: \"https://it-tools.tech\",\n            },\n            {\n              name: \"foreground-color\",\n              label: \"Foreground color:\",\n              type: \"color\",\n              default: \"#000000ff\",\n            },\n            {\n              name: \"background-color\",\n              label: \"Background color:\",\n              type: \"color\",\n              default: \"#ffffff00\",\n            },\n            {\n              name: \"error-resistance\",\n              label: \"Error resistance: \",\n              type: \"select\",\n              options: [\"low\", \"medium\", \"quartile\", \"high\"],\n              default: \"medium\",\n            },\n          ],\n        },\n      ],\n\n      outputs: [\n        {\n          title: \"QR Code\",\n          name: \"qrCode\",\n          type: \"image\",\n          buttons: [\"download\"],\n        },\n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"qr-code-generator\", input),\n  },\n  {\n    id: \"wifi-qr-code-generator\",\n    name: \"WiFi QR Code Generator\",\n    icon: \"Wifi\",\n    category: \"Images & Videos\",\n    description:\n      \"Generate and download QR codes for quick connections to WiFi networks.\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"\",\n          fields: [\n            {\n              name: \"Encryption method\",\n              label: \"Encryption method\",\n              type: \"select\",\n              options: [\"No password\", \"WPA/WPA2\", \"WEP\", \"WPA2-EAP\"],\n              default: \"WPA/WPA2\",\n            },\n            {\n              name: \"ssid\",\n              label: \"SSID (Network Name)\",\n              type: \"text\",\n              default: \"\",\n            },\n            {\n              name: \"hidden ssid\",\n              label: \"Hidden SSID\",\n              type: \"switch\",\n              default: false,\n            },\n            {\n              name: \"password\",\n              label: \"Password\",\n              type: \"text\",\n              default: \"\",\n            },\n            {\n              name: \"foreground-color\",\n              label: \"Foreground color:\",\n              type: \"color\",\n              default: \"#000000ff\",\n            },\n            {\n              name: \"background-color\",\n              label: \"Background color:\",\n              type: \"color\",\n              default: \"#ffffff00\",\n            },\n          ],\n        },\n      ],\n\n      outputs: [\n        {\n          title: \"WiFi QR Code\",\n          name: \"wifiQrCode\",\n          type: \"image\",\n          buttons: [\"download\"],\n        },\n      ],\n    },\n  },\n  {\n    id: \"camera-recorder\",\n    name: \"Camera Recorder\",\n    icon: \"CameraAlt\",\n    category: \"Images & Videos\",\n    description: \"Take a picture or record a video from your webcam or camera.\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"\",\n          fields: [\n            {\n              name: \"video\",\n              label: \"Video: \",\n              type: \"select\",\n              options: [\"Integrated Camera\", \"External Camera\"],\n              default: \"Integrated Camera\",\n            },\n            {\n              name: \"audio\",\n              label: \"Audio: \",\n              type: \"select\",\n              options: [\"Integrated Microphone\", \"External Microphone\"],\n              default: \"Integrated Microphone\",\n            },\n            {\n              name: \"start-webcam\",\n              label: \"Start Webcam\",\n              type: \"button\",\n              default: \"Start Webcam\",\n            },\n            {\n              name: \"Take screenshot\",\n              label: \"Take screenshot\",\n              type: \"button\",\n              default: \"Take screenshot\",\n            },\n          ],\n        },\n      ],\n      outputs: [\n        {\n          title: \"Camera\",\n          name: \"camera\",\n          type: \"video\",\n          buttons: [\"take picture\", \"record video\"],\n        },\n        {\n          title: \"Video Recorder\",\n          name: \"videoRecorder\",\n          type: \"video\",\n          buttons: [\"record video\"],\n        },\n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"camera-recorder\", input),\n  },\n  {\n    id: \"json-prettify-format\",\n    name: \"JSON prettify and format\",\n    icon: \"FormatQuote\",\n    category: \"Development\",\n    description:\n      \"Prettify your JSON string into a friendly, human-readable format.\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"\",\n          fields: [\n            {\n              name: \"sort-keys\",\n              label: \"Sort keys\",\n              type: \"switch\",\n              default: false,\n            },\n            {\n              name: \"indent-size\",\n              label: \"Indent size\",\n              type: \"number\",\n              default: 2,\n            },\n            {\n              name: \"raw-json\",\n              label: \"Your raw json\",\n              type: \"text\",\n              default: '{\"hello\": \"world\", \"foo\": \"bar\"}',\n            },\n          ],\n        },\n      ],\n\n      outputs: [\n        {\n          title: \"Prettified version of your JSON\",\n          name: \"prettifiedJson\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"json-prettify-format\", input),\n  },\n  {\n    id: \"json-minify\",\n    name: \"JSON minify\",\n    icon: \"Compress\",\n    category: \"Development\",\n    description:\n      \"Minify and compress your JSON by removing unnecessary whitespace.\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"\",\n          fields: [\n            {\n              name: \"raw-json\",\n              label: \"Your raw json\",\n              type: \"text\",\n              default: `{\n  \"hello\": [\n    \"world\"\n  ]\n}`,\n            },\n          ],\n        },\n      ],\n\n      outputs: [\n        {\n          title: \"Minified version of your JSON\",\n          name: \"minifiedJson\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"json-minify\", input),\n  },\n  {\n    id: \"email-normalizer\",\n    name: \"Email Normalizer\",\n    icon: \"Email\",\n    category: \"Development\",\n    description:\n      \"Normalize email addresses by converting them to lowercase and removing unnecessary characters.\",\n\n    uiConfig: {\n      sections: [\n        {\n          header: \"\",\n          fields: [\n            {\n              name: \"raw-emails\",\n              label: \"Raw emails to normalize:\",\n              type: \"text\",\n              default: '',\n            },\n          ],\n        },\n      ],\n\n      outputs: [\n        {\n          title: \"Normalized emails:\",\n          name: \"normalizedEmails\",\n          type: \"text\",\n          buttons: [\"copy\"],\n        },\n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"email-normalizer\", input),\n  },\n  {\n    id: \"ipv4-subnet-calculator\",\n    name: \"IPv4 subnet calculator\",\n    icon: \"NetworkCheck\",\n    category: \"Network\",\n    description:\n      \"Parse your IPv4 CIDR blocks and get all the info you need about your subnet.\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"\",\n          fields: [\n            {\n              name: \"ipv4\",\n              label: \"An IPv4 address with or without mask\",\n              type: \"text\",\n              default: '192.168.11.0/24',\n            },\n            {\n              name: \"previous-block\",\n              label: \"Previous block\",\n              type: \"button\",\n              default: \"Previous block\",\n            },\n            {\n              name: \"next-block\",\n              label: \"Next block\",\n              type: \"button\",\n              default: \"Next block\",\n            }\n          ],\n        },\n      ],\n\n      outputs: [\n        { title: \"Netmask\", name: \"netmask\", type: \"text\", buttons: [\"copy\"] },\n        { title: \"Network address\", name: \"networkAddress\", type: \"text\", buttons: [\"copy\"] },\n        { title: \"Network mask\", name: \"networkMask\", type: \"text\", buttons: [\"copy\"] },\n        { title: \"Network mask in binary\", name: \"binaryMask\", type: \"text\", buttons: [\"copy\"] },\n        { title: \"CIDR notation\", name: \"cidr\", type: \"text\", buttons: [\"copy\"] },\n        { title: \"Wildcard mask\", name: \"wildcardMask\", type: \"text\", buttons: [\"copy\"] },\n        { title: \"Network size\", name: \"networkSize\", type: \"text\", buttons: [\"copy\"] },\n        { title: \"First address\", name: \"firstAddress\", type: \"text\", buttons: [\"copy\"] },\n        { title: \"Last address\", name: \"lastAddress\", type: \"text\", buttons: [\"copy\"] },\n        { title: \"Broadcast address\", name: \"broadcastAddress\", type: \"text\", buttons: [\"copy\"] },\n        { title: \"IP class\", name: \"ipClass\", type: \"text\", buttons: [\"copy\"] }\n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"ipv4-subnet-calculator\", input),\n  },\n  {\n    id: \"ipv4-address-converter\",\n    name: \"IPv4 address converter\",\n    icon: \"Dns\",\n    category: \"Network\",\n    description:\n      \"Convert an IP address into decimal, binary, hexadecimal, or even an IPv6 representation of it.\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"\",\n          fields: [\n            {\n              name: \"ipv4-address\",\n              label: \"The ipv4 address:\",\n              type: \"text\",\n              default: '192.168.1.1',\n            }\n          ],\n        },\n      ],\n\n      outputs: [\n        { title: \"Decimal\", name: \"decimal\", type: \"text\", buttons: [\"copy\"] },\n        { title: \"Hexadecimal\", name: \"hexadecimal\", type: \"text\", buttons: [\"copy\"] },\n        { title: \"Binary\", name: \"binary\", type: \"text\", buttons: [\"copy\"] },\n        { title: \"IPv6\", name: \"ipv6\", type: \"text\", buttons: [\"copy\"] },\n        { title: \"IPv6 (short): \", name: \"ipv6-short\", type: \"text\", buttons: [\"copy\"] },\n        \n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"ipv4-address-converter\", input),\n  },\n  {\n    id: \"mac-address-lookup\",\n    name: \"MAC address lookup\",\n    icon: \"FindInPage\",\n    category: \"Network\",\n    description:\n      \"Find the vendor and manufacturer of a device by its MAC address.\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"\",\n          fields: [\n            {\n              name: \"mac-address\",\n              label: \"MAC address:\",\n              type: \"text\",\n              default: '20:37:06:12:34:56',\n            }\n          ],\n        },\n      ],\n\n      outputs: [\n        { title: \"Vendor info:\", name: \"vendor-info\", type: \"text\", buttons: [\"copy\"] },\n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"mac-address-lookup\", input),\n  },\n  {\n    id: \"lorem-ipsum-generator\",\n    name: \"Lorem Ipsum Generator\",\n    icon: \"TextSnippet\",\n    category: \"Text\",\n    description:\n      \"Lorem ipsum is a placeholder text commonly used to demonstrate the visual form of a document or a typeface without relying on meaningful content\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"\",\n          fields: [\n            {\n              name: \"paragraphs\",\n              label: \"Number of paragraphs:\",\n              type: \"number\",\n              default: 1,\n            },\n            {\n              name: \"sentences\",\n              label: \"Sentences per paragraph\",\n              type: \"number\",\n              default: 5,\n            },\n            {\n              name: \"words\",\n              label: \"Words per sentence\",\n              type: \"number\",\n              default: 0,\n            },\n            {\n              name: \"start-with-lorem-ipsum\",\n              label: \"Start with lorem ipsum\",\n              type: \"switch\",\n              default: true,\n            },\n            {\n              name: \"As html\",\n              label: \"As html\",\n              type: \"switch\",\n              default: false,\n            }\n          ],\n        },\n      ],\n\n      outputs: [\n        {\n          title: \"Generated Lorem Ipsum\",\n          name: \"loremIpsum\",\n          type: \"text\",\n          buttons: [\"copy\", \"refresh\"],\n        },\n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"lorem-ipsum-generator\", input),\n  },\n  {\n    id: \"text-statistics\",\n    name: \"Text statistics\",\n    icon: \"Assessment\",\n    category: \"Text\",\n    description:\n      \"Get information about a text, the number of characters, the number of words, its size in bytes, ...\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"\",\n          fields: [\n            {\n              name: \"raw-text\",\n              label: \"Your text\",\n              type: \"text\",\n              default: '',\n            }\n          ],\n        },\n      ],\n\n      outputs: [\n        { title: \"Character count\", name: \"character-count\", type: \"number\"},\n        { title: \"Word count\", name: \"word-count\", type: \"number\"},\n        { title: \"Line count\", name: \"line-count\", type: \"number\"},\n        { title: \"Byte size\", name: \"byte-size\", type: \"text\"},\n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"text-statistics\", input),\n  },\n  {\n    id: \"string-obfuscator\",\n    name: \"String obfuscator\",\n    icon: \"VisibilityOff\",\n    category: \"Text\",\n    description:\n      \"Obfuscate a string (like a secret, an IBAN, or a token) to make it shareable and identifiable without revealing its content.\",\n    uiConfig: {\n      sections: [\n        {\n          header: \"\",\n          fields: [\n            {\n              name: \"string-to-obfuscate\",\n              label: \"String to obfuscate:\",\n              type: \"text\",\n              default: 'Lorem ipsum dolor sit amet',\n            },\n            {\n              name: \"keep-first\",\n              label: \"Keep first: \",\n              type: \"number\",\n              default: 4,\n            },\n            {\n              name: \"keep-last\",\n              label: \"Keep last: \",\n              type: \"number\",\n              default: 4,\n            },\n            {\n              name: \"keep-spaces\",\n              label: \"Keep spaces:\",\n              type: \"switch\",\n              default: 'true',\n            },\n          ],\n        },\n      ],\n\n      outputs: [\n        { title: \"Obfucscated string\", name: \"obfuscated-string\", type: \"text\", buttons: [\"copy\"] },\n      ],\n    },\n    processFunction: async (input) =>\n      fetchFromBackend(\"string-obfuscator\", input),\n  },\n];\n
+===================================================================
+diff --git a/frontend/src/data/mockMetadata.ts b/frontend/src/data/mockMetadata.ts
+--- a/frontend/src/data/mockMetadata.ts	(revision 7df54d82172949b9d1339caddd58fae1cd64f728)
++++ b/frontend/src/data/mockMetadata.ts	(date 1744253637814)
+@@ -1,5 +1,3 @@
+-import { Label } from "@mui/icons-material";
+-
+ const fetchFromBackend = async (toolId: string, input: Record<string, any>) => {
+   try {
+     const response = await fetch(
+@@ -30,7 +28,7 @@
+     description:
+       "Generate a random string with uppercase, lowercase, numbers, and symbols.",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "Token Settings",
+           fields: [
+@@ -89,7 +87,7 @@
+     description:
+       "Hash a text string using MD5, SHA1, SHA256, SHA224, SHA512, SHA384, SHA3, or RIPEMD160.",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "Hash Configuration",
+           fields: [
+@@ -176,7 +174,7 @@
+     description:
+       "Generate random Universally Unique Lexicographically Sortable Identifier (ULID).",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "Settings",
+           fields: [
+@@ -219,7 +217,7 @@
+     description:
+       "Analyze the strength of your password and estimate crack time.",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "Password Input",
+           fields: [
+@@ -276,19 +274,19 @@
+     description:
+       "Convert a number between different bases (decimal, hexadecimal, binary, octal, base64, etc.)",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+-          header: "Conversion Settings",
++          header: "Base Conversion Settings",
+           fields: [
+             {
+-              name: "Input number",
+-              label: "Number",
++              name: "input-number",
++              label: "Input number",
+               type: "number",
+               default: "42",
+             },
+             {
+-              name: "Input base",
+-              label: "Base",
++              name: "input-base",
++              label: "Input base",
+               type: "number",
+               default: "10",
+             },
+@@ -297,40 +295,45 @@
+       ],
+       outputs: [
+         {
+-          title: "Binary (2)",
+-          name: "binary",
+-          type: "text",
+-          buttons: ["copy"],
+-        },
+-        {
+-          title: "Octal (8)",
+-          name: "octal",
+-          type: "text",
+-          buttons: ["copy"],
+-        },
+-        {
+-          title: "Decimal (10)",
+-          name: "decimal",
+-          type: "text",
+-          buttons: ["copy"],
+-        },
+-        {
+-          title: "Hexadecimal (16)",
+-          name: "hexadecimal",
+-          type: "text",
+-          buttons: ["copy"],
+-        },
+-        {
+-          title: "Base64 (64)",
+-          name: "base64",
+-          type: "text",
+-          buttons: ["copy"],
++          header: "Converted Values",
++          fields: [
++            {
++              title: "Binary (2)",
++              name: "binary",
++              type: "text",
++              buttons: ["copy"],
++            },
++            {
++              title: "Octal (8)",
++              name: "octal",
++              type: "text",
++              buttons: ["copy"],
++            },
++            {
++              title: "Decimal (10)",
++              name: "decimal",
++              type: "text",
++              buttons: ["copy"],
++            },
++            {
++              title: "Hexadecimal (16)",
++              name: "hexadecimal",
++              type: "text",
++              buttons: ["copy"],
++            },
++            {
++              title: "Base64 (64)",
++              name: "base64",
++              type: "text",
++              buttons: ["copy"],
++            },
++          ],
+         },
+       ],
+     },
+     processFunction: async (input) =>
+       fetchFromBackend("integer-base-converter", input),
+-  },
++  },  
+   {
+     id: "xml-to-json",
+     name: "XML to JSON Converter",
+@@ -338,7 +341,7 @@
+     description: "Convert XML to JSON format.",
+     category: "Converter",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "XML Input",
+           fields: [
+@@ -364,7 +367,7 @@
+     category: "Converter",
+     description: "Convert date and time into the various different formats",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "",
+           fields: [
+@@ -470,7 +473,7 @@
+     description:
+       "Generate and download a QR code for a URL (or just plain text), and customize the background and foreground colors.",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "",
+           fields: [
+@@ -523,7 +526,7 @@
+     description:
+       "Generate and download QR codes for quick connections to WiFi networks.",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "",
+           fields: [
+@@ -585,7 +588,7 @@
+     category: "Images & Videos",
+     description: "Take a picture or record a video from your webcam or camera.",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "",
+           fields: [
+@@ -644,7 +647,7 @@
+     description:
+       "Prettify your JSON string into a friendly, human-readable format.",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "",
+           fields: [
+@@ -690,7 +693,7 @@
+     description:
+       "Minify and compress your JSON by removing unnecessary whitespace.",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "",
+           fields: [
+@@ -717,8 +720,7 @@
+         },
+       ],
+     },
+-    processFunction: async (input) =>
+-      fetchFromBackend("json-minify", input),
++    processFunction: async (input) => fetchFromBackend("json-minify", input),
+   },
+   {
+     id: "email-normalizer",
+@@ -729,7 +731,7 @@
+       "Normalize email addresses by converting them to lowercase and removing unnecessary characters.",
+ 
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "",
+           fields: [
+@@ -737,7 +739,7 @@
+               name: "raw-emails",
+               label: "Raw emails to normalize:",
+               type: "text",
+-              default: '',
++              default: "",
+             },
+           ],
+         },
+@@ -763,7 +765,7 @@
+     description:
+       "Parse your IPv4 CIDR blocks and get all the info you need about your subnet.",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "",
+           fields: [
+@@ -771,7 +773,7 @@
+               name: "ipv4",
+               label: "An IPv4 address with or without mask",
+               type: "text",
+-              default: '192.168.11.0/24',
++              default: "192.168.11.0/24",
+             },
+             {
+               name: "previous-block",
+@@ -784,23 +786,68 @@
+               label: "Next block",
+               type: "button",
+               default: "Next block",
+-            }
++            },
+           ],
+         },
+       ],
+ 
+       outputs: [
+         { title: "Netmask", name: "netmask", type: "text", buttons: ["copy"] },
+-        { title: "Network address", name: "networkAddress", type: "text", buttons: ["copy"] },
+-        { title: "Network mask", name: "networkMask", type: "text", buttons: ["copy"] },
+-        { title: "Network mask in binary", name: "binaryMask", type: "text", buttons: ["copy"] },
+-        { title: "CIDR notation", name: "cidr", type: "text", buttons: ["copy"] },
+-        { title: "Wildcard mask", name: "wildcardMask", type: "text", buttons: ["copy"] },
+-        { title: "Network size", name: "networkSize", type: "text", buttons: ["copy"] },
+-        { title: "First address", name: "firstAddress", type: "text", buttons: ["copy"] },
+-        { title: "Last address", name: "lastAddress", type: "text", buttons: ["copy"] },
+-        { title: "Broadcast address", name: "broadcastAddress", type: "text", buttons: ["copy"] },
+-        { title: "IP class", name: "ipClass", type: "text", buttons: ["copy"] }
++        {
++          title: "Network address",
++          name: "networkAddress",
++          type: "text",
++          buttons: ["copy"],
++        },
++        {
++          title: "Network mask",
++          name: "networkMask",
++          type: "text",
++          buttons: ["copy"],
++        },
++        {
++          title: "Network mask in binary",
++          name: "binaryMask",
++          type: "text",
++          buttons: ["copy"],
++        },
++        {
++          title: "CIDR notation",
++          name: "cidr",
++          type: "text",
++          buttons: ["copy"],
++        },
++        {
++          title: "Wildcard mask",
++          name: "wildcardMask",
++          type: "text",
++          buttons: ["copy"],
++        },
++        {
++          title: "Network size",
++          name: "networkSize",
++          type: "text",
++          buttons: ["copy"],
++        },
++        {
++          title: "First address",
++          name: "firstAddress",
++          type: "text",
++          buttons: ["copy"],
++        },
++        {
++          title: "Last address",
++          name: "lastAddress",
++          type: "text",
++          buttons: ["copy"],
++        },
++        {
++          title: "Broadcast address",
++          name: "broadcastAddress",
++          type: "text",
++          buttons: ["copy"],
++        },
++        { title: "IP class", name: "ipClass", type: "text", buttons: ["copy"] },
+       ],
+     },
+     processFunction: async (input) =>
+@@ -814,7 +861,7 @@
+     description:
+       "Convert an IP address into decimal, binary, hexadecimal, or even an IPv6 representation of it.",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "",
+           fields: [
+@@ -822,19 +869,28 @@
+               name: "ipv4-address",
+               label: "The ipv4 address:",
+               type: "text",
+-              default: '192.168.1.1',
+-            }
++              default: "192.168.1.1",
++            },
+           ],
+         },
+       ],
+ 
+       outputs: [
+         { title: "Decimal", name: "decimal", type: "text", buttons: ["copy"] },
+-        { title: "Hexadecimal", name: "hexadecimal", type: "text", buttons: ["copy"] },
++        {
++          title: "Hexadecimal",
++          name: "hexadecimal",
++          type: "text",
++          buttons: ["copy"],
++        },
+         { title: "Binary", name: "binary", type: "text", buttons: ["copy"] },
+         { title: "IPv6", name: "ipv6", type: "text", buttons: ["copy"] },
+-        { title: "IPv6 (short): ", name: "ipv6-short", type: "text", buttons: ["copy"] },
+-        
++        {
++          title: "IPv6 (short): ",
++          name: "ipv6-short",
++          type: "text",
++          buttons: ["copy"],
++        },
+       ],
+     },
+     processFunction: async (input) =>
+@@ -848,7 +904,7 @@
+     description:
+       "Find the vendor and manufacturer of a device by its MAC address.",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "",
+           fields: [
+@@ -856,14 +912,19 @@
+               name: "mac-address",
+               label: "MAC address:",
+               type: "text",
+-              default: '20:37:06:12:34:56',
+-            }
++              default: "20:37:06:12:34:56",
++            },
+           ],
+         },
+       ],
+ 
+       outputs: [
+-        { title: "Vendor info:", name: "vendor-info", type: "text", buttons: ["copy"] },
++        {
++          title: "Vendor info:",
++          name: "vendor-info",
++          type: "text",
++          buttons: ["copy"],
++        },
+       ],
+     },
+     processFunction: async (input) =>
+@@ -877,7 +938,7 @@
+     description:
+       "Lorem ipsum is a placeholder text commonly used to demonstrate the visual form of a document or a typeface without relying on meaningful content",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "",
+           fields: [
+@@ -910,7 +971,7 @@
+               label: "As html",
+               type: "switch",
+               default: false,
+-            }
++            },
+           ],
+         },
+       ],
+@@ -935,7 +996,7 @@
+     description:
+       "Get information about a text, the number of characters, the number of words, its size in bytes, ...",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "",
+           fields: [
+@@ -943,17 +1004,17 @@
+               name: "raw-text",
+               label: "Your text",
+               type: "text",
+-              default: '',
+-            }
++              default: "",
++            },
+           ],
+         },
+       ],
+ 
+       outputs: [
+-        { title: "Character count", name: "character-count", type: "number"},
+-        { title: "Word count", name: "word-count", type: "number"},
+-        { title: "Line count", name: "line-count", type: "number"},
+-        { title: "Byte size", name: "byte-size", type: "text"},
++        { title: "Character count", name: "character-count", type: "number" },
++        { title: "Word count", name: "word-count", type: "number" },
++        { title: "Line count", name: "line-count", type: "number" },
++        { title: "Byte size", name: "byte-size", type: "text" },
+       ],
+     },
+     processFunction: async (input) =>
+@@ -967,7 +1028,7 @@
+     description:
+       "Obfuscate a string (like a secret, an IBAN, or a token) to make it shareable and identifiable without revealing its content.",
+     uiConfig: {
+-      sections: [
++      inputs: [
+         {
+           header: "",
+           fields: [
+@@ -975,7 +1036,7 @@
+               name: "string-to-obfuscate",
+               label: "String to obfuscate:",
+               type: "text",
+-              default: 'Lorem ipsum dolor sit amet',
++              default: "Lorem ipsum dolor sit amet",
+             },
+             {
+               name: "keep-first",
+@@ -993,14 +1054,19 @@
+               name: "keep-spaces",
+               label: "Keep spaces:",
+               type: "switch",
+-              default: 'true',
++              default: "true",
+             },
+           ],
+         },
+       ],
+ 
+       outputs: [
+-        { title: "Obfucscated string", name: "obfuscated-string", type: "text", buttons: ["copy"] },
++        {
++          title: "Obfucscated string",
++          name: "obfuscated-string",
++          type: "text",
++          buttons: ["copy"],
++        },
+       ],
+     },
+     processFunction: async (input) =>
+Index: frontend/src/components/ToolRenderer.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import { useState, useEffect } from \"react\";\nimport { useParams } from \"react-router-dom\";\nimport {\n  Box,\n  Grid,\n  Paper,\n  Typography,\n  TextField,\n  Button,\n  Switch,\n  Slider,\n  Select,\n  MenuItem,\n  ToggleButton,\n  ToggleButtonGroup,\n} from \"@mui/material\";\nimport ContentCopyIcon from \"@mui/icons-material/ContentCopy\";\nimport RefreshIcon from \"@mui/icons-material/Refresh\";\nimport { mockMetadata } from \"../data/mockMetadata\";\nimport CommonLayout from \"../layouts/CommonLayout\";\nimport { ChromePicker } from \"react-color\";\nimport { DownloadIcon } from \"lucide-react\";\n\nconst ToolRenderer = () => {\n  const { id } = useParams();\n  const [metadata, setMetadata] = useState<any | null>(null);\n  const [formData, setFormData] = useState<Record<string, any>>({});\n  const [outputs, setOutputs] = useState<Record<string, string>>({});\n\n  useEffect(() => {\n    const tool = mockMetadata.find((tool) => tool.id === id);\n    if (tool) {\n      setMetadata(tool);\n      setFormData(\n        Object.fromEntries(\n          tool.uiConfig.sections.flatMap((section) =>\n            section.fields.map((f) => [f.name, f.default])\n          )\n        )\n      );\n      setOutputs(\n        Object.fromEntries(\n          (tool.uiConfig.outputs ?? []).map((output) => [output.name, \"\"])\n        )\n      );\n    }\n  }, [id]);\n\n  const handleInputChange = (name: string, value: any) => {\n    setFormData((prev) => ({ ...prev, [name]: value }));\n  };\n\n  const handleExecute = async () => {\n    if (!metadata?.processFunction) return;\n\n    const result = await metadata.processFunction(formData);\n    if (result.error) {\n      setOutputs({ error: `Error: ${result.error}` });\n    } else {\n      setOutputs(result);\n    }\n  };\n\n  if (!metadata) return <Typography>Loading...</Typography>;\n\n  return (\n    <CommonLayout\n      title={metadata.name}\n      description={metadata.description}\n      toolId={id || \"\"}\n      icon={metadata.icon}\n    >\n      <Grid container spacing={3}>\n        {metadata.uiConfig.sections.map((section, index) => (\n          <Grid item xs={12} sm={12} md={12} key={index}>\n            <Paper\n              sx={{ p: 3, bgcolor: \"#212121\", color: \"white\", borderRadius: 2 }}\n            >\n              <Typography variant=\"h6\" sx={{ mb: 2 }}>\n                {section.header}\n              </Typography>\n\n              {section.fields.map((field) => (\n                <Box\n                  key={field.name}\n                  sx={{\n                    mb: 2,\n                    display: \"flex\",\n                    flexDirection: \"row\",\n                    width: \"100%\",\n                    justifyContent: \"space-between\",\n                    alignItems: \"center\",\n                  }}\n                >\n                  <Typography sx={{ mb: 1, p: 1 }}>{field.label}</Typography>\n                  {renderField(field, formData[field.name], (value) =>\n                    handleInputChange(field.name, value)\n                  )}\n                </Box>\n              ))}\n\n              {/* Outputs trong section */}\n              {section.outputs?.map((output) => (\n                <Box key={output.name} sx={{ mt: 3 }}>\n                  <Typography sx={{ mb: 1 }}>{output.title}</Typography>\n                  {renderOutput(\n                    output,\n                    outputs[output.name] || \"\",\n                    handleExecute\n                  )}\n                </Box>\n              ))}\n            </Paper>\n          </Grid>\n        ))}\n\n        {/* Outputs ngoài section */}\n        {(metadata.uiConfig.outputs ?? []).map((output) => (\n          <Grid item xs={12} key={output.name}>\n            <Paper\n              sx={{ p: 3, bgcolor: \"#212121\", color: \"white\", borderRadius: 2 }}\n            >\n              <Typography sx={{ mb: 2 }}>{output.title}</Typography>\n              {renderOutput(output, outputs[output.name] || \"\", handleExecute)}\n            </Paper>\n          </Grid>\n        ))}\n      </Grid>\n    </CommonLayout>\n  );\n};\n\nconst ColorPickerField = ({\n  value,\n  onChange,\n}: {\n  value: string;\n  onChange: (val: string) => void;\n}) => {\n  const [showPicker, setShowPicker] = useState(false);\n\n  return (\n    <Box position=\"relative\" display=\"flex\" flexDirection=\"column\" gap={1}>\n      {/* Thanh màu, click vào sẽ mở picker */}\n      <Box\n        sx={{\n          width: \"100%\",\n          height: 40,\n          borderRadius: 1,\n          bgcolor: value,\n          border: \"1px solid #aaa\",\n          cursor: \"pointer\",\n        }}\n        onClick={() => setShowPicker((prev) => !prev)}\n      />\n\n      {/* Chrome Picker - chỉ hiện khi showPicker === true */}\n      {showPicker && (\n        <Box position=\"absolute\" zIndex={10} top={50}>\n          <ChromePicker\n            color={value}\n            onChange={(color) => onChange(color.hex)}\n            disableAlpha\n            styles={{\n              default: {\n                picker: { background: \"#222\", borderRadius: \"8px\" },\n              },\n            }}\n          />\n        </Box>\n      )}\n\n      {/* TextField để chỉnh HEX trực tiếp */}\n      <TextField\n        fullWidth\n        type=\"text\"\n        value={value}\n        onChange={(e) => onChange(e.target.value)}\n        sx={{ bgcolor: \"#333\", borderRadius: 1 }}\n      />\n    </Box>\n  );\n};\n\n/** Render các input field */\nconst renderField = (\n  field: any,\n  value: any,\n  onChange: (value: any) => void\n) => {\n  switch (field.type) {\n    case \"button\":\n      return (\n        <Button\n          variant=\"contained\"\n          onClick={() => onChange(field.value)}\n          sx={{ bgcolor: \"#36ad6a\" }}\n        >\n          {field.label}\n        </Button>\n      );\n    case \"text\":\n      return (\n        <TextField\n          fullWidth\n          multiline={field.type === \"textarea\"}\n          value={value}\n          onChange={(e) => onChange(e.target.value)}\n          sx={{ bgcolor: \"#333\", borderRadius: 1 }}\n        />\n      );\n    case \"color\":\n      return <ColorPickerField value={value} onChange={onChange} />;\n    case \"number\":\n      return (\n        <TextField\n          fullWidth\n          type={field.type}\n          value={value}\n          onChange={(e) =>\n            onChange(\n              field.type === \"number\" ? Number(e.target.value) : e.target.value\n            )\n          }\n          sx={{ bgcolor: \"#333\", borderRadius: 1 }}\n        />\n      );\n    case \"switch\":\n      return (\n        <Switch\n          checked={value}\n          onChange={(e) => onChange(e.target.checked)}\n          sx={{\n            \"& .MuiSwitch-switchBase.Mui-checked\": { color: \"#36ad6a\" },\n            \"& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track\": {\n              bgcolor: \"#36ad6a\",\n            },\n          }}\n        />\n      );\n    case \"slider\":\n      return (\n        <Slider\n          min={field.min}\n          max={field.max}\n          value={value}\n          onChange={(_, newVal) => onChange(newVal)}\n          sx={{\n            color: \"#36ad6a\",\n            \"& .MuiSlider-thumb\": { bgcolor: \"#36ad6a\" },\n            \"& .MuiSlider-track\": { bgcolor: \"#36ad6a\" },\n            \"& .MuiSlider-rail\": { bgcolor: \"#a1a1a1\" },\n          }}\n        />\n      );\n    case \"select\":\n      return (\n        <Select\n          fullWidth\n          value={value}\n          onChange={(e) => onChange(e.target.value)}\n          sx={{ bgcolor: \"#333\", borderRadius: 1 }}\n        >\n          {field.options.map((option: string) => (\n            <MenuItem key={option} value={option}>\n              {option}\n            </MenuItem>\n          ))}\n        </Select>\n      );\n    case \"buttons\":\n      return (\n        <ToggleButtonGroup\n          exclusive\n          value={value}\n          onChange={(_, newVal) => newVal && onChange(newVal)}\n        >\n          {field.options.map((option: any) => (\n            <ToggleButton key={option.value} value={option.value}>\n              {option.name}\n            </ToggleButton>\n          ))}\n        </ToggleButtonGroup>\n      );\n    case \"password\":\n      return (\n        <TextField\n          fullWidth\n          type=\"password\"\n          value={value}\n          onChange={(e) => onChange(e.target.value)}\n          sx={{ bgcolor: \"#333\", borderRadius: 1 }}\n        />\n      );\n    default:\n      return null;\n  }\n};\n\n/** Render output fields */\n\nconst renderOutput = (output: any, value: string, onRefresh: () => void) => {\n  if (!output) return null;\n\n  const displayValue = value || output.default;\n  let content;\n\n  switch (output.type) {\n    case \"typography\":\n      content = (\n        <Typography sx={{ mb: 2, color: \"white\" }} variant=\"h6\">\n          {displayValue}\n        </Typography>\n      );\n      break;\n\n    case \"image\":\n      content = (\n        <Box textAlign=\"center\">\n          <img\n            src={displayValue}\n            alt={output.title || \"Generated image\"}\n            style={{ maxWidth: \"100%\", borderRadius: 8 }}\n          />\n        </Box>\n      );\n      break;\n\n    case \"text\":\n    default:\n      content = (\n        <TextField\n          fullWidth\n          value={value}\n          multiline\n          InputProps={{ readOnly: true }}\n          sx={{ bgcolor: \"#333\", color: \"white\", borderRadius: 1 }}\n        />\n      );\n      break;\n  }\n\n  return (\n    <Paper sx={{ p: 2, bgcolor: \"#212121\", color: \"white\", borderRadius: 2 }}>\n      <Typography variant=\"subtitle1\" sx={{ mb: 2 }}>\n        {output.title}\n      </Typography>\n      {content}\n      <Box mt={2} display=\"flex\" gap={2}>\n        {output.buttons?.includes(\"copy\") && output.type !== \"image\" && (\n          <Button\n            variant=\"contained\"\n            startIcon={<ContentCopyIcon />}\n            onClick={() => navigator.clipboard.writeText(value)}\n            sx={{ bgcolor: \"#36ad6a\" }}\n          >\n            Copy\n          </Button>\n        )}\n        {output.buttons?.includes(\"refresh\") && (\n          <Button\n            variant=\"contained\"\n            startIcon={<RefreshIcon />}\n            onClick={onRefresh}\n            sx={{ bgcolor: \"#f57c00\" }}\n          >\n            Refresh\n          </Button>\n        )}\n        {output.buttons?.includes(\"download\") && output.type === \"image\" && (\n          <Button\n            variant=\"contained\"\n            startIcon={<DownloadIcon />}\n            onClick={() => {\n              const link = document.createElement(\"a\");\n              link.href = displayValue;\n              link.download = `${output.name || \"image\"}.png`;\n              document.body.appendChild(link);\n              link.click();\n              document.body.removeChild(link);\n            }}\n            sx={{ bgcolor: \"#1976d2\" }}\n          >\n            Download\n          </Button>\n        )}\n      </Box>\n    </Paper>\n  );\n};\n\nexport default ToolRenderer;\n
+===================================================================
+diff --git a/frontend/src/components/ToolRenderer.tsx b/frontend/src/components/ToolRenderer.tsx
+--- a/frontend/src/components/ToolRenderer.tsx	(revision 7df54d82172949b9d1339caddd58fae1cd64f728)
++++ b/frontend/src/components/ToolRenderer.tsx	(date 1744253203558)
+@@ -1,3 +1,4 @@
++/* eslint-disable @typescript-eslint/no-explicit-any */
+ import { useState, useEffect } from "react";
+ import { useParams } from "react-router-dom";
+ import {
+@@ -5,21 +6,11 @@
+   Grid,
+   Paper,
+   Typography,
+-  TextField,
+-  Button,
+-  Switch,
+-  Slider,
+-  Select,
+-  MenuItem,
+-  ToggleButton,
+-  ToggleButtonGroup,
+ } from "@mui/material";
+-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+-import RefreshIcon from "@mui/icons-material/Refresh";
+ import { mockMetadata } from "../data/mockMetadata";
+ import CommonLayout from "../layouts/CommonLayout";
+-import { ChromePicker } from "react-color";
+-import { DownloadIcon } from "lucide-react";
++import RenderInput from "./RenderInput";
++import RenderOutput from "./RenderOutput";
+ 
+ const ToolRenderer = () => {
+   const { id } = useParams();
+@@ -33,7 +24,7 @@
+       setMetadata(tool);
+       setFormData(
+         Object.fromEntries(
+-          tool.uiConfig.sections.flatMap((section) =>
++          tool.uiConfig.inputs.flatMap((section) =>
+             section.fields.map((f) => [f.name, f.default])
+           )
+         )
+@@ -71,7 +62,7 @@
+       icon={metadata.icon}
+     >
+       <Grid container spacing={3}>
+-        {metadata.uiConfig.sections.map((section, index) => (
++        {metadata.uiConfig.inputs.map((section, index) => (
+           <Grid item xs={12} sm={12} md={12} key={index}>
+             <Paper
+               sx={{ p: 3, bgcolor: "#212121", color: "white", borderRadius: 2 }}
+@@ -93,7 +84,7 @@
+                   }}
+                 >
+                   <Typography sx={{ mb: 1, p: 1 }}>{field.label}</Typography>
+-                  {renderField(field, formData[field.name], (value) =>
++                  {RenderInput(field, formData[field.name], (value) =>
+                     handleInputChange(field.name, value)
+                   )}
+                 </Box>
+@@ -103,7 +94,7 @@
+               {section.outputs?.map((output) => (
+                 <Box key={output.name} sx={{ mt: 3 }}>
+                   <Typography sx={{ mb: 1 }}>{output.title}</Typography>
+-                  {renderOutput(
++                  {RenderOutput(
+                     output,
+                     outputs[output.name] || "",
+                     handleExecute
+@@ -121,7 +112,7 @@
+               sx={{ p: 3, bgcolor: "#212121", color: "white", borderRadius: 2 }}
+             >
+               <Typography sx={{ mb: 2 }}>{output.title}</Typography>
+-              {renderOutput(output, outputs[output.name] || "", handleExecute)}
++              {RenderOutput(output, outputs[output.name] || "", handleExecute)}
+             </Paper>
+           </Grid>
+         ))}
+@@ -130,263 +121,8 @@
+   );
+ };
+ 
+-const ColorPickerField = ({
+-  value,
+-  onChange,
+-}: {
+-  value: string;
+-  onChange: (val: string) => void;
+-}) => {
+-  const [showPicker, setShowPicker] = useState(false);
+-
+-  return (
+-    <Box position="relative" display="flex" flexDirection="column" gap={1}>
+-      {/* Thanh màu, click vào sẽ mở picker */}
+-      <Box
+-        sx={{
+-          width: "100%",
+-          height: 40,
+-          borderRadius: 1,
+-          bgcolor: value,
+-          border: "1px solid #aaa",
+-          cursor: "pointer",
+-        }}
+-        onClick={() => setShowPicker((prev) => !prev)}
+-      />
+-
+-      {/* Chrome Picker - chỉ hiện khi showPicker === true */}
+-      {showPicker && (
+-        <Box position="absolute" zIndex={10} top={50}>
+-          <ChromePicker
+-            color={value}
+-            onChange={(color) => onChange(color.hex)}
+-            disableAlpha
+-            styles={{
+-              default: {
+-                picker: { background: "#222", borderRadius: "8px" },
+-              },
+-            }}
+-          />
+-        </Box>
+-      )}
+-
+-      {/* TextField để chỉnh HEX trực tiếp */}
+-      <TextField
+-        fullWidth
+-        type="text"
+-        value={value}
+-        onChange={(e) => onChange(e.target.value)}
+-        sx={{ bgcolor: "#333", borderRadius: 1 }}
+-      />
+-    </Box>
+-  );
+-};
+-
+-/** Render các input field */
+-const renderField = (
+-  field: any,
+-  value: any,
+-  onChange: (value: any) => void
+-) => {
+-  switch (field.type) {
+-    case "button":
+-      return (
+-        <Button
+-          variant="contained"
+-          onClick={() => onChange(field.value)}
+-          sx={{ bgcolor: "#36ad6a" }}
+-        >
+-          {field.label}
+-        </Button>
+-      );
+-    case "text":
+-      return (
+-        <TextField
+-          fullWidth
+-          multiline={field.type === "textarea"}
+-          value={value}
+-          onChange={(e) => onChange(e.target.value)}
+-          sx={{ bgcolor: "#333", borderRadius: 1 }}
+-        />
+-      );
+-    case "color":
+-      return <ColorPickerField value={value} onChange={onChange} />;
+-    case "number":
+-      return (
+-        <TextField
+-          fullWidth
+-          type={field.type}
+-          value={value}
+-          onChange={(e) =>
+-            onChange(
+-              field.type === "number" ? Number(e.target.value) : e.target.value
+-            )
+-          }
+-          sx={{ bgcolor: "#333", borderRadius: 1 }}
+-        />
+-      );
+-    case "switch":
+-      return (
+-        <Switch
+-          checked={value}
+-          onChange={(e) => onChange(e.target.checked)}
+-          sx={{
+-            "& .MuiSwitch-switchBase.Mui-checked": { color: "#36ad6a" },
+-            "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+-              bgcolor: "#36ad6a",
+-            },
+-          }}
+-        />
+-      );
+-    case "slider":
+-      return (
+-        <Slider
+-          min={field.min}
+-          max={field.max}
+-          value={value}
+-          onChange={(_, newVal) => onChange(newVal)}
+-          sx={{
+-            color: "#36ad6a",
+-            "& .MuiSlider-thumb": { bgcolor: "#36ad6a" },
+-            "& .MuiSlider-track": { bgcolor: "#36ad6a" },
+-            "& .MuiSlider-rail": { bgcolor: "#a1a1a1" },
+-          }}
+-        />
+-      );
+-    case "select":
+-      return (
+-        <Select
+-          fullWidth
+-          value={value}
+-          onChange={(e) => onChange(e.target.value)}
+-          sx={{ bgcolor: "#333", borderRadius: 1 }}
+-        >
+-          {field.options.map((option: string) => (
+-            <MenuItem key={option} value={option}>
+-              {option}
+-            </MenuItem>
+-          ))}
+-        </Select>
+-      );
+-    case "buttons":
+-      return (
+-        <ToggleButtonGroup
+-          exclusive
+-          value={value}
+-          onChange={(_, newVal) => newVal && onChange(newVal)}
+-        >
+-          {field.options.map((option: any) => (
+-            <ToggleButton key={option.value} value={option.value}>
+-              {option.name}
+-            </ToggleButton>
+-          ))}
+-        </ToggleButtonGroup>
+-      );
+-    case "password":
+-      return (
+-        <TextField
+-          fullWidth
+-          type="password"
+-          value={value}
+-          onChange={(e) => onChange(e.target.value)}
+-          sx={{ bgcolor: "#333", borderRadius: 1 }}
+-        />
+-      );
+-    default:
+-      return null;
+-  }
+-};
+-
+-/** Render output fields */
+-
+-const renderOutput = (output: any, value: string, onRefresh: () => void) => {
+-  if (!output) return null;
+-
+-  const displayValue = value || output.default;
+-  let content;
+ 
+-  switch (output.type) {
+-    case "typography":
+-      content = (
+-        <Typography sx={{ mb: 2, color: "white" }} variant="h6">
+-          {displayValue}
+-        </Typography>
+-      );
+-      break;
+ 
+-    case "image":
+-      content = (
+-        <Box textAlign="center">
+-          <img
+-            src={displayValue}
+-            alt={output.title || "Generated image"}
+-            style={{ maxWidth: "100%", borderRadius: 8 }}
+-          />
+-        </Box>
+-      );
+-      break;
+ 
+-    case "text":
+-    default:
+-      content = (
+-        <TextField
+-          fullWidth
+-          value={value}
+-          multiline
+-          InputProps={{ readOnly: true }}
+-          sx={{ bgcolor: "#333", color: "white", borderRadius: 1 }}
+-        />
+-      );
+-      break;
+-  }
+-
+-  return (
+-    <Paper sx={{ p: 2, bgcolor: "#212121", color: "white", borderRadius: 2 }}>
+-      <Typography variant="subtitle1" sx={{ mb: 2 }}>
+-        {output.title}
+-      </Typography>
+-      {content}
+-      <Box mt={2} display="flex" gap={2}>
+-        {output.buttons?.includes("copy") && output.type !== "image" && (
+-          <Button
+-            variant="contained"
+-            startIcon={<ContentCopyIcon />}
+-            onClick={() => navigator.clipboard.writeText(value)}
+-            sx={{ bgcolor: "#36ad6a" }}
+-          >
+-            Copy
+-          </Button>
+-        )}
+-        {output.buttons?.includes("refresh") && (
+-          <Button
+-            variant="contained"
+-            startIcon={<RefreshIcon />}
+-            onClick={onRefresh}
+-            sx={{ bgcolor: "#f57c00" }}
+-          >
+-            Refresh
+-          </Button>
+-        )}
+-        {output.buttons?.includes("download") && output.type === "image" && (
+-          <Button
+-            variant="contained"
+-            startIcon={<DownloadIcon />}
+-            onClick={() => {
+-              const link = document.createElement("a");
+-              link.href = displayValue;
+-              link.download = `${output.name || "image"}.png`;
+-              document.body.appendChild(link);
+-              link.click();
+-              document.body.removeChild(link);
+-            }}
+-            sx={{ bgcolor: "#1976d2" }}
+-          >
+-            Download
+-          </Button>
+-        )}
+-      </Box>
+-    </Paper>
+-  );
+-};
+ 
+ export default ToolRenderer;
+Index: frontend/src/components/ToolCard.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import { Card, Typography, IconButton, Box } from \"@mui/material\";\nimport * as MuiIcons from \"@mui/icons-material\";\nimport FavoriteIcon from \"@mui/icons-material/Favorite\";\nimport { useNavigate } from \"react-router-dom\";\nimport { useFavoriteTools } from \"../context/FavoriteToolsContext\";\n\nconst ToolCard = ({\n  tool,\n  onFavoriteToggle,\n}: {\n  tool: { id: string; name: string; description: string; icon: string };\n  onFavoriteToggle: (tool: any) => void;\n}) => {\n  const IconComponent =\n    MuiIcons[tool.icon as keyof typeof MuiIcons] || MuiIcons.HelpOutline;\n\n  const { favoriteTools } = useFavoriteTools();\n  const isFavorite = favoriteTools.some((fav) => fav.id === tool.id);\n\n  const navigate = useNavigate();\n\n  const handleFavoriteClick = (e: React.MouseEvent) => {\n    e.stopPropagation();\n    onFavoriteToggle(tool);\n  };\n\n  return (\n    <Card\n      sx={{\n        width: \"100%\",\n        maxWidth: { xs: \"100%\", sm: \"166px\", md: \"230px\" },\n        height: \"200px\",\n        display: \"flex\",\n        alignItems: \"center\",\n        justifyContent: \"space-between\",\n        cursor: \"pointer\",\n        p: 2,\n        border: \"1px solid #282828\",\n        backgroundColor: \"main.background.default\",\n        \"&:hover\": { borderColor: \"#1ea54c\" },\n        transition: \"border-color 0.3s ease-in-out\",\n      }}\n      onClick={() => navigate(`/tools/${tool.id}`)}\n    >\n      <Box\n        sx={{\n          display: \"flex\",\n          alignItems: \"start\",\n          gap: 2,\n          flexDirection: \"column\",\n        }}\n      >\n        <Box\n          sx={{\n            display: \"flex\",\n            alignItems: \"center\",\n            justifyContent: \"space-between\",\n            flexDirection: \"row\",\n            width: \"100%\",\n          }}\n        >\n          <IconComponent sx={{ fontSize: 50, color: \"custom.icon\" }} />\n          <IconButton onClick={handleFavoriteClick}>\n            {isFavorite ? (\n              <FavoriteIcon color=\"error\" />\n            ) : (\n              <FavoriteIcon sx={{ color: \"custom.icon\" }} />\n            )}\n          </IconButton>\n        </Box>\n\n        <Box>\n          <Typography variant=\"h6\">{tool.name}</Typography>\n          <Typography\n            variant=\"body2\"\n            color=\"text.secondary\"\n            sx={{\n              display: \"-webkit-box\",\n              WebkitLineClamp: 2,\n              WebkitBoxOrient: \"vertical\",\n              overflow: \"hidden\",\n              textOverflow: \"ellipsis\",\n            }}\n          >\n            {tool.description}\n          </Typography>\n        </Box>\n      </Box>\n    </Card>\n  );\n};\n\nexport default ToolCard;\n
+===================================================================
+diff --git a/frontend/src/components/ToolCard.tsx b/frontend/src/components/ToolCard.tsx
+--- a/frontend/src/components/ToolCard.tsx	(revision 7df54d82172949b9d1339caddd58fae1cd64f728)
++++ b/frontend/src/components/ToolCard.tsx	(date 1744250441657)
+@@ -1,3 +1,4 @@
++/* eslint-disable @typescript-eslint/no-explicit-any */
+ import { Card, Typography, IconButton, Box } from "@mui/material";
+ import * as MuiIcons from "@mui/icons-material";
+ import FavoriteIcon from "@mui/icons-material/Favorite";
