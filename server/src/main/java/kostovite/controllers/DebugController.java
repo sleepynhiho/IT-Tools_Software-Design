@@ -7,12 +7,14 @@ import kostovite.ManualPluginLoader.ExtendedPluginInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.*;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
@@ -22,18 +24,23 @@ import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/debug")
 public class DebugController {
     private static final Logger log = LoggerFactory.getLogger(DebugController.class);
 
+    private final ManualPluginLoader pluginLoader;
+
     @Autowired
     private CustomPluginManager customPluginManager;
 
     @Autowired
     private ManualPluginLoader manualPluginLoader;
+
+    public DebugController(ManualPluginLoader pluginLoader) {
+        this.pluginLoader = pluginLoader;
+    }
 
     @GetMapping("/inspect-jar")
     public Map<String, Object> inspectJar() {
@@ -152,32 +159,6 @@ public class DebugController {
         return jar.getEntry(classPath) != null;
     }
 
-    @GetMapping("/manual-load")
-    public ResponseEntity<Map<String, Object>> manualLoad() {
-        Map<String, Object> response = new HashMap<>();
-
-        try {
-            // Get path to plugins directory
-            String workingDir = System.getProperty("user.dir");
-            Path pluginsPath = Paths.get(workingDir, "plugins-deploy").toAbsolutePath();
-
-            // Load plugins and get list of loaded plugins
-            List<PluginInterface> plugins = manualPluginLoader.loadPlugins(pluginsPath);
-
-            List<String> pluginNames = plugins.stream()
-                    .map(PluginInterface::getName)
-                    .collect(Collectors.toList());
-
-            response.put("loadedPlugins", pluginNames);
-            response.put("status", "success");
-        } catch (Exception e) {
-            response.put("status", "error");
-            response.put("message", e.getMessage());
-        }
-
-        return ResponseEntity.ok(response);
-    }
-
     @GetMapping("/extended-plugins-info")
     public ResponseEntity<Map<String, Object>> extendedPluginsInfo() {
         Map<String, Object> response = new HashMap<>();
@@ -210,5 +191,110 @@ public class DebugController {
         }
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/MediaTools/testimage")
+    public ResponseEntity<Map<String, Object>> testMediaToolsImage() {
+        try {
+            // Find the MediaTools plugin
+            PluginInterface plugin = null;
+            for (PluginInterface p : pluginLoader.getLoadedPlugins()) {
+                if (p.getName().equals("MediaTools")) {
+                    plugin = p;
+                    break;
+                }
+            }
+
+            if (plugin == null) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "MediaTools plugin not found");
+                return ResponseEntity.notFound().build();
+            }
+
+            // Create a 1x1 pixel test image programmatically
+            BufferedImage testImage = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB);
+            testImage.setRGB(0, 0, 0xFF0000); // Red pixel
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(testImage, "png", baos);
+            byte[] imageBytes = baos.toByteArray();
+
+            // Create test input
+            Map<String, Object> testInput = new HashMap<>();
+            testInput.put("operation", "getImageInfo");
+            testInput.put("image", imageBytes); // Pass raw bytes instead of base64
+
+            // Process with the plugin using reflection
+            Map<String, Object> result = new HashMap<>();
+
+            // Check if the plugin has a process method regardless of interface
+            try {
+                Method processMethod = plugin.getClass().getMethod("process", Map.class);
+                Object processResult = processMethod.invoke(plugin, testInput);
+
+                if (processResult instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> mapResult = (Map<String, Object>) processResult;
+                    return ResponseEntity.ok(mapResult);
+                } else {
+                    result.put("error", "Plugin process method returned unexpected type: " +
+                            (processResult != null ? processResult.getClass().getName() : "null"));
+                }
+            } catch (NoSuchMethodException e) {
+                result.put("error", "Plugin does not have a process method");
+            } catch (Exception e) {
+                result.put("error", "Error invoking process method: " + e.getMessage());
+                result.put("stackTrace", e.toString());
+            }
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("error", "Error testing MediaTools plugin: " + e.getMessage());
+            response.put("stackTrace", e.toString());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @PostMapping("/{pluginName}/process")
+    public ResponseEntity<Map<String, Object>> processPluginRequest(
+            @PathVariable String pluginName,
+            @RequestBody Map<String, Object> input) {
+
+        // Find the plugin
+        PluginInterface plugin = null;
+        for (PluginInterface p : pluginLoader.getLoadedPlugins()) {
+            if (p.getName().equals(pluginName)) {
+                plugin = p;
+                break;
+            }
+        }
+
+        if (plugin == null) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Plugin not found: " + pluginName);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        }
+
+        // Process with the plugin using reflection
+        try {
+            Method processMethod = plugin.getClass().getMethod("process", Map.class);
+            Object processResult = processMethod.invoke(plugin, input);
+
+            if (processResult instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> result = (Map<String, Object>) processResult;
+                return ResponseEntity.ok(result);
+            } else {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Plugin process method returned unexpected type");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+            }
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Error processing plugin request: " + e.getMessage());
+            errorResponse.put("stackTrace", Arrays.toString(e.getStackTrace()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
     }
 }

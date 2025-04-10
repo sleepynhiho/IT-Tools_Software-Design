@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
@@ -138,5 +139,64 @@ public class ManualPluginLoader {
          * @return Map containing processed output data
          */
         Map<String, Object> process(Map<String, Object> input);
+    }
+
+    /**
+     * Unload a specific plugin by name
+     * @param pluginName Name of the plugin to unload
+     * @return true if the plugin was successfully unloaded, false otherwise
+     */
+    public boolean unloadPlugin(String pluginName) {
+        PluginInterface plugin = pluginsByName.get(pluginName);
+        if (plugin == null) {
+            log.warn("Cannot unload plugin '{}': Plugin not found", pluginName);
+            return false;
+        }
+
+        try {
+            // Remove from collections
+            loadedPlugins.remove(plugin);
+            pluginsByName.remove(pluginName);
+
+            // Get the ClassLoader that loaded this plugin
+            ClassLoader pluginClassLoader = plugin.getClass().getClassLoader();
+
+            // If it's a URLClassLoader, try to close it
+            if (pluginClassLoader instanceof URLClassLoader) {
+                try {
+                    ((URLClassLoader) pluginClassLoader).close();
+                    log.info("Closed ClassLoader for plugin: {}", pluginName);
+                } catch (IOException e) {
+                    log.warn("Could not close ClassLoader for plugin: {}", pluginName, e);
+                }
+            }
+
+            // Suggest garbage collection (though no guarantee it will run)
+            plugin = null;
+            System.gc();
+
+            log.info("Successfully unloaded plugin: {}", pluginName);
+            return true;
+        } catch (Exception e) {
+            log.error("Error unloading plugin {}: {}", pluginName, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * Unload all plugins
+     * @return Number of plugins unloaded
+     */
+    public int unloadAllPlugins() {
+        int count = loadedPlugins.size();
+        try {
+            loadedPlugins.clear();
+            pluginsByName.clear();
+            log.info("Successfully unloaded {} plugins", count);
+            return count;
+        } catch (Exception e) {
+            log.error("Error unloading all plugins: {}", e.getMessage(), e);
+            return 0;
+        }
     }
 }
