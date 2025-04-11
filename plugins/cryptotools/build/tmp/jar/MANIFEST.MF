@@ -1,0 +1,7 @@
+Manifest-Version: 1.0
+Plugin-Class: kostovite.CryptoToolsPlugin
+Plugin-Id: cryptotools
+Plugin-Version: 1.0.0
+Plugin-Provider: kostovite
+Plugin-Description: Crypto processing plugin for IT-Tools
+

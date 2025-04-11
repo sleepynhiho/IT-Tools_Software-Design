@@ -1,0 +1,53 @@
+plugins {
+    id 'java'
+}
+
+group = 'kostovite'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(':plugin-api')
+    implementation 'org.pf4j:pf4j:3.10.0'
+
+    // Image processing libraries
+    implementation 'org.imgscalr:imgscalr-lib:4.2'
+
+    // Optional: Uncomment for video processing capabilities
+    // implementation 'org.bytedeco:javacv-platform:1.5.7'
+}
+
+tasks.named('jar') {
+    dependsOn(':plugin-api:jar')
+
+    // Use INCLUDE strategy for duplicates
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+
+    // Include all dependencies in the JAR
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    // Make sure plugin.properties is included
+    from("src/main/resources")
+
+    // Include the ServiceLoader metadata file
+    from("src/main/resources/META-INF/services") {
+        into "META-INF/services"
+    }
+
+    // Set manifest attributes for PF4J
+    manifest {
+        attributes(
+                'Manifest-Version': '1.0',
+                'Plugin-Class': 'kostovite.MediaToolsPlugin',
+                'Plugin-Id': 'media-tools',
+                'Plugin-Version': project.version,
+                'Plugin-Provider': 'kostovite',
+                'Plugin-Description': 'Media processing plugin for IT-Tools'
+        )
+    }
+}

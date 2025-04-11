@@ -1,0 +1,7 @@
+Manifest-Version: 1.0
+Plugin-Class: kostovite.MediaToolsPlugin
+Plugin-Id: media-tools
+Plugin-Version: 1.0.0
+Plugin-Provider: kostovite
+Plugin-Description: Media processing plugin for IT-Tools
+
