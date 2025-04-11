@@ -1,0 +1,47 @@
+plugins {
+    id 'java'
+}
+
+group = 'kostovite'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(':plugin-api')
+    implementation 'org.pf4j:pf4j:3.10.0'
+}
+
+tasks.named('jar') {
+    dependsOn(':plugin-api:jar')
+
+    // Use INCLUDE strategy for duplicates
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+
+    // Include all dependencies in the JAR
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    // Make sure plugin.properties is included
+    from("src/main/resources")
+
+    // Include the ServiceLoader metadata file
+    from("src/main/resources/META-INF/services") {
+        into "META-INF/services"
+    }
+
+    // Set manifest attributes for PF4J
+    manifest {
+        attributes(
+                'Manifest-Version': '1.0',
+                'Plugin-Class': 'kostovite.ETACalculatorPlugin',
+                'Plugin-Id': 'etacalculator',
+                'Plugin-Version': project.version,
+                'Plugin-Provider': 'kostovite',
+                'Plugin-Description': 'Calculate estimated time of arrival/completion'
+        )
+    }
+}

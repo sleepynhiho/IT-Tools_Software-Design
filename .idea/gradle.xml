@@ -11,8 +11,12 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/plugin-api" />
             <option value="$PROJECT_DIR$/plugins" />
+            <option value="$PROJECT_DIR$/plugins/cryptotools" />
             <option value="$PROJECT_DIR$/plugins/hashtools" />
             <option value="$PROJECT_DIR$/plugins/mediatools" />
+            <option value="$PROJECT_DIR$/plugins/passwordanalyzer" />
+            <option value="$PROJECT_DIR$/plugins/tokengenerator" />
+            <option value="$PROJECT_DIR$/plugins/urlformatter" />
             <option value="$PROJECT_DIR$/server" />
           </set>
         </option>
