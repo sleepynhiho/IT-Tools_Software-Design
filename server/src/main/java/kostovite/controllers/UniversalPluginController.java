@@ -132,4 +132,34 @@ public class UniversalPluginController {
 
         return ResponseEntity.ok(response);
     }
+
+    // Add this method to your UniversalPluginController class
+
+    @GetMapping("/{pluginName}/metadata")
+    public ResponseEntity<Map<String, Object>> getPluginMetadata(@PathVariable String pluginName) {
+        try {
+            // Find plugin by name
+            PluginInterface plugin = null;
+            for (PluginInterface p : pluginLoader.getLoadedPlugins()) {
+                if (p.getName().equals(pluginName)) {
+                    plugin = p;
+                    break;
+                }
+            }
+
+            if (plugin == null) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Plugin not found: " + pluginName);
+                return ResponseEntity.notFound().build();
+            }
+
+            // Get and return the plugin's metadata
+            Map<String, Object> metadata = plugin.getMetadata();
+            return ResponseEntity.ok(metadata);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("error", "Error retrieving plugin metadata: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
 }

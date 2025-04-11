@@ -6,7 +6,9 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ETACalculator implements PluginInterface {
@@ -47,42 +49,290 @@ public class ETACalculator implements PluginInterface {
     @Override
     public Map<String, Object> getMetadata() {
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", getName());
+        metadata.put("name", getName()); // Corresponds to ToolMetadata.name
         metadata.put("version", "1.0.0");
-        metadata.put("description", "Calculate estimated time of arrival/completion");
+        metadata.put("description", "Calculate estimated time of arrival/completion"); // Corresponds to ToolMetadata.description
 
-        // Define available operations
+        // Define available backend operations (for informational purposes or direct API calls)
         Map<String, Object> operations = new HashMap<>();
 
         // Calculate ETA operation
         Map<String, Object> calculateOperation = new HashMap<>();
         calculateOperation.put("description", "Calculate ETA based on processing rate");
-
         Map<String, Object> calculateInputs = new HashMap<>();
-        calculateInputs.put("totalItems", "Total number of items to process");
-        calculateInputs.put("itemsProcessed", "Number of items processed in the sample time period");
-        calculateInputs.put("timeElapsed", "Amount of time elapsed for the sample");
-        calculateInputs.put("timeUnit", "Time unit for timeElapsed (seconds, minutes, hours)");
-        calculateInputs.put("startTime", "Start time in format YYYY-MM-DD HH:MM:SS");
-        calculateInputs.put("timezone", "Timezone for calculations (optional, defaults to UTC)");
-
+        calculateInputs.put("totalItems", Map.of("type", "integer", "description", "Total number of items to process", "required", true));
+        calculateInputs.put("itemsProcessed", Map.of("type", "integer", "description", "Number of items processed in the sample time period", "required", true));
+        calculateInputs.put("timeElapsed", Map.of("type", "integer", "description", "Amount of time elapsed for the sample", "required", true));
+        calculateInputs.put("timeUnit", Map.of("type", "string", "description", "Time unit for timeElapsed (seconds, minutes, hours)", "required", false));
+        calculateInputs.put("startTime", Map.of("type", "string", "description", "Start time in format YYYY-MM-DD HH:MM:SS", "required", true));
+        calculateInputs.put("timezone", Map.of("type", "string", "description", "Timezone for calculations (optional, defaults to UTC)", "required", false));
         calculateOperation.put("inputs", calculateInputs);
         operations.put("calculate", calculateOperation);
 
         // Calculate progress operation
         Map<String, Object> progressOperation = new HashMap<>();
         progressOperation.put("description", "Calculate progress information for an ongoing task");
-
         Map<String, Object> progressInputs = new HashMap<>();
-        progressInputs.put("totalItems", "Total number of items to process");
-        progressInputs.put("itemsCompleted", "Number of items already processed");
-        progressInputs.put("startTime", "Start time in format YYYY-MM-DD HH:MM:SS");
-        progressInputs.put("timezone", "Timezone for calculations (optional, defaults to UTC)");
-
+        progressInputs.put("totalItems", Map.of("type", "integer", "description", "Total number of items to process", "required", true));
+        progressInputs.put("itemsCompleted", Map.of("type", "integer", "description", "Number of items already processed", "required", true));
+        progressInputs.put("startTime", Map.of("type", "string", "description", "Start time in format YYYY-MM-DD HH:MM:SS", "required", true));
+        progressInputs.put("timezone", Map.of("type", "string", "description", "Timezone for calculations (optional, defaults to UTC)", "required", false));
         progressOperation.put("inputs", progressInputs);
         operations.put("progress", progressOperation);
 
-        metadata.put("operations", operations);
+        metadata.put("operations", operations); // Keep this for backend/API reference
+
+        // --- Define UI Configuration ---
+        Map<String, Object> uiConfig = new HashMap<>();
+        uiConfig.put("id", "ETACalculator"); // Corresponds to ToolMetadata.id
+        uiConfig.put("icon", "Schedule"); // Corresponds to ToolMetadata.icon (Material Icon name)
+        uiConfig.put("category", "Utilities"); // Corresponds to ToolMetadata.category
+
+        // --- Define UI Inputs ---
+        List<Map<String, Object>> uiInputs = new ArrayList<>();
+
+        // Input Section 1: Operation Selection
+        Map<String, Object> inputSection1 = new HashMap<>();
+        inputSection1.put("header", "Calculation Type");
+        List<Map<String, Object>> section1Fields = new ArrayList<>();
+
+        // Operation selection field
+        Map<String, Object> operationField = new HashMap<>();
+        operationField.put("name", "uiOperation");
+        operationField.put("label", "Operation:");
+        operationField.put("type", "select");
+        List<Map<String, String>> operationOptions = new ArrayList<>();
+        operationOptions.add(Map.of("value", "calculate", "label", "Calculate ETA"));
+        operationOptions.add(Map.of("value", "progress", "label", "Calculate Progress"));
+        operationField.put("options", operationOptions);
+        operationField.put("default", "calculate");
+        operationField.put("required", true);
+        section1Fields.add(operationField);
+
+        inputSection1.put("fields", section1Fields);
+        uiInputs.add(inputSection1);
+
+        // Input Section 2: Common Parameters
+        Map<String, Object> inputSection2 = new HashMap<>();
+        inputSection2.put("header", "Common Parameters");
+        List<Map<String, Object>> section2Fields = new ArrayList<>();
+
+        // Total items field
+        Map<String, Object> totalItemsField = new HashMap<>();
+        totalItemsField.put("name", "totalItems");
+        totalItemsField.put("label", "Total Items to Process:");
+        totalItemsField.put("type", "number");
+        totalItemsField.put("default", 100);
+        totalItemsField.put("min", 1);
+        totalItemsField.put("required", true);
+        section2Fields.add(totalItemsField);
+
+        // Start time field
+        Map<String, Object> startTimeField = new HashMap<>();
+        startTimeField.put("name", "startTime");
+        startTimeField.put("label", "Start Time (YYYY-MM-DD HH:MM:SS):");
+        startTimeField.put("type", "text");
+        startTimeField.put("default", LocalDateTime.now().format(DATETIME_FORMATTER));
+        startTimeField.put("required", true);
+        section2Fields.add(startTimeField);
+
+        // Timezone field
+        Map<String, Object> timezoneField = new HashMap<>();
+        timezoneField.put("name", "timezone");
+        timezoneField.put("label", "Timezone:");
+        timezoneField.put("type", "text");
+        timezoneField.put("default", "UTC");
+        timezoneField.put("required", false);
+        section2Fields.add(timezoneField);
+
+        inputSection2.put("fields", section2Fields);
+        uiInputs.add(inputSection2);
+
+        // Input Section 3: ETA Calculation (conditional)
+        Map<String, Object> inputSection3 = new HashMap<>();
+        inputSection3.put("header", "ETA Calculation Parameters");
+        inputSection3.put("condition", "uiOperation === 'calculate'");
+        List<Map<String, Object>> section3Fields = new ArrayList<>();
+
+        // Items processed field
+        Map<String, Object> itemsProcessedField = new HashMap<>();
+        itemsProcessedField.put("name", "itemsProcessed");
+        itemsProcessedField.put("label", "Items Processed in Sample:");
+        itemsProcessedField.put("type", "number");
+        itemsProcessedField.put("default", 10);
+        itemsProcessedField.put("min", 1);
+        itemsProcessedField.put("required", true);
+        section3Fields.add(itemsProcessedField);
+
+        // Time elapsed field
+        Map<String, Object> timeElapsedField = new HashMap<>();
+        timeElapsedField.put("name", "timeElapsed");
+        timeElapsedField.put("label", "Time Elapsed for Sample:");
+        timeElapsedField.put("type", "number");
+        timeElapsedField.put("default", 5);
+        timeElapsedField.put("min", 1);
+        timeElapsedField.put("required", true);
+        section3Fields.add(timeElapsedField);
+
+        // Time unit field
+        Map<String, Object> timeUnitField = new HashMap<>();
+        timeUnitField.put("name", "timeUnit");
+        timeUnitField.put("label", "Time Unit:");
+        timeUnitField.put("type", "select");
+        List<Map<String, String>> timeUnitOptions = new ArrayList<>();
+        timeUnitOptions.add(Map.of("value", "seconds", "label", "Seconds"));
+        timeUnitOptions.add(Map.of("value", "minutes", "label", "Minutes"));
+        timeUnitOptions.add(Map.of("value", "hours", "label", "Hours"));
+        timeUnitField.put("options", timeUnitOptions);
+        timeUnitField.put("default", "minutes");
+        timeUnitField.put("required", false);
+        section3Fields.add(timeUnitField);
+
+        inputSection3.put("fields", section3Fields);
+        uiInputs.add(inputSection3);
+
+        // Input Section 4: Progress Calculation (conditional)
+        Map<String, Object> inputSection4 = new HashMap<>();
+        inputSection4.put("header", "Progress Calculation Parameters");
+        inputSection4.put("condition", "uiOperation === 'progress'");
+        List<Map<String, Object>> section4Fields = new ArrayList<>();
+
+        // Items completed field
+        Map<String, Object> itemsCompletedField = new HashMap<>();
+        itemsCompletedField.put("name", "itemsCompleted");
+        itemsCompletedField.put("label", "Items Already Completed:");
+        itemsCompletedField.put("type", "number");
+        itemsCompletedField.put("default", 25);
+        itemsCompletedField.put("min", 0);
+        itemsCompletedField.put("required", true);
+        section4Fields.add(itemsCompletedField);
+
+        inputSection4.put("fields", section4Fields);
+        uiInputs.add(inputSection4);
+
+        uiConfig.put("inputs", uiInputs);
+
+        // --- Define UI Outputs ---
+        List<Map<String, Object>> uiOutputs = new ArrayList<>();
+
+        // Output Section 1: ETA Results (conditional)
+        Map<String, Object> outputSection1 = new HashMap<>();
+        outputSection1.put("header", "ETA Calculation Results");
+        outputSection1.put("condition", "uiOperation === 'calculate'");
+        List<Map<String, Object>> section1OutputFields = new ArrayList<>();
+
+        // Processing Rate
+        Map<String, Object> processingRateOutput = new HashMap<>();
+        processingRateOutput.put("title", "Processing Rate");
+        processingRateOutput.put("name", "processingRateFormatted");
+        processingRateOutput.put("type", "text");
+        section1OutputFields.add(processingRateOutput);
+
+        // Total Duration
+        Map<String, Object> totalDurationOutput = new HashMap<>();
+        totalDurationOutput.put("title", "Total Duration");
+        totalDurationOutput.put("name", "formattedDuration");
+        totalDurationOutput.put("type", "text");
+        section1OutputFields.add(totalDurationOutput);
+
+        // Will End At
+        Map<String, Object> endTimeOutput = new HashMap<>();
+        endTimeOutput.put("title", "Will End At");
+        endTimeOutput.put("name", "formattedEndTime");
+        endTimeOutput.put("type", "text");
+        section1OutputFields.add(endTimeOutput);
+
+        // Remaining Time
+        Map<String, Object> remainingTimeOutput = new HashMap<>();
+        remainingTimeOutput.put("title", "Remaining Time");
+        remainingTimeOutput.put("name", "formattedRemainingTime");
+        remainingTimeOutput.put("type", "text");
+        section1OutputFields.add(remainingTimeOutput);
+
+        outputSection1.put("fields", section1OutputFields);
+        uiOutputs.add(outputSection1);
+
+        // Output Section 2: Progress Results (conditional)
+        Map<String, Object> outputSection2 = new HashMap<>();
+        outputSection2.put("header", "Progress Information");
+        outputSection2.put("condition", "uiOperation === 'progress'");
+        List<Map<String, Object>> section2OutputFields = new ArrayList<>();
+
+        // Progress Percentage
+        Map<String, Object> progressOutput = new HashMap<>();
+        progressOutput.put("title", "Progress");
+        progressOutput.put("name", "formattedProgress");
+        progressOutput.put("type", "text");
+        section2OutputFields.add(progressOutput);
+
+        // Items Completed/Remaining
+        Map<String, Object> itemsStatusOutput = new HashMap<>();
+        itemsStatusOutput.put("title", "Items Completed/Remaining");
+        itemsStatusOutput.put("name", "itemsStatus");
+        itemsStatusOutput.put("type", "text");
+        itemsStatusOutput.put("formula", "itemsCompleted + ' of ' + totalItems + ' (' + remainingItems + ' remaining)'");
+        section2OutputFields.add(itemsStatusOutput);
+
+        // Processing Rate
+        Map<String, Object> progressRateOutput = new HashMap<>();
+        progressRateOutput.put("title", "Processing Rate");
+        progressRateOutput.put("name", "processingRateFormatted");
+        progressRateOutput.put("type", "text");
+        section2OutputFields.add(progressRateOutput);
+
+        // Elapsed Time
+        Map<String, Object> elapsedTimeOutput = new HashMap<>();
+        elapsedTimeOutput.put("title", "Elapsed Time");
+        elapsedTimeOutput.put("name", "formattedElapsedTime");
+        elapsedTimeOutput.put("type", "text");
+        section2OutputFields.add(elapsedTimeOutput);
+
+        // Estimated Remaining Time
+        Map<String, Object> estRemainingTimeOutput = new HashMap<>();
+        estRemainingTimeOutput.put("title", "Estimated Remaining");
+        estRemainingTimeOutput.put("name", "formattedRemainingTime");
+        estRemainingTimeOutput.put("type", "text");
+        section2OutputFields.add(estRemainingTimeOutput);
+
+        // Estimated End Time
+        Map<String, Object> estEndTimeOutput = new HashMap<>();
+        estEndTimeOutput.put("title", "Estimated End Time");
+        estEndTimeOutput.put("name", "formattedEndTime");
+        estEndTimeOutput.put("type", "text");
+        section2OutputFields.add(estEndTimeOutput);
+
+        // Total Duration
+        Map<String, Object> totalTimeOutput = new HashMap<>();
+        totalTimeOutput.put("title", "Total Duration");
+        totalTimeOutput.put("name", "formattedTotalTime");
+        totalTimeOutput.put("type", "text");
+        section2OutputFields.add(totalTimeOutput);
+
+        outputSection2.put("fields", section2OutputFields);
+        uiOutputs.add(outputSection2);
+
+        // Output Section 3: Error Display (conditional)
+        Map<String, Object> outputSection3 = new HashMap<>();
+        outputSection3.put("header", "Error Information");
+        outputSection3.put("condition", "error");
+        List<Map<String, Object>> section3OutputFields = new ArrayList<>();
+
+        // Error message
+        Map<String, Object> errorOutput = new HashMap<>();
+        errorOutput.put("title", "Error Message");
+        errorOutput.put("name", "error");
+        errorOutput.put("type", "text");
+        errorOutput.put("style", "error");
+        section3OutputFields.add(errorOutput);
+
+        outputSection3.put("fields", section3OutputFields);
+        uiOutputs.add(outputSection3);
+
+        uiConfig.put("outputs", uiOutputs);
+
+        // Add the structured uiConfig to the main metadata map
+        metadata.put("uiConfig", uiConfig);
+
         return metadata;
     }
 

@@ -2,16 +2,10 @@ package kostovite;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.time.LocalDate;
-import java.time.Period;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -598,7 +592,6 @@ public class PercentageCalculator implements PluginInterface {
             // Create amortization schedule
             List<Map<String, Object>> amortizationSchedule = new ArrayList<>();
             double remainingBalance = principal;
-            double cumulativeInterest = 0;
 
             for (int paymentNumber = 1; paymentNumber <= totalPayments; paymentNumber++) {
                 double interestPayment = remainingBalance * ratePerPeriod;
@@ -611,7 +604,6 @@ public class PercentageCalculator implements PluginInterface {
                 }
 
                 remainingBalance -= principalPayment;
-                cumulativeInterest += interestPayment;
 
                 // Don't include every single payment to keep the response size reasonable
                 if (paymentNumber <= 3 || paymentNumber > totalPayments - 3 ||
@@ -949,9 +941,7 @@ public class PercentageCalculator implements PluginInterface {
             // Process the rates
             Map<String, Double> rates = new HashMap<>();
             if (ratesNode != null && ratesNode.isObject()) {
-                ratesNode.fields().forEachRemaining(entry -> {
-                    rates.put(entry.getKey(), entry.getValue().asDouble());
-                });
+                ratesNode.fields().forEachRemaining(entry -> rates.put(entry.getKey(), entry.getValue().asDouble()));
             }
 
             // Store rates in cache

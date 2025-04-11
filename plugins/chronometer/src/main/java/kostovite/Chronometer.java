@@ -96,81 +96,67 @@ public class Chronometer implements PluginInterface {
     @Override
     public Map<String, Object> getMetadata() {
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", getName());
+        metadata.put("name", getName()); // Corresponds to ToolMetadata.name
         metadata.put("version", "1.0.0");
-        metadata.put("description", "Monitor the duration of events with a chronometer");
+        metadata.put("description", "Monitor the duration of events with a chronometer"); // Corresponds to ToolMetadata.description
 
-        // Define available operations
+        // Define available backend operations (for informational purposes or direct API calls)
         Map<String, Object> operations = new HashMap<>();
 
         // Create session operation
         Map<String, Object> createOperation = new HashMap<>();
         createOperation.put("description", "Create a new chronometer session");
-
         Map<String, Object> createInputs = new HashMap<>();
-        createInputs.put("name", "Name of the session (optional)");
-
+        createInputs.put("name", Map.of("type", "string", "description", "Name of the session (optional)"));
         createOperation.put("inputs", createInputs);
         operations.put("create", createOperation);
 
         // Start operation
         Map<String, Object> startOperation = new HashMap<>();
         startOperation.put("description", "Start the chronometer");
-
         Map<String, Object> startInputs = new HashMap<>();
-        startInputs.put("sessionId", "ID of the chronometer session");
-
+        startInputs.put("sessionId", Map.of("type", "string", "description", "ID of the chronometer session", "required", true));
         startOperation.put("inputs", startInputs);
         operations.put("start", startOperation);
 
         // Stop operation
         Map<String, Object> stopOperation = new HashMap<>();
         stopOperation.put("description", "Stop the chronometer");
-
         Map<String, Object> stopInputs = new HashMap<>();
-        stopInputs.put("sessionId", "ID of the chronometer session");
-
+        stopInputs.put("sessionId", Map.of("type", "string", "description", "ID of the chronometer session", "required", true));
         stopOperation.put("inputs", stopInputs);
         operations.put("stop", stopOperation);
 
         // Reset operation
         Map<String, Object> resetOperation = new HashMap<>();
         resetOperation.put("description", "Reset the chronometer");
-
         Map<String, Object> resetInputs = new HashMap<>();
-        resetInputs.put("sessionId", "ID of the chronometer session");
-
+        resetInputs.put("sessionId", Map.of("type", "string", "description", "ID of the chronometer session", "required", true));
         resetOperation.put("inputs", resetInputs);
         operations.put("reset", resetOperation);
 
         // Log time operation
         Map<String, Object> logOperation = new HashMap<>();
         logOperation.put("description", "Log a lap time");
-
         Map<String, Object> logInputs = new HashMap<>();
-        logInputs.put("sessionId", "ID of the chronometer session");
-        logInputs.put("label", "Label for the lap time (optional)");
-
+        logInputs.put("sessionId", Map.of("type", "string", "description", "ID of the chronometer session", "required", true));
+        logInputs.put("label", Map.of("type", "string", "description", "Label for the lap time (optional)"));
         logOperation.put("inputs", logInputs);
         operations.put("log", logOperation);
 
         // Get status operation
         Map<String, Object> statusOperation = new HashMap<>();
         statusOperation.put("description", "Get the current status of the chronometer");
-
         Map<String, Object> statusInputs = new HashMap<>();
-        statusInputs.put("sessionId", "ID of the chronometer session");
-
+        statusInputs.put("sessionId", Map.of("type", "string", "description", "ID of the chronometer session", "required", true));
         statusOperation.put("inputs", statusInputs);
         operations.put("status", statusOperation);
 
         // Get logs operation
         Map<String, Object> getLogsOperation = new HashMap<>();
         getLogsOperation.put("description", "Get all logged lap times");
-
         Map<String, Object> getLogsInputs = new HashMap<>();
-        getLogsInputs.put("sessionId", "ID of the chronometer session");
-
+        getLogsInputs.put("sessionId", Map.of("type", "string", "description", "ID of the chronometer session", "required", true));
         getLogsOperation.put("inputs", getLogsInputs);
         operations.put("getLogs", getLogsOperation);
 
@@ -182,14 +168,201 @@ public class Chronometer implements PluginInterface {
         // Delete session operation
         Map<String, Object> deleteSessionOperation = new HashMap<>();
         deleteSessionOperation.put("description", "Delete a chronometer session");
-
         Map<String, Object> deleteSessionInputs = new HashMap<>();
-        deleteSessionInputs.put("sessionId", "ID of the chronometer session");
-
+        deleteSessionInputs.put("sessionId", Map.of("type", "string", "description", "ID of the chronometer session", "required", true));
         deleteSessionOperation.put("inputs", deleteSessionInputs);
         operations.put("deleteSession", deleteSessionOperation);
+        metadata.put("operations", operations); // Keep this for backend/API reference
 
-        metadata.put("operations", operations);
+        // --- Define UI Configuration (matches structure in WorldClock) ---
+        Map<String, Object> uiConfig = new HashMap<>();
+        uiConfig.put("id", "Chronometer"); // Corresponds to ToolMetadata.id
+        uiConfig.put("icon", "Timer"); // Corresponds to ToolMetadata.icon (Material Icon name)
+        uiConfig.put("category", "Utilities"); // Corresponds to ToolMetadata.category
+
+        // --- Define UI Inputs ---
+        List<Map<String, Object>> uiInputs = new ArrayList<>();
+
+        // Input Section 1: Session Setup
+        Map<String, Object> inputSection1 = new HashMap<>();
+        inputSection1.put("header", "Chronometer Session");
+        List<Map<String, Object>> section1Fields = new ArrayList<>();
+
+        // Session name field
+        Map<String, Object> nameField = new HashMap<>();
+        nameField.put("name", "sessionName");
+        nameField.put("label", "Session Name:");
+        nameField.put("type", "text");
+        nameField.put("default", "Chronometer Session");
+        nameField.put("required", false);
+        section1Fields.add(nameField);
+
+        // Operation Selection
+        Map<String, Object> operationField = new HashMap<>();
+        operationField.put("name", "uiOperation");
+        operationField.put("label", "Action:");
+        operationField.put("type", "select");
+        List<Map<String, String>> operationOptions = new ArrayList<>();
+        operationOptions.add(Map.of("value", "create", "label", "Create Session"));
+        operationOptions.add(Map.of("value", "start", "label", "Start"));
+        operationOptions.add(Map.of("value", "stop", "label", "Stop"));
+        operationOptions.add(Map.of("value", "reset", "label", "Reset"));
+        operationOptions.add(Map.of("value", "log", "label", "Log Lap"));
+        operationOptions.add(Map.of("value", "status", "label", "Get Status"));
+        operationOptions.add(Map.of("value", "getLogs", "label", "Get Lap Times"));
+        operationField.put("options", operationOptions);
+        operationField.put("default", "create");
+        operationField.put("required", true);
+        section1Fields.add(operationField);
+
+        // Session ID field (conditional)
+        Map<String, Object> sessionIdField = new HashMap<>();
+        sessionIdField.put("name", "sessionId");
+        sessionIdField.put("label", "Session ID:");
+        sessionIdField.put("type", "text");
+        sessionIdField.put("required", true);
+        sessionIdField.put("condition", "uiOperation !== 'create' && uiOperation !== 'listSessions'");
+        section1Fields.add(sessionIdField);
+
+        inputSection1.put("fields", section1Fields);
+        uiInputs.add(inputSection1);
+
+        // Input Section 2: Lap Settings
+        Map<String, Object> inputSection2 = new HashMap<>();
+        inputSection2.put("header", "Lap Settings");
+        inputSection2.put("condition", "uiOperation === 'log'");
+        List<Map<String, Object>> section2Fields = new ArrayList<>();
+
+        // Lap label field
+        Map<String, Object> lapLabelField = new HashMap<>();
+        lapLabelField.put("name", "label");
+        lapLabelField.put("label", "Lap Label:");
+        lapLabelField.put("type", "text");
+        lapLabelField.put("default", "Lap");
+        lapLabelField.put("required", false);
+        section2Fields.add(lapLabelField);
+
+        inputSection2.put("fields", section2Fields);
+        uiInputs.add(inputSection2);
+
+        uiConfig.put("inputs", uiInputs);
+
+        // --- Define UI Outputs ---
+        List<Map<String, Object>> uiOutputs = new ArrayList<>();
+
+        // Output Section 1: Session Info
+        Map<String, Object> outputSection1 = new HashMap<>();
+        outputSection1.put("header", "Session Information");
+        outputSection1.put("condition", "uiOperation === 'create' || uiOperation === 'status' || uiOperation === 'start' || uiOperation === 'stop'");
+        List<Map<String, Object>> section1OutputFields = new ArrayList<>();
+
+        // Session ID (for new sessions)
+        Map<String, Object> sessionIdOutput = new HashMap<>();
+        sessionIdOutput.put("title", "Session ID");
+        sessionIdOutput.put("name", "sessionId");
+        sessionIdOutput.put("type", "text");
+        sessionIdOutput.put("buttons", List.of("copy"));
+        sessionIdOutput.put("condition", "uiOperation === 'create'");
+        section1OutputFields.add(sessionIdOutput);
+
+        // Status
+        Map<String, Object> statusOutput = new HashMap<>();
+        statusOutput.put("title", "Status");
+        statusOutput.put("name", "status");
+        statusOutput.put("type", "text");
+        section1OutputFields.add(statusOutput);
+
+        // Elapsed Time
+        Map<String, Object> elapsedOutput = new HashMap<>();
+        elapsedOutput.put("title", "Elapsed Time");
+        elapsedOutput.put("name", "elapsedFormatted");
+        elapsedOutput.put("type", "text");
+        section1OutputFields.add(elapsedOutput);
+
+        // Start Time
+        Map<String, Object> startTimeOutput = new HashMap<>();
+        startTimeOutput.put("title", "Start Time");
+        startTimeOutput.put("name", "startTime");
+        startTimeOutput.put("type", "text");
+        startTimeOutput.put("condition", "startTime");
+        section1OutputFields.add(startTimeOutput);
+
+        outputSection1.put("fields", section1OutputFields);
+        uiOutputs.add(outputSection1);
+
+        // Output Section 2: Lap Info
+        Map<String, Object> outputSection2 = new HashMap<>();
+        outputSection2.put("header", "Lap Information");
+        outputSection2.put("condition", "uiOperation === 'log'");
+        List<Map<String, Object>> section2OutputFields = new ArrayList<>();
+
+        section2OutputFields.add(Map.of(
+                "title", "Lap Number",
+                "name", "lapNumber",
+                "type", "text"
+        ));
+
+        section2OutputFields.add(Map.of(
+                "title", "Lap Time",
+                "name", "elapsedFormatted",
+                "type", "text"
+        ));
+
+        section2OutputFields.add(Map.of(
+                "title", "Split Time",
+                "name", "splitFormatted",
+                "type", "text"
+        ));
+
+        outputSection2.put("fields", section2OutputFields);
+        uiOutputs.add(outputSection2);
+
+        // Output Section 3: Lap Times Table
+        Map<String, Object> outputSection3 = new HashMap<>();
+        outputSection3.put("header", "Lap Times");
+        outputSection3.put("condition", "uiOperation === 'getLogs' || uiOperation === 'status'");
+        List<Map<String, Object>> section3OutputFields = new ArrayList<>();
+
+        Map<String, Object> lapsTableOutput = new HashMap<>();
+        lapsTableOutput.put("name", "laps");
+        lapsTableOutput.put("type", "table");
+        List<Map<String, Object>> lapColumns = new ArrayList<>();
+        lapColumns.add(Map.of("header", "Lap", "field", "lapNumber"));
+        lapColumns.add(Map.of("header", "Label", "field", "label"));
+        lapColumns.add(Map.of("header", "Time", "field", "elapsedFormatted"));
+        lapColumns.add(Map.of("header", "Split", "field", "splitFormatted"));
+        lapsTableOutput.put("columns", lapColumns);
+        section3OutputFields.add(lapsTableOutput);
+
+        outputSection3.put("fields", section3OutputFields);
+        uiOutputs.add(outputSection3);
+
+        // Output Section 4: Sessions List
+        Map<String, Object> outputSection4 = new HashMap<>();
+        outputSection4.put("header", "Active Sessions");
+        outputSection4.put("condition", "uiOperation === 'listSessions'");
+        List<Map<String, Object>> section4OutputFields = new ArrayList<>();
+
+        Map<String, Object> sessionsTableOutput = new HashMap<>();
+        sessionsTableOutput.put("name", "sessions");
+        sessionsTableOutput.put("type", "table");
+        List<Map<String, Object>> sessionColumns = new ArrayList<>();
+        sessionColumns.add(Map.of("header", "Session ID", "field", "sessionId"));
+        sessionColumns.add(Map.of("header", "Name", "field", "name"));
+        sessionColumns.add(Map.of("header", "Status", "field", "status"));
+        sessionColumns.add(Map.of("header", "Elapsed", "field", "elapsedFormatted"));
+        sessionColumns.add(Map.of("header", "Laps", "field", "lapCount"));
+        sessionsTableOutput.put("columns", sessionColumns);
+        section4OutputFields.add(sessionsTableOutput);
+
+        outputSection4.put("fields", section4OutputFields);
+        uiOutputs.add(outputSection4);
+
+        uiConfig.put("outputs", uiOutputs);
+
+        // Add the structured uiConfig to the main metadata map
+        metadata.put("uiConfig", uiConfig);
+
         return metadata;
     }
 

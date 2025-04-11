@@ -1,6 +1,5 @@
 package kostovite;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -12,12 +11,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
+import java.util.Objects;
 
 public class WebCamCapture implements PluginInterface {
 
-    private String uploadDir = "media-uploads";
-    private DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+    private final String uploadDir = "media-uploads";
+    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
     public WebCamCapture() {
         // Create upload directory if it doesn't exist
@@ -86,17 +85,15 @@ public class WebCamCapture implements PluginInterface {
         try {
             String operation = (String) input.getOrDefault("operation", "");
 
-            switch (operation.toLowerCase()) {
-                case "takephoto":
-                    return processImage(input);
-                case "recordvideo":
-                    return processVideo(input);
-                case "getclientscript":
-                    return getClientScript();
-                default:
+            return switch (operation.toLowerCase()) {
+                case "takephoto" -> processImage(input);
+                case "recordvideo" -> processVideo(input);
+                case "getclientscript" -> getClientScript();
+                default -> {
                     result.put("error", "Unsupported operation: " + operation);
-                    return result;
-            }
+                    yield result;
+                }
+            };
         } catch (Exception e) {
             result.put("error", "Error processing request: " + e.getMessage());
             e.printStackTrace();
@@ -197,7 +194,7 @@ public class WebCamCapture implements PluginInterface {
 
         try {
             // Read the client-side script
-            Path scriptPath = Paths.get(getClass().getResource("/static/webcam.js").toURI());
+            Path scriptPath = Paths.get(Objects.requireNonNull(getClass().getResource("/static/webcam.js")).toURI());
             String script = new String(Files.readAllBytes(scriptPath));
 
             result.put("success", true);
@@ -212,15 +209,10 @@ public class WebCamCapture implements PluginInterface {
     }
 
     private String mimeTypeToExtension(String mimeType) {
-        switch (mimeType.toLowerCase()) {
-            case "video/webm":
-                return ".webm";
-            case "video/mp4":
-                return ".mp4";
-            case "video/ogg":
-                return ".ogv";
-            default:
-                return ".webm";
-        }
+        return switch (mimeType.toLowerCase()) {
+            case "video/mp4" -> ".mp4";
+            case "video/ogg" -> ".ogv";
+            default -> ".webm";
+        };
     }
 }

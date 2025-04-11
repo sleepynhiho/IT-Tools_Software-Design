@@ -2,7 +2,6 @@ package kostovite;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -73,57 +72,277 @@ public class WorldClock implements PluginInterface {
     @Override
     public Map<String, Object> getMetadata() {
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", getName());
+        metadata.put("name", getName()); // Corresponds to ToolMetadata.name
         metadata.put("version", "1.0.0");
-        metadata.put("description", "World clock and time zone converter");
+        metadata.put("description", "World clock and time zone converter"); // Corresponds to ToolMetadata.description
 
-        // Define available operations
+        // Define available backend operations (for informational purposes or direct API calls)
+        // This is separate from the uiConfig, which describes how the UI should look.
         Map<String, Object> operations = new HashMap<>();
-
         // Get current time operation
         Map<String, Object> getCurrentTimeOperation = new HashMap<>();
         getCurrentTimeOperation.put("description", "Get current time in different time zones");
-
         Map<String, Object> getCurrentTimeInputs = new HashMap<>();
-        getCurrentTimeInputs.put("filter", "Filter time zones by region or keyword (optional)");
-        getCurrentTimeInputs.put("limit", "Limit the number of time zones returned (optional)");
-
+        getCurrentTimeInputs.put("filter", Map.of("type", "string", "description", "Filter time zones by region or keyword (optional)"));
+        getCurrentTimeInputs.put("limit", Map.of("type", "integer", "description", "Limit the number of time zones returned (optional)"));
         getCurrentTimeOperation.put("inputs", getCurrentTimeInputs);
-        operations.put("getCurrentTime", getCurrentTimeOperation);
+        operations.put("getCurrentTime", getCurrentTimeOperation); // Use the actual operation name
 
         // Convert time operation
         Map<String, Object> convertTimeOperation = new HashMap<>();
         convertTimeOperation.put("description", "Convert time between time zones");
-
         Map<String, Object> convertTimeInputs = new HashMap<>();
-        convertTimeInputs.put("dateTime", "Date and time to convert (format: yyyy-MM-dd HH:mm:ss)");
-        convertTimeInputs.put("sourceTimeZone", "Source time zone ID");
-        convertTimeInputs.put("targetTimeZone", "Target time zone ID (optional, converts to all zones if not specified)");
-
+        convertTimeInputs.put("dateTime", Map.of("type", "string", "description", "Date and time to convert (format: yyyy-MM-dd HH:mm:ss)", "required", true));
+        convertTimeInputs.put("sourceTimeZone", Map.of("type", "string", "description", "Source time zone ID", "required", true));
+        convertTimeInputs.put("targetTimeZone", Map.of("type", "string", "description", "Target time zone ID (optional, converts to all zones if not specified)"));
         convertTimeOperation.put("inputs", convertTimeInputs);
-        operations.put("convertTime", convertTimeOperation);
+        operations.put("convertTime", convertTimeOperation); // Use the actual operation name
 
         // List time zones operation
         Map<String, Object> listTimeZonesOperation = new HashMap<>();
         listTimeZonesOperation.put("description", "List available time zones");
-
         Map<String, Object> listTimeZonesInputs = new HashMap<>();
-        listTimeZonesInputs.put("filter", "Filter time zones by region or keyword (optional)");
-
+        listTimeZonesInputs.put("filter", Map.of("type", "string", "description", "Filter time zones by region or keyword (optional)"));
         listTimeZonesOperation.put("inputs", listTimeZonesInputs);
-        operations.put("listTimeZones", listTimeZonesOperation);
+        operations.put("listTimeZones", listTimeZonesOperation); // Use the actual operation name
 
         // Get time zone details operation
         Map<String, Object> getTimeZoneDetailsOperation = new HashMap<>();
         getTimeZoneDetailsOperation.put("description", "Get details about a specific time zone");
-
         Map<String, Object> getTimeZoneDetailsInputs = new HashMap<>();
-        getTimeZoneDetailsInputs.put("timeZone", "Time zone ID");
-
+        getTimeZoneDetailsInputs.put("timeZone", Map.of("type", "string", "description", "Time zone ID", "required", true));
         getTimeZoneDetailsOperation.put("inputs", getTimeZoneDetailsInputs);
-        operations.put("getTimeZoneDetails", getTimeZoneDetailsOperation);
+        operations.put("getTimeZoneDetails", getTimeZoneDetailsOperation); // Use the actual operation name
+        // --- End of operations definitions ---
+        metadata.put("operations", operations); // Keep this for backend/API reference
 
-        metadata.put("operations", operations);
+
+        // --- Define UI Configuration (matches the HashTools structure) ---
+        Map<String, Object> uiConfig = new HashMap<>();
+        uiConfig.put("id", "WorldClock"); // Corresponds to ToolMetadata.id
+        // uiConfig.put("name", "World Clock"); // Can be derived from metadata.name by FE
+        uiConfig.put("icon", "Public"); // Corresponds to ToolMetadata.icon (e.g., Material Icon name)
+        uiConfig.put("category", "Utilities"); // Corresponds to ToolMetadata.category
+        // uiConfig.put("description", "..."); // Can be derived from metadata.description by FE
+
+        // --- Define UI Inputs ---
+        // This list corresponds to uiConfig.inputs in the TypeScript example
+        List<Map<String, Object>> uiInputs = new ArrayList<>();
+
+        // Input Section 1: Common Controls
+        Map<String, Object> inputSection1 = new HashMap<>();
+        inputSection1.put("header", "World Clock Operation"); // Section header
+        List<Map<String, Object>> section1Fields = new ArrayList<>();
+
+        // Operation selection field
+        Map<String, Object> operationField = new HashMap<>();
+        operationField.put("name", "uiOperation"); // Name used in form state/submission
+        operationField.put("label", "Operation:");
+        operationField.put("type", "select");
+        // Use value/label pairs for options
+        List<Map<String, String>> operationOptions = new ArrayList<>();
+        operationOptions.add(Map.of("value", "convertTime", "label", "Convert Time"));
+        operationOptions.add(Map.of("value", "getCurrentTime", "label", "Show Current Time"));
+        operationOptions.add(Map.of("value", "getTimeZoneDetails", "label", "Get Time Zone Details"));
+        operationField.put("options", operationOptions);
+        operationField.put("default", "convertTime");
+        operationField.put("required", true);
+        section1Fields.add(operationField);
+
+        inputSection1.put("fields", section1Fields); // Add fields to the section
+        uiInputs.add(inputSection1); // Add section to the inputs list
+
+        // Input Section 2: Conditional Parameters based on Operation
+        Map<String, Object> inputSection2 = new HashMap<>();
+        inputSection2.put("header", "Operation Parameters"); // Section header
+        List<Map<String, Object>> section2Fields = new ArrayList<>();
+
+        // --- Fields for "Convert Time" ---
+        Map<String, Object> dateTimeField = new HashMap<>();
+        dateTimeField.put("name", "dateTime");
+        dateTimeField.put("label", "Date and Time (YYYY-MM-DD HH:MM:SS):");
+        dateTimeField.put("type", "text");
+        try {
+            // Requires DEFAULT_DATETIME_FORMAT and ZonedDateTime
+            dateTimeField.put("default", ZonedDateTime.now().format(DEFAULT_DATETIME_FORMAT));
+        } catch (Exception e) {
+            // Fallback if ZonedDateTime fails (e.g., in restricted environment)
+            dateTimeField.put("default", "2025-01-01 12:00:00");
+        }
+        dateTimeField.put("required", true); // Mark as required for this operation
+        // Condition for frontend to show/hide this field
+        dateTimeField.put("condition", "uiOperation === 'convertTime'");
+        section2Fields.add(dateTimeField);
+
+        Map<String, Object> sourceTimeZoneField = new HashMap<>();
+        sourceTimeZoneField.put("name", "sourceTimeZone");
+        sourceTimeZoneField.put("label", "Source Time Zone (e.g., UTC, America/New_York):");
+        sourceTimeZoneField.put("type", "text"); // Consider "timezone" type if FE supports it
+        sourceTimeZoneField.put("default", "UTC");
+        sourceTimeZoneField.put("required", true);
+        sourceTimeZoneField.put("condition", "uiOperation === 'convertTime'");
+        section2Fields.add(sourceTimeZoneField);
+
+        Map<String, Object> targetTimeZoneField = new HashMap<>();
+        targetTimeZoneField.put("name", "targetTimeZone");
+        targetTimeZoneField.put("label", "Target Time Zone (Optional, blank for all):");
+        targetTimeZoneField.put("type", "text"); // Consider "timezone" type
+        targetTimeZoneField.put("default", "America/New_York");
+        targetTimeZoneField.put("required", false); // Optional field
+        targetTimeZoneField.put("condition", "uiOperation === 'convertTime'");
+        section2Fields.add(targetTimeZoneField);
+
+        // --- Fields for "Show Current Time" ---
+        Map<String, Object> filterField = new HashMap<>();
+        filterField.put("name", "filter");
+        filterField.put("label", "Filter Time Zones (region/keyword, optional):");
+        filterField.put("type", "text");
+        filterField.put("default", "");
+        filterField.put("required", false);
+        filterField.put("condition", "uiOperation === 'getCurrentTime'");
+        section2Fields.add(filterField);
+
+        Map<String, Object> limitField = new HashMap<>();
+        limitField.put("name", "limit");
+        limitField.put("label", "Max Zones to Show (optional):");
+        limitField.put("type", "number");
+        limitField.put("default", 10);
+        limitField.put("min", 1);
+        limitField.put("max", 100); // Provide reasonable limits
+        limitField.put("required", false);
+        limitField.put("condition", "uiOperation === 'getCurrentTime'");
+        section2Fields.add(limitField);
+
+        // --- Fields for "Get Time Zone Details" ---
+        Map<String, Object> timeZoneField = new HashMap<>();
+        timeZoneField.put("name", "timeZone");
+        timeZoneField.put("label", "Time Zone (e.g., Europe/London):");
+        timeZoneField.put("type", "text"); // Consider "timezone" type
+        timeZoneField.put("default", "Europe/London");
+        timeZoneField.put("required", true);
+        timeZoneField.put("condition", "uiOperation === 'getTimeZoneDetails'");
+        section2Fields.add(timeZoneField);
+
+        inputSection2.put("fields", section2Fields); // Add fields to the section
+        uiInputs.add(inputSection2); // Add section to the inputs list
+
+
+        uiConfig.put("inputs", uiInputs); // Assign the complete inputs structure
+
+        // --- Define UI Outputs ---
+        // This list corresponds to uiConfig.outputs in the TypeScript example
+        List<Map<String, Object>> uiOutputs = new ArrayList<>();
+
+        // Output Section 1: Conversion Result (Conditional)
+        Map<String, Object> outputSection1 = new HashMap<>();
+        outputSection1.put("header", "Conversion Result"); // Section header
+        // Condition for frontend to show/hide the entire section
+        outputSection1.put("condition", "uiOperation === 'convertTime'");
+        List<Map<String, Object>> section1OutputFields = new ArrayList<>();
+
+        // Source Time (Always shown for conversion)
+        Map<String, Object> sourceOutput = new HashMap<>();
+        sourceOutput.put("title", "Source Time"); // Label for the output field
+        sourceOutput.put("name", "sourceDateTime"); // Key in the process() result map
+        sourceOutput.put("type", "text");
+        section1OutputFields.add(sourceOutput);
+
+        // Target Time (Only shown if a specific target zone was requested)
+        Map<String, Object> targetTimeOutput = new HashMap<>();
+        targetTimeOutput.put("title", "Target Time");
+        // Use dot notation if the result is nested, e.g., result.targetDateTime.formattedTime
+        targetTimeOutput.put("name", "targetDateTime.formattedTime");
+        targetTimeOutput.put("type", "text");
+        targetTimeOutput.put("buttons", List.of("copy")); // Add a copy button
+        // Condition for frontend to show/hide this specific field
+        targetTimeOutput.put("condition", "targetTimeZone"); // Show if targetTimeZone input was non-empty
+        section1OutputFields.add(targetTimeOutput);
+
+        // Target Offset (Only shown for specific target)
+        Map<String, Object> targetOffsetOutput = new HashMap<>();
+        targetOffsetOutput.put("title", "Target Offset");
+        targetOffsetOutput.put("name", "targetDateTime.offset");
+        targetOffsetOutput.put("type", "text");
+        targetOffsetOutput.put("condition", "targetTimeZone");
+        section1OutputFields.add(targetOffsetOutput);
+
+        // Target DST (Only shown for specific target)
+        Map<String, Object> targetDstOutput = new HashMap<>();
+        targetDstOutput.put("title", "Target DST Active");
+        targetDstOutput.put("name", "targetDateTime.isDaylightSavingTime");
+        targetDstOutput.put("type", "text"); // Use text for boolean display flexibility
+        targetDstOutput.put("condition", "targetTimeZone");
+        section1OutputFields.add(targetDstOutput);
+
+        // Table for All Time Zone Conversions (Shown if targetTimeZone was blank)
+        Map<String, Object> allConversionsOutput = new HashMap<>();
+        allConversionsOutput.put("title", "All Time Zone Conversions"); // Label for the table
+        allConversionsOutput.put("name", "conversions"); // Key for the list in process() result
+        allConversionsOutput.put("type", "table");
+        // Condition: show only if converting time AND targetTimeZone input was empty
+        allConversionsOutput.put("condition", "uiOperation === 'convertTime' && !targetTimeZone");
+        List<Map<String, Object>> conversionColumns = new ArrayList<>();
+        conversionColumns.add(Map.of("header", "Zone", "field", "zoneName")); // Table column definitions
+        conversionColumns.add(Map.of("header", "Time", "field", "formattedTime"));
+        conversionColumns.add(Map.of("header", "Offset", "field", "offset"));
+        conversionColumns.add(Map.of("header", "DST", "field", "isDaylightSavingTime"));
+        allConversionsOutput.put("columns", conversionColumns);
+        section1OutputFields.add(allConversionsOutput); // Add the table definition as a field
+
+        outputSection1.put("fields", section1OutputFields); // Add fields to the section
+        uiOutputs.add(outputSection1); // Add section to the outputs list
+
+
+        // Output Section 2: Current Time Zones (Conditional)
+        Map<String, Object> outputSection2 = new HashMap<>();
+        outputSection2.put("header", "Current Time Zones");
+        outputSection2.put("condition", "uiOperation === 'getCurrentTime'");
+        List<Map<String, Object>> section2OutputFields = new ArrayList<>();
+
+        // Table for current times
+        Map<String, Object> timeZonesTableOutput = new HashMap<>();
+        // title is optional if header is sufficient
+        timeZonesTableOutput.put("name", "timeZones"); // Key for the list in process() result
+        timeZonesTableOutput.put("type", "table");
+        List<Map<String, Object>> currentTimeColumns = new ArrayList<>();
+        currentTimeColumns.add(Map.of("header", "Zone", "field", "zoneName"));
+        currentTimeColumns.add(Map.of("header", "Time", "field", "formattedTime"));
+        currentTimeColumns.add(Map.of("header", "Offset", "field", "offset"));
+        currentTimeColumns.add(Map.of("header", "DST", "field", "isDaylightSavingTime"));
+        timeZonesTableOutput.put("columns", currentTimeColumns);
+        section2OutputFields.add(timeZonesTableOutput); // Add table definition as a field
+
+        outputSection2.put("fields", section2OutputFields);
+        uiOutputs.add(outputSection2);
+
+
+        // Output Section 3: Time Zone Details (Conditional)
+        Map<String, Object> outputSection3 = new HashMap<>();
+        outputSection3.put("header", "Time Zone Details");
+        outputSection3.put("condition", "uiOperation === 'getTimeZoneDetails'");
+        List<Map<String, Object>> section3OutputFields = new ArrayList<>();
+
+        // Individual detail fields
+        section3OutputFields.add(Map.of("title", "Zone ID", "name", "id", "type", "text"));
+        section3OutputFields.add(Map.of("title", "Display Name", "name", "displayName", "type", "text"));
+        section3OutputFields.add(Map.of("title", "Current Time", "name", "currentTime", "type", "text", "buttons", List.of("copy")));
+        section3OutputFields.add(Map.of("title", "Current Offset", "name", "currentOffset", "type", "text"));
+        section3OutputFields.add(Map.of("title", "Standard Offset", "name", "standardOffset", "type", "text"));
+        section3OutputFields.add(Map.of("title", "DST Active Now", "name", "isDaylightSavingsActive", "type", "text")); // Or boolean
+
+        // Fields for nested transition data - display as JSON or specific component
+        section3OutputFields.add(Map.of("title", "Next DST Transition", "name", "nextTransition", "type", "json"));
+        section3OutputFields.add(Map.of("title", "Previous DST Transition", "name", "previousTransition", "type", "json"));
+
+        outputSection3.put("fields", section3OutputFields);
+        uiOutputs.add(outputSection3);
+
+
+        uiConfig.put("outputs", uiOutputs); // Assign the complete outputs structure
+
+        // Add the structured uiConfig to the main metadata map
+        metadata.put("uiConfig", uiConfig);
+
         return metadata;
     }
 

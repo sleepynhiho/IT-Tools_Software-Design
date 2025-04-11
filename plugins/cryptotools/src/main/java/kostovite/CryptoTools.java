@@ -3,10 +3,7 @@ package kostovite;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
@@ -60,34 +57,30 @@ public class CryptoTools implements ExtendedPluginInterface {
     @Override
     public Map<String, Object> getMetadata() {
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", getName());
+        metadata.put("name", getName()); // Corresponds to ToolMetadata.name
         metadata.put("version", "1.0.0");
-        metadata.put("description", "Provides encryption and decryption functionality with various algorithms");
+        metadata.put("description", "Provides encryption and decryption functionality with various algorithms"); // Corresponds to ToolMetadata.description
 
-        // Define available operations
+        // Define available backend operations (for informational purposes or direct API calls)
         Map<String, Object> operations = new HashMap<>();
 
         // Encrypt operation
         Map<String, Object> encryptOperation = new HashMap<>();
         encryptOperation.put("description", "Encrypt text with a secret key");
-
         Map<String, Object> encryptInputs = new HashMap<>();
-        encryptInputs.put("text", "Text to encrypt");
-        encryptInputs.put("key", "Secret key for encryption");
-        encryptInputs.put("algorithm", "Encryption algorithm (AES, DES, TripleDES, Blowfish, RC4)");
-
+        encryptInputs.put("text", Map.of("type", "string", "description", "Text to encrypt", "required", true));
+        encryptInputs.put("key", Map.of("type", "string", "description", "Secret key for encryption", "required", true));
+        encryptInputs.put("algorithm", Map.of("type", "string", "description", "Encryption algorithm (AES, DES, TripleDES, Blowfish, RC4)", "required", true));
         encryptOperation.put("inputs", encryptInputs);
         operations.put("encrypt", encryptOperation);
 
         // Decrypt operation
         Map<String, Object> decryptOperation = new HashMap<>();
         decryptOperation.put("description", "Decrypt encrypted text with a secret key");
-
         Map<String, Object> decryptInputs = new HashMap<>();
-        decryptInputs.put("encryptedText", "Text to decrypt (Base64 encoded)");
-        decryptInputs.put("key", "Secret key for decryption (must match the encryption key)");
-        decryptInputs.put("algorithm", "Decryption algorithm (must match the encryption algorithm)");
-
+        decryptInputs.put("encryptedText", Map.of("type", "string", "description", "Text to decrypt (Base64 encoded)", "required", true));
+        decryptInputs.put("key", Map.of("type", "string", "description", "Secret key for decryption (must match the encryption key)", "required", true));
+        decryptInputs.put("algorithm", Map.of("type", "string", "description", "Decryption algorithm (must match the encryption algorithm)", "required", true));
         decryptOperation.put("inputs", decryptInputs);
         operations.put("decrypt", decryptOperation);
 
@@ -96,7 +89,192 @@ public class CryptoTools implements ExtendedPluginInterface {
         listAlgorithmsOperation.put("description", "List supported encryption/decryption algorithms");
         operations.put("listAlgorithms", listAlgorithmsOperation);
 
-        metadata.put("operations", operations);
+        metadata.put("operations", operations); // Keep this for backend/API reference
+
+        // --- Define UI Configuration ---
+        Map<String, Object> uiConfig = new HashMap<>();
+        uiConfig.put("id", "CryptoTools"); // Corresponds to ToolMetadata.id
+        uiConfig.put("icon", "EnhancedEncryption"); // Corresponds to ToolMetadata.icon (Material Icon name)
+        uiConfig.put("category", "Crypto"); // Corresponds to ToolMetadata.category
+
+        // --- Define UI Inputs ---
+        List<Map<String, Object>> uiInputs = new ArrayList<>();
+
+        // Input Section 1: Main Operation Selection
+        Map<String, Object> inputSection1 = new HashMap<>();
+        inputSection1.put("header", "Encryption/Decryption Settings");
+        List<Map<String, Object>> section1Fields = new ArrayList<>();
+
+        // Operation selection field
+        Map<String, Object> operationField = new HashMap<>();
+        operationField.put("name", "uiOperation");
+        operationField.put("label", "Operation:");
+        operationField.put("type", "select");
+        List<Map<String, String>> operationOptions = new ArrayList<>();
+        operationOptions.add(Map.of("value", "encrypt", "label", "Encrypt"));
+        operationOptions.add(Map.of("value", "decrypt", "label", "Decrypt"));
+        operationField.put("options", operationOptions);
+        operationField.put("default", "encrypt");
+        operationField.put("required", true);
+        section1Fields.add(operationField);
+
+        // Algorithm selection field
+        Map<String, Object> algorithmField = new HashMap<>();
+        algorithmField.put("name", "algorithm");
+        algorithmField.put("label", "Algorithm:");
+        algorithmField.put("type", "select");
+        List<Map<String, String>> algorithmOptions = new ArrayList<>();
+        algorithmOptions.add(Map.of("value", "AES", "label", "AES (Advanced Encryption Standard)"));
+        algorithmOptions.add(Map.of("value", "DES", "label", "DES (Data Encryption Standard)"));
+        algorithmOptions.add(Map.of("value", "TripleDES", "label", "Triple DES"));
+        algorithmOptions.add(Map.of("value", "Blowfish", "label", "Blowfish"));
+        algorithmOptions.add(Map.of("value", "RC4", "label", "RC4 (Rivest Cipher 4)"));
+        algorithmField.put("options", algorithmOptions);
+        algorithmField.put("default", "AES");
+        algorithmField.put("required", true);
+        section1Fields.add(algorithmField);
+
+        // Secret key field
+        Map<String, Object> keyField = new HashMap<>();
+        keyField.put("name", "key");
+        keyField.put("label", "Secret Key:");
+        keyField.put("type", "password"); // Use password type for better security
+        keyField.put("default", "");
+        keyField.put("required", true);
+        section1Fields.add(keyField);
+
+        inputSection1.put("fields", section1Fields);
+        uiInputs.add(inputSection1);
+
+        // Input Section 2: Encrypt Inputs (conditional)
+        Map<String, Object> inputSection2 = new HashMap<>();
+        inputSection2.put("header", "Text to Encrypt");
+        inputSection2.put("condition", "uiOperation === 'encrypt'");
+        List<Map<String, Object>> section2Fields = new ArrayList<>();
+
+        // Text to encrypt field
+        Map<String, Object> textField = new HashMap<>();
+        textField.put("name", "text");
+        textField.put("label", "Text to Encrypt:");
+        textField.put("type", "text");
+        textField.put("multiline", true); // For longer text
+        textField.put("rows", 5); // Suggest multi-line input
+        textField.put("default", "");
+        textField.put("required", true);
+        section2Fields.add(textField);
+
+        inputSection2.put("fields", section2Fields);
+        uiInputs.add(inputSection2);
+
+        // Input Section 3: Decrypt Inputs (conditional)
+        Map<String, Object> inputSection3 = new HashMap<>();
+        inputSection3.put("header", "Text to Decrypt");
+        inputSection3.put("condition", "uiOperation === 'decrypt'");
+        List<Map<String, Object>> section3Fields = new ArrayList<>();
+
+        // Text to decrypt field
+        Map<String, Object> encryptedTextField = new HashMap<>();
+        encryptedTextField.put("name", "encryptedText");
+        encryptedTextField.put("label", "Encrypted Text (Base64):");
+        encryptedTextField.put("type", "text");
+        encryptedTextField.put("multiline", true); // For longer text
+        encryptedTextField.put("rows", 5); // Suggest multi-line input
+        encryptedTextField.put("default", "");
+        encryptedTextField.put("required", true);
+        section3Fields.add(encryptedTextField);
+
+        inputSection3.put("fields", section3Fields);
+        uiInputs.add(inputSection3);
+
+        uiConfig.put("inputs", uiInputs);
+
+        // --- Define UI Outputs ---
+        List<Map<String, Object>> uiOutputs = new ArrayList<>();
+
+        // Output Section 1: Encryption Result
+        Map<String, Object> outputSection1 = new HashMap<>();
+        outputSection1.put("header", "Encryption Result");
+        outputSection1.put("condition", "uiOperation === 'encrypt'");
+        List<Map<String, Object>> section1OutputFields = new ArrayList<>();
+
+        // Original text
+        Map<String, Object> originalTextOutput = new HashMap<>();
+        originalTextOutput.put("title", "Original Text");
+        originalTextOutput.put("name", "originalText");
+        originalTextOutput.put("type", "text");
+        section1OutputFields.add(originalTextOutput);
+
+        // Encrypted text
+        Map<String, Object> encryptedTextOutput = new HashMap<>();
+        encryptedTextOutput.put("title", "Encrypted Text (Base64)");
+        encryptedTextOutput.put("name", "encryptedText");
+        encryptedTextOutput.put("type", "text");
+        encryptedTextOutput.put("buttons", List.of("copy")); // Add copy button
+        section1OutputFields.add(encryptedTextOutput);
+
+        // Algorithm used
+        Map<String, Object> encryptAlgorithmOutput = new HashMap<>();
+        encryptAlgorithmOutput.put("title", "Algorithm Used");
+        encryptAlgorithmOutput.put("name", "algorithm");
+        encryptAlgorithmOutput.put("type", "text");
+        section1OutputFields.add(encryptAlgorithmOutput);
+
+        outputSection1.put("fields", section1OutputFields);
+        uiOutputs.add(outputSection1);
+
+        // Output Section 2: Decryption Result
+        Map<String, Object> outputSection2 = new HashMap<>();
+        outputSection2.put("header", "Decryption Result");
+        outputSection2.put("condition", "uiOperation === 'decrypt'");
+        List<Map<String, Object>> section2OutputFields = new ArrayList<>();
+
+        // Original encrypted text
+        Map<String, Object> originalEncryptedOutput = new HashMap<>();
+        originalEncryptedOutput.put("title", "Original Encrypted Text");
+        originalEncryptedOutput.put("name", "encryptedText");
+        originalEncryptedOutput.put("type", "text");
+        section2OutputFields.add(originalEncryptedOutput);
+
+        // Decrypted text
+        Map<String, Object> decryptedTextOutput = new HashMap<>();
+        decryptedTextOutput.put("title", "Decrypted Text");
+        decryptedTextOutput.put("name", "decryptedText");
+        decryptedTextOutput.put("type", "text");
+        decryptedTextOutput.put("buttons", List.of("copy")); // Add copy button
+        section2OutputFields.add(decryptedTextOutput);
+
+        // Algorithm used
+        Map<String, Object> decryptAlgorithmOutput = new HashMap<>();
+        decryptAlgorithmOutput.put("title", "Algorithm Used");
+        decryptAlgorithmOutput.put("name", "algorithm");
+        decryptAlgorithmOutput.put("type", "text");
+        section2OutputFields.add(decryptAlgorithmOutput);
+
+        outputSection2.put("fields", section2OutputFields);
+        uiOutputs.add(outputSection2);
+
+        // Output Section 3: Error Display (conditional)
+        Map<String, Object> outputSection3 = new HashMap<>();
+        outputSection3.put("header", "Error Information");
+        outputSection3.put("condition", "error");
+        List<Map<String, Object>> section3OutputFields = new ArrayList<>();
+
+        // Error message
+        Map<String, Object> errorOutput = new HashMap<>();
+        errorOutput.put("title", "Error Message");
+        errorOutput.put("name", "error");
+        errorOutput.put("type", "text");
+        errorOutput.put("style", "error");
+        section3OutputFields.add(errorOutput);
+
+        outputSection3.put("fields", section3OutputFields);
+        uiOutputs.add(outputSection3);
+
+        uiConfig.put("outputs", uiOutputs);
+
+        // Add the structured uiConfig to the main metadata map
+        metadata.put("uiConfig", uiConfig);
+
         return metadata;
     }
 

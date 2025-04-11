@@ -2,7 +2,9 @@ package kostovite;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -59,25 +61,237 @@ public class PasswordAnalyzer implements ExtendedPluginInterface {
     @Override
     public Map<String, Object> getMetadata() {
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", getName());
+        metadata.put("name", getName()); // Corresponds to ToolMetadata.name
         metadata.put("version", "1.0.0");
-        metadata.put("description", "Analyzes password strength and security");
+        metadata.put("description", "Analyzes password strength and security"); // Corresponds to ToolMetadata.description
 
-        // Define available operations
+        // Define available backend operations (for informational purposes or direct API calls)
         Map<String, Object> operations = new HashMap<>();
 
         // Analyze operation
         Map<String, Object> analyzeOperation = new HashMap<>();
         analyzeOperation.put("description", "Analyze password strength");
-
         Map<String, Object> analyzeInputs = new HashMap<>();
-        analyzeInputs.put("password", "Password to analyze");
-        analyzeInputs.put("scenario", "Attack scenario (optional): online-throttled, online-unthrottled, offline-slow-hash, offline-fast-hash, offline-gpu-cluster");
-
+        analyzeInputs.put("password", Map.of("type", "string", "description", "Password to analyze", "required", true));
+        analyzeInputs.put("scenario", Map.of("type", "string", "description", "Attack scenario (online-throttled, online-unthrottled, offline-slow-hash, offline-fast-hash, offline-gpu-cluster)", "required", false));
         analyzeOperation.put("inputs", analyzeInputs);
         operations.put("analyze", analyzeOperation);
 
-        metadata.put("operations", operations);
+        metadata.put("operations", operations); // Keep this for backend/API reference
+
+        // --- Define UI Configuration ---
+        Map<String, Object> uiConfig = new HashMap<>();
+        uiConfig.put("id", "PasswordAnalyzer"); // Corresponds to ToolMetadata.id
+        uiConfig.put("icon", "Password"); // Corresponds to ToolMetadata.icon (Material Icon name)
+        uiConfig.put("category", "Security"); // Corresponds to ToolMetadata.category
+
+        // --- Define UI Inputs ---
+        List<Map<String, Object>> uiInputs = new ArrayList<>();
+
+        // Input Section 1: Password Input
+        Map<String, Object> inputSection1 = new HashMap<>();
+        inputSection1.put("header", "Password to Analyze");
+        List<Map<String, Object>> section1Fields = new ArrayList<>();
+
+        // Password input field
+        Map<String, Object> passwordField = new HashMap<>();
+        passwordField.put("name", "password");
+        passwordField.put("label", "Password:");
+        passwordField.put("type", "password");
+        passwordField.put("required", true);
+        passwordField.put("placeholder", "Enter password to analyze...");
+        passwordField.put("helperText", "The password will be analyzed locally and never sent to any server");
+        section1Fields.add(passwordField);
+
+        inputSection1.put("fields", section1Fields);
+        uiInputs.add(inputSection1);
+
+        // Input Section 2: Attack Scenario
+        Map<String, Object> inputSection2 = new HashMap<>();
+        inputSection2.put("header", "Attack Scenario");
+        List<Map<String, Object>> section2Fields = new ArrayList<>();
+
+        // Scenario selection field
+        Map<String, Object> scenarioField = new HashMap<>();
+        scenarioField.put("name", "scenario");
+        scenarioField.put("label", "Attack Scenario:");
+        scenarioField.put("type", "select");
+        List<Map<String, String>> scenarioOptions = new ArrayList<>();
+        scenarioOptions.add(Map.of("value", "online-throttled", "label", "Online Attack (Throttled)"));
+        scenarioOptions.add(Map.of("value", "online-unthrottled", "label", "Online Attack (Unthrottled)"));
+        scenarioOptions.add(Map.of("value", "offline-slow-hash", "label", "Offline Attack (Slow Hash, e.g., bcrypt)"));
+        scenarioOptions.add(Map.of("value", "offline-fast-hash", "label", "Offline Attack (Fast Hash, e.g., MD5)"));
+        scenarioOptions.add(Map.of("value", "offline-gpu-cluster", "label", "Offline Attack (GPU Cluster)"));
+        scenarioField.put("options", scenarioOptions);
+        scenarioField.put("default", "offline-fast-hash");
+        scenarioField.put("required", false);
+        scenarioField.put("helperText", "Different attack types affect the estimated cracking time");
+        section2Fields.add(scenarioField);
+
+        inputSection2.put("fields", section2Fields);
+        uiInputs.add(inputSection2);
+
+        uiConfig.put("inputs", uiInputs);
+
+        // --- Define UI Outputs ---
+        List<Map<String, Object>> uiOutputs = new ArrayList<>();
+
+        // Output Section 1: Strength Summary
+        Map<String, Object> outputSection1 = new HashMap<>();
+        outputSection1.put("header", "Password Strength");
+        outputSection1.put("condition", "success");
+        List<Map<String, Object>> section1OutputFields = new ArrayList<>();
+
+        // Score display
+        Map<String, Object> scoreOutput = new HashMap<>();
+        scoreOutput.put("title", "Score");
+        scoreOutput.put("name", "scoreDisplay");
+        scoreOutput.put("type", "progressBar");
+        scoreOutput.put("value", "score");
+        scoreOutput.put("max", 100);
+        scoreOutput.put("color", "score >= 90 ? 'success' : (score >= 70 ? 'info' : (score >= 50 ? 'warning' : 'error'))");
+        section1OutputFields.add(scoreOutput);
+
+        // Strength assessment
+        Map<String, Object> strengthOutput = new HashMap<>();
+        strengthOutput.put("title", "Assessment");
+        strengthOutput.put("name", "strength");
+        strengthOutput.put("type", "text");
+        strengthOutput.put("style", "score >= 70 ? 'success' : (score >= 50 ? 'warning' : 'error')");
+        strengthOutput.put("variant", "bold");
+        section1OutputFields.add(strengthOutput);
+
+        // Password display (masked)
+        Map<String, Object> passwordOutput = new HashMap<>();
+        passwordOutput.put("title", "Password");
+        passwordOutput.put("name", "password");
+        passwordOutput.put("type", "text");
+        section1OutputFields.add(passwordOutput);
+
+        outputSection1.put("fields", section1OutputFields);
+        uiOutputs.add(outputSection1);
+
+        // Output Section 2: Detailed Analysis
+        Map<String, Object> outputSection2 = new HashMap<>();
+        outputSection2.put("header", "Detailed Analysis");
+        outputSection2.put("condition", "success");
+        List<Map<String, Object>> section2OutputFields = new ArrayList<>();
+
+        // Length
+        Map<String, Object> lengthOutput = new HashMap<>();
+        lengthOutput.put("title", "Length");
+        lengthOutput.put("name", "length");
+        lengthOutput.put("type", "text");
+        lengthOutput.put("variant", "bold");
+        lengthOutput.put("style", "length >= 12 ? 'success' : (length >= 8 ? 'warning' : 'error')");
+        section2OutputFields.add(lengthOutput);
+
+        // Entropy
+        Map<String, Object> entropyOutput = new HashMap<>();
+        entropyOutput.put("title", "Entropy");
+        entropyOutput.put("name", "entropyDisplay");
+        entropyOutput.put("type", "text");
+        entropyOutput.put("formula", "entropy + ' bits'");
+        entropyOutput.put("style", "entropy >= 70 ? 'success' : (entropy >= 50 ? 'warning' : 'error')");
+        section2OutputFields.add(entropyOutput);
+
+        // Cracking time
+        Map<String, Object> crackingTimeOutput = new HashMap<>();
+        crackingTimeOutput.put("title", "Est. Cracking Time");
+        crackingTimeOutput.put("name", "crackingTime.formatted");
+        crackingTimeOutput.put("type", "text");
+        crackingTimeOutput.put("style", "crackingTime.seconds >= 31536000 ? 'success' : (crackingTime.seconds >= 86400 ? 'warning' : 'error')");
+        section2OutputFields.add(crackingTimeOutput);
+
+        // Character set size
+        Map<String, Object> charSetOutput = new HashMap<>();
+        charSetOutput.put("title", "Character Set Size");
+        charSetOutput.put("name", "characterSetSize");
+        charSetOutput.put("type", "text");
+        section2OutputFields.add(charSetOutput);
+
+        outputSection2.put("fields", section2OutputFields);
+        uiOutputs.add(outputSection2);
+
+        // Output Section 3: Character Sets
+        Map<String, Object> outputSection3 = new HashMap<>();
+        outputSection3.put("header", "Character Sets Used");
+        outputSection3.put("condition", "success");
+        List<Map<String, Object>> section3OutputFields = new ArrayList<>();
+
+        // Lowercase
+        Map<String, Object> lowercaseOutput = new HashMap<>();
+        lowercaseOutput.put("title", "Lowercase (a-z)");
+        lowercaseOutput.put("name", "lowercaseUsed");
+        lowercaseOutput.put("type", "checkmark");
+        lowercaseOutput.put("formula", "characterSets.lowercase");
+        section3OutputFields.add(lowercaseOutput);
+
+        // Uppercase
+        Map<String, Object> uppercaseOutput = new HashMap<>();
+        uppercaseOutput.put("title", "Uppercase (A-Z)");
+        uppercaseOutput.put("name", "uppercaseUsed");
+        uppercaseOutput.put("type", "checkmark");
+        uppercaseOutput.put("formula", "characterSets.uppercase");
+        section3OutputFields.add(uppercaseOutput);
+
+        // Digits
+        Map<String, Object> digitsOutput = new HashMap<>();
+        digitsOutput.put("title", "Digits (0-9)");
+        digitsOutput.put("name", "digitsUsed");
+        digitsOutput.put("type", "checkmark");
+        digitsOutput.put("formula", "characterSets.digits");
+        section3OutputFields.add(digitsOutput);
+
+        // Special chars
+        Map<String, Object> specialOutput = new HashMap<>();
+        specialOutput.put("title", "Special (!@#$...)");
+        specialOutput.put("name", "specialUsed");
+        specialOutput.put("type", "checkmark");
+        specialOutput.put("formula", "characterSets.special");
+        section3OutputFields.add(specialOutput);
+
+        outputSection3.put("fields", section3OutputFields);
+        uiOutputs.add(outputSection3);
+
+        // Output Section 4: Recommendations
+        Map<String, Object> outputSection4 = new HashMap<>();
+        outputSection4.put("header", "Recommendations");
+        outputSection4.put("condition", "recommendations");
+        List<Map<String, Object>> section4OutputFields = new ArrayList<>();
+
+        // Recommendations list
+        Map<String, Object> recommendationsOutput = new HashMap<>();
+        recommendationsOutput.put("name", "recommendations");
+        recommendationsOutput.put("type", "list");
+        recommendationsOutput.put("style", "error");
+        section4OutputFields.add(recommendationsOutput);
+
+        outputSection4.put("fields", section4OutputFields);
+        uiOutputs.add(outputSection4);
+
+        // Output Section 5: Error Display
+        Map<String, Object> outputSection5 = new HashMap<>();
+        outputSection5.put("header", "Error Information");
+        outputSection5.put("condition", "error");
+        List<Map<String, Object>> section5OutputFields = new ArrayList<>();
+
+        // Error message
+        Map<String, Object> errorOutput = new HashMap<>();
+        errorOutput.put("title", "Error Message");
+        errorOutput.put("name", "error");
+        errorOutput.put("type", "text");
+        errorOutput.put("style", "error");
+        section5OutputFields.add(errorOutput);
+
+        outputSection5.put("fields", section5OutputFields);
+        uiOutputs.add(outputSection5);
+
+        uiConfig.put("outputs", uiOutputs);
+
+        // Add the structured uiConfig to the main metadata map
+        metadata.put("uiConfig", uiConfig);
+
         return metadata;
     }
 
@@ -178,19 +392,13 @@ public class PasswordAnalyzer implements ExtendedPluginInterface {
     }
 
     private long getCrackingSpeed(String scenario) {
-        switch (scenario.toLowerCase()) {
-            case "online-throttled":
-                return ONLINE_THROTTLED;
-            case "online-unthrottled":
-                return ONLINE_UNTHROTTLED;
-            case "offline-slow-hash":
-                return OFFLINE_SLOW_HASH;
-            case "offline-gpu-cluster":
-                return OFFLINE_GPU_CLUSTER;
-            case "offline-fast-hash":
-            default:
-                return OFFLINE_FAST_HASH;
-        }
+        return switch (scenario.toLowerCase()) {
+            case "online-throttled" -> ONLINE_THROTTLED;
+            case "online-unthrottled" -> ONLINE_UNTHROTTLED;
+            case "offline-slow-hash" -> OFFLINE_SLOW_HASH;
+            case "offline-gpu-cluster" -> OFFLINE_GPU_CLUSTER;
+            default -> OFFLINE_FAST_HASH;
+        };
     }
 
     private Map<String, Object> calculateCrackingTime(int length, int charSetSize, long crackingSpeed) {
@@ -294,7 +502,7 @@ public class PasswordAnalyzer implements ExtendedPluginInterface {
         else if (entropy > 28) score += 2;
 
         // Capping score at 100
-        return Math.min(score, 100);
+        return score;
     }
 
     private String getStrengthLabel(int score) {
@@ -371,7 +579,7 @@ public class PasswordAnalyzer implements ExtendedPluginInterface {
 
         if (lower.contains("0")) {
             String withO = lower.replace("0", "o");
-            if (isCommonDictionaryWord(withO)) return true;
+            return isCommonDictionaryWord(withO);
         }
 
         return false;

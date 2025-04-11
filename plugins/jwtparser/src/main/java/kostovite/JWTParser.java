@@ -2,17 +2,10 @@ package kostovite;
 
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.Base64;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.regex.Pattern;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class JWTParser implements PluginInterface {
 
@@ -56,37 +49,290 @@ public class JWTParser implements PluginInterface {
     @Override
     public Map<String, Object> getMetadata() {
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", getName());
+        metadata.put("name", getName()); // Corresponds to ToolMetadata.name
         metadata.put("version", "1.0.0");
-        metadata.put("description", "Parse and decode JWT tokens");
+        metadata.put("description", "Parse and decode JWT tokens"); // Corresponds to ToolMetadata.description
 
-        // Define available operations
+        // Define available backend operations (for informational purposes or direct API calls)
         Map<String, Object> operations = new HashMap<>();
 
         // Parse JWT operation
         Map<String, Object> parseOperation = new HashMap<>();
         parseOperation.put("description", "Parse and decode a JWT token");
-
         Map<String, Object> parseInputs = new HashMap<>();
-        parseInputs.put("jwtToken", "JWT token string to parse");
-        parseInputs.put("verifySignature", "Whether to verify the signature (optional)");
-        parseInputs.put("secret", "Secret key to verify signature (optional)");
-
+        parseInputs.put("jwtToken", Map.of("type", "string", "description", "JWT token string to parse", "required", true));
+        parseInputs.put("verifySignature", Map.of("type", "boolean", "description", "Whether to verify the signature (optional)", "required", false));
+        parseInputs.put("secret", Map.of("type", "string", "description", "Secret key to verify signature (optional)", "required", false));
         parseOperation.put("inputs", parseInputs);
         operations.put("parse", parseOperation);
 
         // Validate JWT operation
         Map<String, Object> validateOperation = new HashMap<>();
         validateOperation.put("description", "Validate a JWT token");
-
         Map<String, Object> validateInputs = new HashMap<>();
-        validateInputs.put("jwtToken", "JWT token string to validate");
-        validateInputs.put("secret", "Secret key to verify signature");
-
+        validateInputs.put("jwtToken", Map.of("type", "string", "description", "JWT token string to validate", "required", true));
+        validateInputs.put("secret", Map.of("type", "string", "description", "Secret key to verify signature", "required", true));
         validateOperation.put("inputs", validateInputs);
         operations.put("validate", validateOperation);
 
-        metadata.put("operations", operations);
+        metadata.put("operations", operations); // Keep this for backend/API reference
+
+        // --- Define UI Configuration ---
+        Map<String, Object> uiConfig = new HashMap<>();
+        uiConfig.put("id", "JWTParser"); // Corresponds to ToolMetadata.id
+        uiConfig.put("icon", "VpnKey"); // Corresponds to ToolMetadata.icon (Material Icon name)
+        uiConfig.put("category", "Crypto"); // Corresponds to ToolMetadata.category
+
+        // --- Define UI Inputs ---
+        List<Map<String, Object>> uiInputs = new ArrayList<>();
+
+        // Input Section 1: Operation Selection
+        Map<String, Object> inputSection1 = new HashMap<>();
+        inputSection1.put("header", "JWT Operation");
+        List<Map<String, Object>> section1Fields = new ArrayList<>();
+
+        // Operation selection field
+        Map<String, Object> operationField = new HashMap<>();
+        operationField.put("name", "operation");
+        operationField.put("label", "Operation:");
+        operationField.put("type", "select");
+        List<Map<String, String>> operationOptions = new ArrayList<>();
+        operationOptions.add(Map.of("value", "parse", "label", "Parse & Decode JWT"));
+        operationOptions.add(Map.of("value", "validate", "label", "Validate JWT Signature"));
+        operationField.put("options", operationOptions);
+        operationField.put("default", "parse");
+        operationField.put("required", true);
+        section1Fields.add(operationField);
+
+        inputSection1.put("fields", section1Fields);
+        uiInputs.add(inputSection1);
+
+        // Input Section 2: JWT Token Input
+        Map<String, Object> inputSection2 = new HashMap<>();
+        inputSection2.put("header", "JWT Token");
+        List<Map<String, Object>> section2Fields = new ArrayList<>();
+
+        // JWT Token field
+        Map<String, Object> jwtTokenField = new HashMap<>();
+        jwtTokenField.put("name", "jwtToken");
+        jwtTokenField.put("label", "JWT Token:");
+        jwtTokenField.put("type", "text");
+        jwtTokenField.put("multiline", true);
+        jwtTokenField.put("rows", 4);
+        jwtTokenField.put("placeholder", "Paste your JWT token here...");
+        jwtTokenField.put("required", true);
+        jwtTokenField.put("helperText", "Enter a valid JWT token in the format: xxxxx.yyyyy.zzzzz");
+        section2Fields.add(jwtTokenField);
+
+        inputSection2.put("fields", section2Fields);
+        uiInputs.add(inputSection2);
+
+        // Input Section 3: Verification Options (conditional based on operation)
+        Map<String, Object> inputSection3 = new HashMap<>();
+        inputSection3.put("header", "Verification Options");
+        List<Map<String, Object>> section3Fields = new ArrayList<>();
+
+        // Verify signature checkbox for parse operation
+        Map<String, Object> verifySignatureField = new HashMap<>();
+        verifySignatureField.put("name", "verifySignature");
+        verifySignatureField.put("label", "Verify Signature");
+        verifySignatureField.put("type", "switch");
+        verifySignatureField.put("default", false);
+        verifySignatureField.put("condition", "operation === 'parse'");
+        section3Fields.add(verifySignatureField);
+
+        // Secret key field (conditional based on verifySignature or validate operation)
+        Map<String, Object> secretKeyField = new HashMap<>();
+        secretKeyField.put("name", "secret");
+        secretKeyField.put("label", "Secret Key:");
+        secretKeyField.put("type", "password");
+        secretKeyField.put("helperText", "Enter the secret key used to sign the token");
+        secretKeyField.put("condition", "(operation === 'parse' && verifySignature) || operation === 'validate'");
+        secretKeyField.put("required", "operation === 'validate'");
+        section3Fields.add(secretKeyField);
+
+        inputSection3.put("fields", section3Fields);
+        uiInputs.add(inputSection3);
+
+        uiConfig.put("inputs", uiInputs);
+
+        // --- Define UI Outputs ---
+        List<Map<String, Object>> uiOutputs = new ArrayList<>();
+
+        // Output Section 1: JWT Overview
+        Map<String, Object> outputSection1 = new HashMap<>();
+        outputSection1.put("header", "JWT Overview");
+        List<Map<String, Object>> section1OutputFields = new ArrayList<>();
+
+        // Validation Result
+        Map<String, Object> validationOutput = new HashMap<>();
+        validationOutput.put("title", "Validation");
+        validationOutput.put("name", "validationStatus");
+        validationOutput.put("type", "text");
+        validationOutput.put("formula", "isValid ? 'Valid JWT format' : 'Invalid JWT format'");
+        validationOutput.put("style", "isValid ? 'success' : 'error'");
+        section1OutputFields.add(validationOutput);
+
+        // Signature Status
+        Map<String, Object> signatureStatusOutput = new HashMap<>();
+        signatureStatusOutput.put("title", "Signature Status");
+        signatureStatusOutput.put("name", "signatureStatus");
+        signatureStatusOutput.put("type", "text");
+        signatureStatusOutput.put("condition", "(operation === 'parse' && verifySignature) || operation === 'validate'");
+        section1OutputFields.add(signatureStatusOutput);
+
+        // Algorithm
+        Map<String, Object> algorithmOutput = new HashMap<>();
+        algorithmOutput.put("title", "Algorithm");
+        algorithmOutput.put("name", "algorithmInfo");
+        algorithmOutput.put("type", "text");
+        algorithmOutput.put("formula", "header?.alg + ' (' + header?.alg_description + ')'");
+        section1OutputFields.add(algorithmOutput);
+
+        // Token Parts
+        Map<String, Object> tokenPartsOutput = new HashMap<>();
+        tokenPartsOutput.put("title", "Token Parts");
+        tokenPartsOutput.put("name", "tokenPartsInfo");
+        tokenPartsOutput.put("type", "text");
+        tokenPartsOutput.put("formula", "tokenParts === 3 ? 'Complete (Header, Payload, Signature)' : 'Incomplete (Missing Signature)'");
+        section1OutputFields.add(tokenPartsOutput);
+
+        outputSection1.put("fields", section1OutputFields);
+        uiOutputs.add(outputSection1);
+
+        // Output Section 2: Headers
+        Map<String, Object> outputSection2 = new HashMap<>();
+        outputSection2.put("header", "Header");
+        outputSection2.put("condition", "isValid");
+        List<Map<String, Object>> section2OutputFields = new ArrayList<>();
+
+        // Header JSON
+        Map<String, Object> headerOutput = new HashMap<>();
+        headerOutput.put("title", "Header Data");
+        headerOutput.put("name", "formattedHeader");
+        headerOutput.put("type", "json");
+        headerOutput.put("buttons", List.of("copy"));
+        section2OutputFields.add(headerOutput);
+
+        outputSection2.put("fields", section2OutputFields);
+        uiOutputs.add(outputSection2);
+
+        // Output Section 3: Payload
+        Map<String, Object> outputSection3 = new HashMap<>();
+        outputSection3.put("header", "Payload Claims");
+        outputSection3.put("condition", "isValid");
+        List<Map<String, Object>> section3OutputFields = new ArrayList<>();
+
+        // Common JWT claims as individual fields for better visibility
+        Map<String, Object> subjectOutput = new HashMap<>();
+        subjectOutput.put("title", "Subject (sub)");
+        subjectOutput.put("name", "payload.sub");
+        subjectOutput.put("type", "text");
+        subjectOutput.put("condition", "payload?.sub");
+        section3OutputFields.add(subjectOutput);
+
+        Map<String, Object> issuerOutput = new HashMap<>();
+        issuerOutput.put("title", "Issuer (iss)");
+        issuerOutput.put("name", "payload.iss");
+        issuerOutput.put("type", "text");
+        issuerOutput.put("condition", "payload?.iss");
+        section3OutputFields.add(issuerOutput);
+
+        Map<String, Object> audienceOutput = new HashMap<>();
+        audienceOutput.put("title", "Audience (aud)");
+        audienceOutput.put("name", "payload.aud");
+        audienceOutput.put("type", "text");
+        audienceOutput.put("condition", "payload?.aud");
+        section3OutputFields.add(audienceOutput);
+
+        Map<String, Object> expirationOutput = new HashMap<>();
+        expirationOutput.put("title", "Expiration (exp)");
+        expirationOutput.put("name", "payload.exp_formatted");
+        expirationOutput.put("type", "text");
+        expirationOutput.put("condition", "payload?.exp_formatted");
+        section3OutputFields.add(expirationOutput);
+
+        Map<String, Object> issuedAtOutput = new HashMap<>();
+        issuedAtOutput.put("title", "Issued At (iat)");
+        issuedAtOutput.put("name", "payload.iat_formatted");
+        issuedAtOutput.put("type", "text");
+        issuedAtOutput.put("condition", "payload?.iat_formatted");
+        section3OutputFields.add(issuedAtOutput);
+
+        Map<String, Object> notBeforeOutput = new HashMap<>();
+        notBeforeOutput.put("title", "Not Before (nbf)");
+        notBeforeOutput.put("name", "payload.nbf_formatted");
+        notBeforeOutput.put("type", "text");
+        notBeforeOutput.put("condition", "payload?.nbf_formatted");
+        section3OutputFields.add(notBeforeOutput);
+
+        // Name claim
+        Map<String, Object> nameOutput = new HashMap<>();
+        nameOutput.put("title", "Name");
+        nameOutput.put("name", "payload.name");
+        nameOutput.put("type", "text");
+        nameOutput.put("condition", "payload?.name");
+        section3OutputFields.add(nameOutput);
+
+        // Email claim
+        Map<String, Object> emailOutput = new HashMap<>();
+        emailOutput.put("title", "Email");
+        emailOutput.put("name", "payload.email");
+        emailOutput.put("type", "text");
+        emailOutput.put("condition", "payload?.email");
+        section3OutputFields.add(emailOutput);
+
+        // Full payload as JSON
+        Map<String, Object> payloadOutput = new HashMap<>();
+        payloadOutput.put("title", "All Payload Data");
+        payloadOutput.put("name", "formattedPayload");
+        payloadOutput.put("type", "json");
+        payloadOutput.put("buttons", List.of("copy"));
+        section3OutputFields.add(payloadOutput);
+
+        outputSection3.put("fields", section3OutputFields);
+        uiOutputs.add(outputSection3);
+
+        // Output Section 4: Signature
+        Map<String, Object> outputSection4 = new HashMap<>();
+        outputSection4.put("header", "Signature");
+        outputSection4.put("condition", "isValid && tokenParts === 3");
+        List<Map<String, Object>> section4OutputFields = new ArrayList<>();
+
+        // Signature data
+        Map<String, Object> signatureOutput = new HashMap<>();
+        signatureOutput.put("title", "Raw Signature");
+        signatureOutput.put("name", "signature");
+        signatureOutput.put("type", "text");
+        signatureOutput.put("monospace", true);
+        signatureOutput.put("buttons", List.of("copy"));
+        section4OutputFields.add(signatureOutput);
+
+        outputSection4.put("fields", section4OutputFields);
+        uiOutputs.add(outputSection4);
+
+        // Output Section 5: Error Display
+        Map<String, Object> outputSection5 = new HashMap<>();
+        outputSection5.put("header", "Error Information");
+        outputSection5.put("condition", "error");
+        List<Map<String, Object>> section5OutputFields = new ArrayList<>();
+
+        // Error message
+        Map<String, Object> errorOutput = new HashMap<>();
+        errorOutput.put("title", "Error Message");
+        errorOutput.put("name", "error");
+        errorOutput.put("type", "text");
+        errorOutput.put("style", "error");
+        section5OutputFields.add(errorOutput);
+
+        outputSection5.put("fields", section5OutputFields);
+        uiOutputs.add(outputSection5);
+
+        uiConfig.put("outputs", uiOutputs);
+
+        // Add the structured uiConfig to the main metadata map
+        metadata.put("uiConfig", uiConfig);
+
         return metadata;
     }
 
@@ -103,15 +349,14 @@ public class JWTParser implements PluginInterface {
                 return result;
             }
 
-            switch (operation.toLowerCase()) {
-                case "parse":
-                    return parseJWTToken(jwtToken, input);
-                case "validate":
-                    return validateJWTToken(jwtToken, input);
-                default:
+            return switch (operation.toLowerCase()) {
+                case "parse" -> parseJWTToken(jwtToken, input);
+                case "validate" -> validateJWTToken(jwtToken, input);
+                default -> {
                     result.put("error", "Unsupported operation: " + operation);
-                    return result;
-            }
+                    yield result;
+                }
+            };
         } catch (Exception e) {
             result.put("error", "Error processing request: " + e.getMessage());
             e.printStackTrace();
@@ -322,12 +567,12 @@ public class JWTParser implements PluginInterface {
     private String decodeBase64(String base64Url) {
         try {
             // Replace URL-safe characters and add padding if needed
-            String base64 = base64Url.replace('-', '+').replace('_', '/');
+            StringBuilder base64 = new StringBuilder(base64Url.replace('-', '+').replace('_', '/'));
             while (base64.length() % 4 != 0) {
-                base64 += "=";
+                base64.append("=");
             }
 
-            byte[] decodedBytes = Base64.getDecoder().decode(base64);
+            byte[] decodedBytes = Base64.getDecoder().decode(base64.toString());
             return new String(decodedBytes, StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw new RuntimeException("Error decoding Base64: " + e.getMessage(), e);
@@ -451,35 +696,21 @@ public class JWTParser implements PluginInterface {
      * @return Algorithm description
      */
     private String getAlgorithmDescription(String algorithm) {
-        switch (algorithm) {
-            case "HS256":
-                return "HMAC using SHA-256";
-            case "HS384":
-                return "HMAC using SHA-384";
-            case "HS512":
-                return "HMAC using SHA-512";
-            case "RS256":
-                return "RSA Signature with SHA-256";
-            case "RS384":
-                return "RSA Signature with SHA-384";
-            case "RS512":
-                return "RSA Signature with SHA-512";
-            case "ES256":
-                return "ECDSA using P-256 curve and SHA-256";
-            case "ES384":
-                return "ECDSA using P-384 curve and SHA-384";
-            case "ES512":
-                return "ECDSA using P-521 curve and SHA-512";
-            case "PS256":
-                return "RSASSA-PSS using SHA-256 and MGF1 padding";
-            case "PS384":
-                return "RSASSA-PSS using SHA-384 and MGF1 padding";
-            case "PS512":
-                return "RSASSA-PSS using SHA-512 and MGF1 padding";
-            case "none":
-                return "No digital signature or MAC";
-            default:
-                return "Unknown algorithm";
-        }
+        return switch (algorithm) {
+            case "HS256" -> "HMAC using SHA-256";
+            case "HS384" -> "HMAC using SHA-384";
+            case "HS512" -> "HMAC using SHA-512";
+            case "RS256" -> "RSA Signature with SHA-256";
+            case "RS384" -> "RSA Signature with SHA-384";
+            case "RS512" -> "RSA Signature with SHA-512";
+            case "ES256" -> "ECDSA using P-256 curve and SHA-256";
+            case "ES384" -> "ECDSA using P-384 curve and SHA-384";
+            case "ES512" -> "ECDSA using P-521 curve and SHA-512";
+            case "PS256" -> "RSASSA-PSS using SHA-256 and MGF1 padding";
+            case "PS384" -> "RSASSA-PSS using SHA-384 and MGF1 padding";
+            case "PS512" -> "RSASSA-PSS using SHA-512 and MGF1 padding";
+            case "none" -> "No digital signature or MAC";
+            default -> "Unknown algorithm";
+        };
     }
 }
