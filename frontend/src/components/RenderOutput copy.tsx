@@ -17,7 +17,7 @@ function HashTools() {
     setLoading(true);
     
     try {
-      const response = await fetch('http://localhost:8081/api/debug/HashTools/process', {
+      const response = await fetch('http://localhost:8080/api/debug/HashTools/process', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

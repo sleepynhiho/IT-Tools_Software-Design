@@ -5,14 +5,14 @@
  * @param operation Tên thao tác cần thực hiện (ví dụ: "sha256", "md5")
  * @param inputData  Dữ liệu đầu vào (text, image, ... tùy plugin)
  */
-const fetchFromBackend = async (
+export const fetchFromBackend = async (
   toolId: string,
   operation: string,
   inputData: Record<string, any>
 ): Promise<any> => {
   try {
     const response = await fetch(
-      `http://localhost:8081/api/debug/${toolId}/process`,
+      `http://localhost:8080/api/debug/${toolId}/process`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -37,7 +37,6 @@ const fetchFromBackend = async (
     };
   }
 };
-
 
 export const mockMetadata = [
   {
@@ -99,7 +98,6 @@ export const mockMetadata = [
     processFunction: async (input) =>
       fetchFromBackend("TokenGenerator", "generate", input),
   },
-
   {
     id: "HashTools",
     name: "Hash Text",
@@ -134,23 +132,62 @@ export const mockMetadata = [
         },
       ],
       outputs: [
-        "MD5",
-        "SHA1",
-        "SHA256",
-        "SHA224",
-        "SHA512",
-        "SHA384",
-        "SHA3",
-        "RIPEMD160",
-      ].map((algo) => ({
-        title: algo,
-        name: algo,
-        type: "text",
-        buttons: ["copy"],
-      })),
+        {
+          header: "Hashed Results",
+          fields: [
+            {
+              title: "MD5",
+              name: "MD5",
+              type: "text",
+              buttons: ["copy"],
+            },
+            {
+              title: "SHA1",
+              name: "SHA1",
+              type: "text",
+              buttons: ["copy"],
+            },
+            {
+              title: "SHA256",
+              name: "SHA256",
+              type: "text",
+              buttons: ["copy"],
+            },
+            {
+              title: "SHA224",
+              name: "SHA224",
+              type: "text",
+              buttons: ["copy"],
+            },
+            {
+              title: "SHA512",
+              name: "SHA512",
+              type: "text",
+              buttons: ["copy"],
+            },
+            {
+              title: "SHA384",
+              name: "SHA384",
+              type: "text",
+              buttons: ["copy"],
+            },
+            {
+              title: "SHA3",
+              name: "SHA3",
+              type: "text",
+              buttons: ["copy"],
+            },
+            {
+              title: "RIPEMD160",
+              name: "RIPEMD160",
+              type: "text",
+              buttons: ["copy"],
+            },
+          ],
+        },
+      ],
     },
     processFunction: async (input) => {
-      console.log("HashTools input:", input);
       const algorithms = [
         "md5",
         "sha1",
@@ -161,10 +198,6 @@ export const mockMetadata = [
         "sha3",
         "ripemd160",
       ];
-
-      console.log("Hashtool input new:", input);
-      console.log("Hashtool input new text:", input.text);
-      console.log("Hashtool input new encoding:", input.encoding);
 
       const results: Record<string, string> = {};
       for (const algo of algorithms) {
@@ -191,7 +224,7 @@ export const mockMetadata = [
     description:
       "Generate random Universally Unique Lexicographically Sortable Identifier (ULID).",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "Settings",
           fields: [
@@ -234,7 +267,7 @@ export const mockMetadata = [
     description:
       "Analyze the strength of your password and estimate crack time.",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "Password Input",
           fields: [
@@ -291,19 +324,19 @@ export const mockMetadata = [
     description:
       "Convert a number between different bases (decimal, hexadecimal, binary, octal, base64, etc.)",
     uiConfig: {
-      sections: [
+      inputs: [
         {
-          header: "Conversion Settings",
+          header: "Base Conversion Settings",
           fields: [
             {
-              name: "Input number",
-              label: "Number",
+              name: "input-number",
+              label: "Input number",
               type: "number",
               default: "42",
             },
             {
-              name: "Input base",
-              label: "Base",
+              name: "input-base",
+              label: "Input base",
               type: "number",
               default: "10",
             },
@@ -312,34 +345,39 @@ export const mockMetadata = [
       ],
       outputs: [
         {
-          title: "Binary (2)",
-          name: "binary",
-          type: "text",
-          buttons: ["copy"],
-        },
-        {
-          title: "Octal (8)",
-          name: "octal",
-          type: "text",
-          buttons: ["copy"],
-        },
-        {
-          title: "Decimal (10)",
-          name: "decimal",
-          type: "text",
-          buttons: ["copy"],
-        },
-        {
-          title: "Hexadecimal (16)",
-          name: "hexadecimal",
-          type: "text",
-          buttons: ["copy"],
-        },
-        {
-          title: "Base64 (64)",
-          name: "base64",
-          type: "text",
-          buttons: ["copy"],
+          header: "",
+          fields: [
+            {
+              title: "Binary (2)",
+              name: "binary",
+              type: "text",
+              buttons: ["copy"],
+            },
+            {
+              title: "Octal (8)",
+              name: "octal",
+              type: "text",
+              buttons: ["copy"],
+            },
+            {
+              title: "Decimal (10)",
+              name: "decimal",
+              type: "text",
+              buttons: ["copy"],
+            },
+            {
+              title: "Hexadecimal (16)",
+              name: "hexadecimal",
+              type: "text",
+              buttons: ["copy"],
+            },
+            {
+              title: "Base64 (64)",
+              name: "base64",
+              type: "text",
+              buttons: ["copy"],
+            },
+          ],
         },
       ],
     },
@@ -353,7 +391,7 @@ export const mockMetadata = [
     description: "Convert XML to JSON format.",
     category: "Converter",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "XML Input",
           fields: [
@@ -379,7 +417,7 @@ export const mockMetadata = [
     category: "Converter",
     description: "Convert date and time into the various different formats",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "",
           fields: [
@@ -485,7 +523,7 @@ export const mockMetadata = [
     description:
       "Generate and download a QR code for a URL (or just plain text), and customize the background and foreground colors.",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "",
           fields: [
@@ -538,7 +576,7 @@ export const mockMetadata = [
     description:
       "Generate and download QR codes for quick connections to WiFi networks.",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "",
           fields: [
@@ -600,7 +638,7 @@ export const mockMetadata = [
     category: "Images & Videos",
     description: "Take a picture or record a video from your webcam or camera.",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "",
           fields: [
@@ -659,7 +697,7 @@ export const mockMetadata = [
     description:
       "Prettify your JSON string into a friendly, human-readable format.",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "",
           fields: [
@@ -705,7 +743,7 @@ export const mockMetadata = [
     description:
       "Minify and compress your JSON by removing unnecessary whitespace.",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "",
           fields: [
@@ -732,8 +770,7 @@ export const mockMetadata = [
         },
       ],
     },
-    processFunction: async (input) =>
-      fetchFromBackend("json-minify", input),
+    processFunction: async (input) => fetchFromBackend("json-minify", input),
   },
   {
     id: "email-normalizer",
@@ -744,7 +781,7 @@ export const mockMetadata = [
       "Normalize email addresses by converting them to lowercase and removing unnecessary characters.",
 
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "",
           fields: [
@@ -752,7 +789,7 @@ export const mockMetadata = [
               name: "raw-emails",
               label: "Raw emails to normalize:",
               type: "text",
-              default: '',
+              default: "",
             },
           ],
         },
@@ -778,7 +815,7 @@ export const mockMetadata = [
     description:
       "Parse your IPv4 CIDR blocks and get all the info you need about your subnet.",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "",
           fields: [
@@ -786,7 +823,7 @@ export const mockMetadata = [
               name: "ipv4",
               label: "An IPv4 address with or without mask",
               type: "text",
-              default: '192.168.11.0/24',
+              default: "192.168.11.0/24",
             },
             {
               name: "previous-block",
@@ -799,23 +836,68 @@ export const mockMetadata = [
               label: "Next block",
               type: "button",
               default: "Next block",
-            }
+            },
           ],
         },
       ],
 
       outputs: [
         { title: "Netmask", name: "netmask", type: "text", buttons: ["copy"] },
-        { title: "Network address", name: "networkAddress", type: "text", buttons: ["copy"] },
-        { title: "Network mask", name: "networkMask", type: "text", buttons: ["copy"] },
-        { title: "Network mask in binary", name: "binaryMask", type: "text", buttons: ["copy"] },
-        { title: "CIDR notation", name: "cidr", type: "text", buttons: ["copy"] },
-        { title: "Wildcard mask", name: "wildcardMask", type: "text", buttons: ["copy"] },
-        { title: "Network size", name: "networkSize", type: "text", buttons: ["copy"] },
-        { title: "First address", name: "firstAddress", type: "text", buttons: ["copy"] },
-        { title: "Last address", name: "lastAddress", type: "text", buttons: ["copy"] },
-        { title: "Broadcast address", name: "broadcastAddress", type: "text", buttons: ["copy"] },
-        { title: "IP class", name: "ipClass", type: "text", buttons: ["copy"] }
+        {
+          title: "Network address",
+          name: "networkAddress",
+          type: "text",
+          buttons: ["copy"],
+        },
+        {
+          title: "Network mask",
+          name: "networkMask",
+          type: "text",
+          buttons: ["copy"],
+        },
+        {
+          title: "Network mask in binary",
+          name: "binaryMask",
+          type: "text",
+          buttons: ["copy"],
+        },
+        {
+          title: "CIDR notation",
+          name: "cidr",
+          type: "text",
+          buttons: ["copy"],
+        },
+        {
+          title: "Wildcard mask",
+          name: "wildcardMask",
+          type: "text",
+          buttons: ["copy"],
+        },
+        {
+          title: "Network size",
+          name: "networkSize",
+          type: "text",
+          buttons: ["copy"],
+        },
+        {
+          title: "First address",
+          name: "firstAddress",
+          type: "text",
+          buttons: ["copy"],
+        },
+        {
+          title: "Last address",
+          name: "lastAddress",
+          type: "text",
+          buttons: ["copy"],
+        },
+        {
+          title: "Broadcast address",
+          name: "broadcastAddress",
+          type: "text",
+          buttons: ["copy"],
+        },
+        { title: "IP class", name: "ipClass", type: "text", buttons: ["copy"] },
       ],
     },
     processFunction: async (input) =>
@@ -829,7 +911,7 @@ export const mockMetadata = [
     description:
       "Convert an IP address into decimal, binary, hexadecimal, or even an IPv6 representation of it.",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "",
           fields: [
@@ -837,19 +919,28 @@ export const mockMetadata = [
               name: "ipv4-address",
               label: "The ipv4 address:",
               type: "text",
-              default: '192.168.1.1',
-            }
+              default: "192.168.1.1",
+            },
           ],
         },
       ],
 
       outputs: [
         { title: "Decimal", name: "decimal", type: "text", buttons: ["copy"] },
-        { title: "Hexadecimal", name: "hexadecimal", type: "text", buttons: ["copy"] },
+        {
+          title: "Hexadecimal",
+          name: "hexadecimal",
+          type: "text",
+          buttons: ["copy"],
+        },
         { title: "Binary", name: "binary", type: "text", buttons: ["copy"] },
         { title: "IPv6", name: "ipv6", type: "text", buttons: ["copy"] },
-        { title: "IPv6 (short): ", name: "ipv6-short", type: "text", buttons: ["copy"] },
-        
+        {
+          title: "IPv6 (short): ",
+          name: "ipv6-short",
+          type: "text",
+          buttons: ["copy"],
+        },
       ],
     },
     processFunction: async (input) =>
@@ -863,7 +954,7 @@ export const mockMetadata = [
     description:
       "Find the vendor and manufacturer of a device by its MAC address.",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "",
           fields: [
@@ -871,14 +962,19 @@ export const mockMetadata = [
               name: "mac-address",
               label: "MAC address:",
               type: "text",
-              default: '20:37:06:12:34:56',
-            }
+              default: "20:37:06:12:34:56",
+            },
           ],
         },
       ],
 
       outputs: [
-        { title: "Vendor info:", name: "vendor-info", type: "text", buttons: ["copy"] },
+        {
+          title: "Vendor info:",
+          name: "vendor-info",
+          type: "text",
+          buttons: ["copy"],
+        },
       ],
     },
     processFunction: async (input) =>
@@ -892,7 +988,7 @@ export const mockMetadata = [
     description:
       "Lorem ipsum is a placeholder text commonly used to demonstrate the visual form of a document or a typeface without relying on meaningful content",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "",
           fields: [
@@ -925,7 +1021,7 @@ export const mockMetadata = [
               label: "As html",
               type: "switch",
               default: false,
-            }
+            },
           ],
         },
       ],
@@ -950,7 +1046,7 @@ export const mockMetadata = [
     description:
       "Get information about a text, the number of characters, the number of words, its size in bytes, ...",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "",
           fields: [
@@ -958,17 +1054,17 @@ export const mockMetadata = [
               name: "raw-text",
               label: "Your text",
               type: "text",
-              default: '',
-            }
+              default: "",
+            },
           ],
         },
       ],
 
       outputs: [
-        { title: "Character count", name: "character-count", type: "number"},
-        { title: "Word count", name: "word-count", type: "number"},
-        { title: "Line count", name: "line-count", type: "number"},
-        { title: "Byte size", name: "byte-size", type: "text"},
+        { title: "Character count", name: "character-count", type: "number" },
+        { title: "Word count", name: "word-count", type: "number" },
+        { title: "Line count", name: "line-count", type: "number" },
+        { title: "Byte size", name: "byte-size", type: "text" },
       ],
     },
     processFunction: async (input) =>
@@ -982,7 +1078,7 @@ export const mockMetadata = [
     description:
       "Obfuscate a string (like a secret, an IBAN, or a token) to make it shareable and identifiable without revealing its content.",
     uiConfig: {
-      sections: [
+      inputs: [
         {
           header: "",
           fields: [
@@ -990,7 +1086,7 @@ export const mockMetadata = [
               name: "string-to-obfuscate",
               label: "String to obfuscate:",
               type: "text",
-              default: 'Lorem ipsum dolor sit amet',
+              default: "Lorem ipsum dolor sit amet",
             },
             {
               name: "keep-first",
@@ -1008,14 +1104,19 @@ export const mockMetadata = [
               name: "keep-spaces",
               label: "Keep spaces:",
               type: "switch",
-              default: 'true',
+              default: "true",
             },
           ],
         },
       ],
 
       outputs: [
-        { title: "Obfucscated string", name: "obfuscated-string", type: "text", buttons: ["copy"] },
+        {
+          title: "Obfucscated string",
+          name: "obfuscated-string",
+          type: "text",
+          buttons: ["copy"],
+        },
       ],
     },
     processFunction: async (input) =>

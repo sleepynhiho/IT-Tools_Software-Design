@@ -1,11 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {
-  Box,
-  Paper,
-  Typography,
-  TextField,
-  Button,
-} from "@mui/material";
+import { Box, Paper, Typography, TextField, Button } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { DownloadIcon } from "lucide-react";
