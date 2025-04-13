@@ -1,255 +1,299 @@
 package kostovite;
 
-import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
-public class HashTools implements ExtendedPluginInterface {
+import java.util.*;
+
+// Assuming PluginInterface is standard
+public class HashTools implements PluginInterface {
+    // Define supported algorithms (using standard Java names)
+    // Using LinkedHashMap to maintain display order
+    private static final Map<String, String> SUPPORTED_ALGORITHMS = new LinkedHashMap<>();
+    static {
+        SUPPORTED_ALGORITHMS.put("MD5", "MD5 (Insecure)"); // Mark insecure
+        SUPPORTED_ALGORITHMS.put("SHA-1", "SHA-1 (Insecure)"); // Mark insecure
+        SUPPORTED_ALGORITHMS.put("SHA-224", "SHA-224");
+        SUPPORTED_ALGORITHMS.put("SHA-256", "SHA-256 (Recommended)");
+        SUPPORTED_ALGORITHMS.put("SHA-384", "SHA-384");
+        SUPPORTED_ALGORITHMS.put("SHA-512", "SHA-512");
+        // Add these if Bouncy Castle is included and registered
+         SUPPORTED_ALGORITHMS.put("SHA3-224", "SHA3-224");
+         SUPPORTED_ALGORITHMS.put("SHA3-256", "SHA3-256");
+         SUPPORTED_ALGORITHMS.put("SHA3-384", "SHA3-384");
+         SUPPORTED_ALGORITHMS.put("SHA3-512", "SHA3-512");
+         SUPPORTED_ALGORITHMS.put("RIPEMD160", "RIPEMD-160");
+    }
+
+    /**
+     * Internal name, should match the class for routing.
+     */
     @Override
     public String getName() {
         return "HashTools";
     }
 
+    /**
+     * Standalone execution for testing.
+     */
     @Override
     public void execute() {
-        String input = "Hello, World!";
-        String hash = calculateSHA256(input);
-        System.out.println("Hash of '" + input + "': " + hash);
+        System.out.println("HashTools Plugin executed (standalone test)");
+        try {
+            Map<String, Object> params = new HashMap<>();
+            params.put("algorithm", "SHA-256"); // Use new ID
+            params.put("inputText", "Hello World"); // Use new ID
+            params.put("outputFormat", "hex"); // Use new ID
+
+            Map<String, Object> result = process(params);
+            System.out.println("Test Hash Result: " + result);
+
+            params.put("algorithm", "MD5");
+            result = process(params);
+            System.out.println("Test Hash Result (MD5): " + result);
+
+        } catch (Exception e) {
+            System.err.println("Standalone test failed: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
+    /**
+     * Generates metadata in the NEW format (sections, id, etc.).
+     */
     @Override
     public Map<String, Object> getMetadata() {
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", getName()); // Corresponds to ToolMetadata.name
-        metadata.put("version", "1.0.0");
-        metadata.put("description", "Tools for calculating various hashes"); // Corresponds to ToolMetadata.description
 
-        // Define available backend operations (for informational purposes or direct API calls)
-        Map<String, Object> operations = new HashMap<>();
+        // --- Top Level Attributes (New Format) ---
+        metadata.put("id", "HashTools"); // ID matches class name
+        metadata.put("name", "Hash Calculator"); // User-facing name
+        metadata.put("description", "Calculate cryptographic hashes (MD5, SHA-1, SHA-2 family, etc.).");
+        metadata.put("icon", "Fingerprint");
+        metadata.put("category", "Crypto");
+        metadata.put("customUI", false);
+        metadata.put("triggerUpdateOnChange", false); // Requires manual submit
 
-        // SHA-256 operation
-        Map<String, Object> sha256Operation = new HashMap<>();
-        sha256Operation.put("description", "Calculate SHA-256 hash");
-        Map<String, Object> sha256Inputs = new HashMap<>();
-        sha256Inputs.put("text", Map.of("type", "string", "description", "String to hash", "required", true));
-        sha256Operation.put("inputs", sha256Inputs);
-        operations.put("sha256", sha256Operation);
+        // --- Sections ---
+        List<Map<String, Object>> sections = new ArrayList<>();
 
-        // MD5 operation
-        Map<String, Object> md5Operation = new HashMap<>();
-        md5Operation.put("description", "Calculate MD5 hash");
-        Map<String, Object> md5Inputs = new HashMap<>();
-        md5Inputs.put("text", Map.of("type", "string", "description", "String to hash", "required", true));
-        md5Operation.put("inputs", md5Inputs);
-        operations.put("md5", md5Operation);
+        // --- Section 1: Input and Configuration ---
+        Map<String, Object> configSection = new HashMap<>();
+        configSection.put("id", "config");
+        configSection.put("label", "Input & Settings");
 
-        metadata.put("operations", operations); // Keep this for backend/API reference
+        List<Map<String, Object>> configInputs = new ArrayList<>();
 
-        // --- Define UI Configuration ---
-        Map<String, Object> uiConfig = new HashMap<>();
-        uiConfig.put("id", "HashTools"); // Corresponds to ToolMetadata.id
-        uiConfig.put("icon", "Fingerprint"); // Corresponds to ToolMetadata.icon (Material Icon name)
-        uiConfig.put("category", "Crypto"); // Corresponds to ToolMetadata.category
+        // Input Text
+        configInputs.add(Map.ofEntries(
+                Map.entry("id", "inputText"),
+                Map.entry("label", "Text to Hash:"),
+                Map.entry("type", "text"),
+                Map.entry("multiline", true),
+                Map.entry("rows", 5),
+                Map.entry("placeholder", "Enter text here..."),
+                Map.entry("required", true) // Text is required
+        ));
 
-        // --- Define UI Inputs ---
-        List<Map<String, Object>> uiInputs = new ArrayList<>();
+        // Algorithm Selection
+        List<Map<String, String>> algoOptions = new ArrayList<>();
+        SUPPORTED_ALGORITHMS.forEach((key, label) -> algoOptions.add(Map.of("value", key, "label", label)));
+        configInputs.add(Map.ofEntries(
+                Map.entry("id", "algorithm"),
+                Map.entry("label", "Hash Algorithm:"),
+                Map.entry("type", "select"),
+                Map.entry("options", algoOptions),
+                Map.entry("default", "SHA-256"), // Default to recommended
+                Map.entry("required", true),
+                Map.entry("helperText", "MD5 and SHA-1 are insecure for many uses.")
+        ));
 
-        // Input Section 1: Hash Configuration
-        Map<String, Object> inputSection1 = new HashMap<>();
-        inputSection1.put("header", "Hash Configuration");
-        List<Map<String, Object>> section1Fields = new ArrayList<>();
+        // Output Format Selection
+        configInputs.add(Map.ofEntries(
+                Map.entry("id", "outputFormat"),
+                Map.entry("label", "Output Format:"),
+                Map.entry("type", "select"),
+                Map.entry("options", List.of(
+                        Map.of("value", "hex", "label", "Hexadecimal (lowercase)"),
+                        Map.of("value", "hexUpper", "label", "Hexadecimal (UPPERCASE)"),
+                        Map.of("value", "base64", "label", "Base64")
+                )),
+                Map.entry("default", "hex"),
+                Map.entry("required", false) // Default to hex if omitted
+        ));
 
-        // Hash algorithm selection field
-        Map<String, Object> algorithmField = new HashMap<>();
-        algorithmField.put("name", "operation");
-        algorithmField.put("label", "Hash Algorithm:");
-        algorithmField.put("type", "select");
-        List<Map<String, String>> algorithmOptions = new ArrayList<>();
-        algorithmOptions.add(Map.of("value", "sha256", "label", "SHA-256 (Secure Hash Algorithm 256-bit)"));
-        algorithmOptions.add(Map.of("value", "md5", "label", "MD5 (Message Digest 5)"));
-        algorithmField.put("options", algorithmOptions);
-        algorithmField.put("default", "sha256");
-        algorithmField.put("required", true);
-        section1Fields.add(algorithmField);
+        // Optional: Input Encoding (Defaulting to UTF-8 in backend)
 
-        // Input text field
-        Map<String, Object> textField = new HashMap<>();
-        textField.put("name", "text");
-        textField.put("label", "Text to Hash:");
-        textField.put("type", "text");
-        textField.put("multiline", true);
-        textField.put("rows", 5);
-        textField.put("placeholder", "Enter text to hash...");
-        textField.put("required", true);
-        section1Fields.add(textField);
+        configSection.put("inputs", configInputs);
+        sections.add(configSection);
 
-        inputSection1.put("fields", section1Fields);
-        uiInputs.add(inputSection1);
 
-        // Input Section 2: Advanced Options (for future expansion)
-        Map<String, Object> inputSection2 = new HashMap<>();
-        inputSection2.put("header", "Advanced Options");
-        List<Map<String, Object>> section2Fields = new ArrayList<>();
+        // --- Section 2: Results ---
+        Map<String, Object> resultsSection = new HashMap<>();
+        resultsSection.put("id", "results");
+        resultsSection.put("label", "Hash Result");
+        resultsSection.put("condition", "success === true"); // Show only on success
 
-        // Encoding option field
-        Map<String, Object> encodingField = new HashMap<>();
-        encodingField.put("name", "encoding");
-        encodingField.put("label", "Input Encoding:");
-        encodingField.put("type", "select");
-        List<Map<String, String>> encodingOptions = new ArrayList<>();
-        encodingOptions.add(Map.of("value", "utf8", "label", "UTF-8"));
-        encodingOptions.add(Map.of("value", "ascii", "label", "ASCII"));
-        encodingField.put("options", encodingOptions);
-        encodingField.put("default", "utf8");
-        encodingField.put("required", false);
-        section2Fields.add(encodingField);
+        List<Map<String, Object>> resultOutputs = new ArrayList<>();
 
-        // Output format field
-        Map<String, Object> outputFormatField = new HashMap<>();
-        outputFormatField.put("name", "outputFormat");
-        outputFormatField.put("label", "Output Format:");
-        outputFormatField.put("type", "select");
-        List<Map<String, String>> formatOptions = new ArrayList<>();
-        formatOptions.add(Map.of("value", "hex", "label", "Hexadecimal (lowercase)"));
-        formatOptions.add(Map.of("value", "hexUpper", "label", "Hexadecimal (UPPERCASE)"));
-        formatOptions.add(Map.of("value", "base64", "label", "Base64"));
-        outputFormatField.put("options", formatOptions);
-        outputFormatField.put("default", "hex");
-        outputFormatField.put("required", false);
-        section2Fields.add(outputFormatField);
+        // Echo Input Text
+        resultOutputs.add(Map.ofEntries(
+                Map.entry("id", "inputEcho"), // Matches key in response map
+                Map.entry("label", "Original Input (Preview)"),
+                Map.entry("type", "text"),
+                Map.entry("multiline", true),
+                Map.entry("rows", 2),
+                Map.entry("condition", "typeof inputEcho !== 'undefined'")
+        ));
 
-        inputSection2.put("fields", section2Fields);
-        uiInputs.add(inputSection2);
+        // Algorithm Used
+        resultOutputs.add(Map.ofEntries(
+                Map.entry("id", "algorithmUsed"), // Matches key in response map
+                Map.entry("label", "Algorithm"),
+                Map.entry("type", "text"),
+                Map.entry("condition", "typeof algorithmUsed !== 'undefined'")
+        ));
 
-        uiConfig.put("inputs", uiInputs);
+        // Hash Result
+        resultOutputs.add(Map.ofEntries(
+                Map.entry("id", "hashResult"), // Matches key in response map
+                Map.entry("label", "Calculated Hash"),
+                Map.entry("type", "text"),
+                Map.entry("multiline", true), // Allow wrapping for long hashes
+                Map.entry("rows", 3),
+                Map.entry("monospace", true), // Essential for hashes
+                Map.entry("buttons", List.of("copy")),
+                Map.entry("condition", "typeof hashResult !== 'undefined'")
+        ));
 
-        // --- Define UI Outputs ---
-        List<Map<String, Object>> uiOutputs = new ArrayList<>();
 
-        // Output Section 1: Hash Result
-        Map<String, Object> outputSection1 = new HashMap<>();
-        outputSection1.put("header", "Hash Result");
-        List<Map<String, Object>> section1OutputFields = new ArrayList<>();
+        resultsSection.put("outputs", resultOutputs);
+        sections.add(resultsSection);
 
-        // Input summary
-        Map<String, Object> inputSummaryOutput = new HashMap<>();
-        inputSummaryOutput.put("title", "Input");
-        inputSummaryOutput.put("name", "input");
-        inputSummaryOutput.put("type", "text");
-        section1OutputFields.add(inputSummaryOutput);
 
-        // Algorithm used
-        Map<String, Object> algorithmOutput = new HashMap<>();
-        algorithmOutput.put("title", "Algorithm");
-        algorithmOutput.put("name", "algorithm");
-        algorithmOutput.put("type", "text");
-        section1OutputFields.add(algorithmOutput);
+        // --- Section 3: Error Display ---
+        Map<String, Object> errorSection = new HashMap<>();
+        errorSection.put("id", "errorDisplay");
+        errorSection.put("label", "Error");
+        errorSection.put("condition", "success === false"); // Show only on failure
 
-        // Hash result
-        Map<String, Object> hashOutput = new HashMap<>();
-        hashOutput.put("title", "Hash");
-        hashOutput.put("name", "hash");
-        hashOutput.put("type", "text");
-        hashOutput.put("monospace", true); // For better readability of hashes
-        hashOutput.put("buttons", List.of("copy")); // Add copy button
-        section1OutputFields.add(hashOutput);
+        List<Map<String, Object>> errorOutputs = new ArrayList<>();
+        errorOutputs.add(Map.ofEntries(
+                Map.entry("id", "errorMessage"), // Specific ID for the error message
+                Map.entry("label", "Details"),
+                Map.entry("type", "text"),
+                Map.entry("style", "error") // Hint for styling
+        ));
+        errorSection.put("outputs", errorOutputs);
+        sections.add(errorSection);
 
-        outputSection1.put("fields", section1OutputFields);
-        uiOutputs.add(outputSection1);
 
-        // Output Section 2: Error Display (conditional)
-        Map<String, Object> outputSection2 = new HashMap<>();
-        outputSection2.put("header", "Error Information");
-        outputSection2.put("condition", "error");
-        List<Map<String, Object>> section2OutputFields = new ArrayList<>();
-
-        // Error message
-        Map<String, Object> errorOutput = new HashMap<>();
-        errorOutput.put("title", "Error Message");
-        errorOutput.put("name", "error");
-        errorOutput.put("type", "text");
-        errorOutput.put("style", "error");
-        section2OutputFields.add(errorOutput);
-
-        outputSection2.put("fields", section2OutputFields);
-        uiOutputs.add(outputSection2);
-
-        uiConfig.put("outputs", uiOutputs);
-
-        // Add the structured uiConfig to the main metadata map
-        metadata.put("uiConfig", uiConfig);
-
+        metadata.put("sections", sections);
         return metadata;
     }
 
+    /**
+     * Processes the input parameters (using IDs from the new format)
+     * to calculate the selected hash.
+     */
     @Override
     public Map<String, Object> process(Map<String, Object> input) {
-        Map<String, Object> result = new HashMap<>();
-
-        // Extract operation and data
-        String operation = (String) input.getOrDefault("operation", "sha256");
-        String text = (String) input.getOrDefault("text", "");
+        String errorOutputId = "errorMessage"; // Matches the error output field ID
 
         try {
-            switch (operation.toLowerCase()) {
-                case "sha256":
-                    result.put("hash", calculateSHA256(text));
-                    result.put("algorithm", "SHA-256");
-                    break;
-                case "md5":
-                    result.put("hash", calculateMD5(text));
-                    result.put("algorithm", "MD5");
-                    break;
-                default:
-                    result.put("error", "Unsupported operation: " + operation);
-                    return result;
+            // Get parameters using NEW IDs
+            String algorithm = getStringParam(input, "algorithm", "SHA-256"); // Default if missing
+            String text = getStringParam(input, "inputText", null); // Required
+            String outputFormat = getStringParam(input, "outputFormat", "hex"); // Default hex
+            // String encoding = getStringParam(input, "encoding", "UTF-8"); // Default UTF-8 if input added
+
+            if (text == null) { // getStringParam throws if required and null/empty
+                throw new IllegalArgumentException("Input text cannot be empty.");
             }
 
-            result.put("input", text);
+            // Validate algorithm
+            if (!SUPPORTED_ALGORITHMS.containsKey(algorithm)) {
+                // Check if it's a BouncyCastle one *if* BC is loaded
+                // If not checking for BC:
+                throw new IllegalArgumentException("Unsupported algorithm: " + algorithm);
+            }
+
+            // Calculate hash
+            byte[] hashBytes = calculateHash(text, algorithm);
+
+            // Format output
+            String formattedHash = switch (outputFormat.toLowerCase()) {
+                case "hexupper" -> bytesToHex(hashBytes, true); // Uppercase hex
+                case "base64" -> Base64.getEncoder().encodeToString(hashBytes);
+                default -> bytesToHex(hashBytes, false); // Lowercase hex
+            };
+
+            // Build success result map matching NEW output field IDs
+            Map<String, Object> result = new HashMap<>();
             result.put("success", true);
+            result.put("inputEcho", text.length() > 100 ? text.substring(0, 97) + "..." : text); // Preview long text
+            result.put("algorithmUsed", algorithm);
+            result.put("hashResult", formattedHash);
 
-        } catch (Exception e) {
-            result.put("success", false);
-            result.put("error", e.getMessage());
-        }
+            return result;
 
-        return result;
-    }
-
-    public String calculateSHA256(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] encodedHash = digest.digest(
-                    input.getBytes(StandardCharsets.UTF_8));
-            return bytesToHex(encodedHash);
-        } catch (Exception e) {
-            throw new RuntimeException("Error calculating SHA-256 hash: " + e.getMessage(), e);
+        } catch (IllegalArgumentException e) { // Catch validation errors
+            return Map.of("success", false, errorOutputId, e.getMessage());
+        } catch (NoSuchAlgorithmException e) {
+            System.err.println("Hashing error: " + e.getMessage());
+            return Map.of("success", false, errorOutputId, "Algorithm not available: " + e.getMessage() + ". (Maybe BouncyCastle provider is needed?)");
+        } catch (Exception e) { // Catch unexpected errors
+            System.err.println("Error processing hash request: " + e.getMessage());
+            e.printStackTrace();
+            return Map.of("success", false, errorOutputId, "Unexpected error: " + e.getMessage());
         }
     }
 
-    public String calculateMD5(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("MD5");
-            byte[] encodedHash = digest.digest(
-                    input.getBytes(StandardCharsets.UTF_8));
-            return bytesToHex(encodedHash);
-        } catch (Exception e) {
-            throw new RuntimeException("Error calculating MD5 hash: " + e.getMessage(), e);
-        }
+    // ========================================================================
+    // Private Helper Methods
+    // ========================================================================
+
+    /**
+     * Calculates the hash of the input string using the specified algorithm.
+     *
+     * @param input     The string to hash.
+     * @param algorithm The standard algorithm name (e.g., "SHA-256", "MD5").
+     * @return The raw byte array of the hash.
+     * @throws NoSuchAlgorithmException If the algorithm is not supported by the security providers.
+     */
+    private byte[] calculateHash(String input, String algorithm) throws NoSuchAlgorithmException {
+        // Consider selected encoding here if the input field is added
+        // Charset charset = Charset.forName(encoding); // e.g., StandardCharsets.UTF_8
+        MessageDigest digest = MessageDigest.getInstance(algorithm);
+        return digest.digest(input.getBytes(StandardCharsets.UTF_8));
     }
 
-    private String bytesToHex(byte[] bytes) {
-        StringBuilder hexString = new StringBuilder();
+    /**
+     * Converts a byte array to a hexadecimal string.
+     *
+     * @param bytes     The byte array.
+     * @param upperCase True for uppercase hex (A-F), false for lowercase (a-f).
+     * @return The hexadecimal string representation.
+     */
+    private String bytesToHex(byte[] bytes, boolean upperCase) {
+        StringBuilder hexString = new StringBuilder(2 * bytes.length);
+        String format = upperCase ? "%02X" : "%02x";
         for (byte b : bytes) {
-            String hex = Integer.toHexString(0xff & b);
-            if (hex.length() == 1) {
-                hexString.append('0');
-            }
-            hexString.append(hex);
+            hexString.append(String.format(format, b));
         }
         return hexString.toString();
+    }
+
+    // Null default indicates required
+    private String getStringParam(Map<String, Object> input, String key, String defaultValue) throws IllegalArgumentException {
+        Object value = input.get(key);
+        if (value == null) {
+            if (defaultValue == null) throw new IllegalArgumentException("Missing required parameter: " + key);
+            return defaultValue;
+        }
+        // Allow empty string for hashing
+        // Only throw if required and truly missing (null), not if empty string provided
+        return value.toString();
     }
 }

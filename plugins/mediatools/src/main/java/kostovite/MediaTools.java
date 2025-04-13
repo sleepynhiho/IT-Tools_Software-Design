@@ -1,585 +1,585 @@
 package kostovite;
 
-import org.imgscalr.Scalr;
+import org.imgscalr.Scalr; // Import imgscalr
 
 import javax.imageio.ImageIO;
+import java.awt.*; // Import missing AWT classes
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 
+// Assuming PluginInterface is standard
 public class MediaTools implements PluginInterface {
 
+    // Consider making upload dir configurable
+    // private final String uploadDir = "media-output";
+
+    /**
+     * Internal name, should match the class for routing.
+     */
     @Override
     public String getName() {
         return "MediaTools";
     }
 
+    /**
+     * Standalone execution for testing (requires manual image loading).
+     */
     @Override
     public void execute() {
-        System.out.println("MediaTools Plugin executed");
-
-        // Demo functionality can be added here if needed
+        System.out.println("MediaTools Plugin executed (standalone test)");
+        System.out.println("Note: Standalone test requires providing image data manually.");
+        // Example: You would need to load image bytes first
     }
 
+    /**
+     * Generates metadata in the NEW format (sections, id, etc.).
+     */
     @Override
     public Map<String, Object> getMetadata() {
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", getName()); // Corresponds to ToolMetadata.name
-        metadata.put("version", "1.0.0");
-        metadata.put("description", "Image processing and media utilities"); // Corresponds to ToolMetadata.description
 
-        // Define available backend operations (for informational purposes or direct API calls)
-        Map<String, Object> operations = new HashMap<>();
+        // --- Top Level Attributes (New Format) ---
+        metadata.put("id", "MediaTools"); // ID matches class name
+        metadata.put("name", "Image Tools"); // User-facing name
+        metadata.put("description", "Resize, convert format, apply filters, or get info about images.");
+        metadata.put("icon", "Image");
+        metadata.put("category", "Media");
+        metadata.put("customUI", false);
+        metadata.put("triggerUpdateOnChange", false); // Requires manual submit
 
-        // Resize image operation
-        Map<String, Object> resizeOperation = new HashMap<>();
-        resizeOperation.put("description", "Resize an image to specified dimensions");
-        Map<String, Object> resizeInputs = new HashMap<>();
-        resizeInputs.put("imageData", Map.of("type", "binary", "description", "Binary image data", "required", true));
-        resizeInputs.put("width", Map.of("type", "integer", "description", "Target width in pixels", "required", true));
-        resizeInputs.put("height", Map.of("type", "integer", "description", "Target height in pixels", "required", true));
-        resizeInputs.put("format", Map.of("type", "string", "description", "Output format (jpg, png, etc.)", "required", true));
-        resizeOperation.put("inputs", resizeInputs);
-        operations.put("resize", resizeOperation);
+        // --- Sections ---
+        List<Map<String, Object>> sections = new ArrayList<>();
 
-        // Convert format operation
-        Map<String, Object> convertOperation = new HashMap<>();
-        convertOperation.put("description", "Convert an image to a different format");
-        Map<String, Object> convertInputs = new HashMap<>();
-        convertInputs.put("imageData", Map.of("type", "binary", "description", "Binary image data", "required", true));
-        convertInputs.put("targetFormat", Map.of("type", "string", "description", "Target format (jpg, png, etc.)", "required", true));
-        convertOperation.put("inputs", convertInputs);
-        operations.put("convert", convertOperation);
+        // --- Section 1: Operation and Image Upload ---
+        Map<String, Object> inputSection = new HashMap<>();
+        inputSection.put("id", "inputSection");
+        inputSection.put("label", "Operation & Image");
 
-        // Apply filter operation
-        Map<String, Object> filterOperation = new HashMap<>();
-        filterOperation.put("description", "Apply a filter to an image");
-        Map<String, Object> filterInputs = new HashMap<>();
-        filterInputs.put("imageData", Map.of("type", "binary", "description", "Binary image data", "required", true));
-        filterInputs.put("filter", Map.of("type", "string", "description", "Filter type (grayscale, invert, sepia)", "required", true));
-        filterOperation.put("inputs", filterInputs);
-        operations.put("filter", filterOperation);
+        List<Map<String, Object>> mainInputs = new ArrayList<>();
 
-        // Get image info operation
-        Map<String, Object> infoOperation = new HashMap<>();
-        infoOperation.put("description", "Get information about an image");
-        Map<String, Object> infoInputs = new HashMap<>();
-        infoInputs.put("imageData", Map.of("type", "binary", "description", "Binary image data", "required", true));
-        infoOperation.put("inputs", infoInputs);
-        operations.put("info", infoOperation);
+        // Operation Selection
+        mainInputs.add(Map.ofEntries(
+                Map.entry("id", "uiOperation"),
+                Map.entry("label", "Select Operation:"),
+                Map.entry("type", "select"),
+                Map.entry("options", List.of(
+                        Map.of("value", "resize", "label", "Resize Image"),
+                        Map.of("value", "convert", "label", "Convert Format"),
+                        Map.of("value", "filter", "label", "Apply Filter"),
+                        Map.of("value", "info", "label", "Get Image Info")
+                )),
+                Map.entry("default", "info"), // Default to info perhaps?
+                Map.entry("required", true)
+        ));
 
-        metadata.put("operations", operations); // Keep this for backend/API reference
+        // Image Upload Field Placeholder
+        // ** IMPORTANT: Frontend needs custom handling for type: "file" **
+        // ** Backend expects data likely as Base64 string under a different ID **
+        mainInputs.add(Map.ofEntries(
+                Map.entry("id", "imageUpload"), // ID for the UI element
+                Map.entry("label", "Upload Image:"),
+                Map.entry("type", "file"), // Indicates to frontend to show file input
+                Map.entry("accept", "image/png, image/jpeg, image/gif, image/bmp"), // Specify accepted types
+                Map.entry("required", true),
+                Map.entry("helperText", "Select an image file (PNG, JPG, GIF, BMP).")
+        ));
 
-        // --- Define UI Configuration ---
-        Map<String, Object> uiConfig = new HashMap<>();
-        uiConfig.put("id", "MediaTools"); // Corresponds to ToolMetadata.id
-        uiConfig.put("icon", "Image"); // Corresponds to ToolMetadata.icon (Material Icon name)
-        uiConfig.put("category", "Media"); // Corresponds to ToolMetadata.category
+        inputSection.put("inputs", mainInputs);
+        sections.add(inputSection);
 
-        // --- Define UI Inputs ---
-        List<Map<String, Object>> uiInputs = new ArrayList<>();
 
-        // Input Section 1: Operation Selection
-        Map<String, Object> inputSection1 = new HashMap<>();
-        inputSection1.put("header", "Image Operation");
-        List<Map<String, Object>> section1Fields = new ArrayList<>();
+        // --- Section 2: Operation Specific Parameters ---
+        Map<String, Object> paramsSection = new HashMap<>();
+        paramsSection.put("id", "paramsSection");
+        paramsSection.put("label", "Operation Parameters");
+        // No top-level condition, handled by individual fields
 
-        // Operation selection field
-        Map<String, Object> operationField = new HashMap<>();
-        operationField.put("name", "operation");
-        operationField.put("label", "Operation:");
-        operationField.put("type", "select");
-        List<Map<String, String>> operationOptions = new ArrayList<>();
-        operationOptions.add(Map.of("value", "resize", "label", "Resize Image"));
-        operationOptions.add(Map.of("value", "convert", "label", "Convert Format"));
-        operationOptions.add(Map.of("value", "filter", "label", "Apply Filter"));
-        operationOptions.add(Map.of("value", "info", "label", "Image Information"));
-        operationField.put("options", operationOptions);
-        operationField.put("default", "resize");
-        operationField.put("required", true);
-        section1Fields.add(operationField);
+        List<Map<String, Object>> paramInputs = new ArrayList<>();
 
-        inputSection1.put("fields", section1Fields);
-        uiInputs.add(inputSection1);
+        // == Resize Params ==
+        paramInputs.add(Map.ofEntries(
+                Map.entry("id", "targetWidth"),
+                Map.entry("label", "Width (pixels):"),
+                Map.entry("type", "number"),
+                Map.entry("min", 1),
+                Map.entry("max", 8000), // Increased max size
+                Map.entry("default", 800),
+                Map.entry("required", true),
+                Map.entry("condition", "uiOperation === 'resize'")
+        ));
+        paramInputs.add(Map.ofEntries(
+                Map.entry("id", "targetHeight"),
+                Map.entry("label", "Height (pixels):"),
+                Map.entry("type", "number"),
+                Map.entry("min", 1),
+                Map.entry("max", 8000),
+                Map.entry("default", 600),
+                Map.entry("required", true),
+                Map.entry("condition", "uiOperation === 'resize'")
+        ));
+        List<Map<String, String>> formatOptions = List.of(
+                Map.of("value", "png", "label", "PNG"),
+                Map.of("value", "jpg", "label", "JPEG"),
+                Map.of("value", "gif", "label", "GIF"),
+                Map.of("value", "bmp", "label", "BMP")
+        );
+        paramInputs.add(Map.ofEntries(
+                Map.entry("id", "outputFormat"), // Used by resize
+                Map.entry("label", "Output Format:"),
+                Map.entry("type", "select"),
+                Map.entry("options", formatOptions),
+                Map.entry("default", "png"),
+                Map.entry("required", true),
+                Map.entry("condition", "uiOperation === 'resize'")
+        ));
 
-        // Input Section 2: Image Input
-        Map<String, Object> inputSection2 = new HashMap<>();
-        inputSection2.put("header", "Image Input");
-        List<Map<String, Object>> section2Fields = new ArrayList<>();
+        // == Convert Params ==
+        paramInputs.add(Map.ofEntries(
+                Map.entry("id", "targetFormat"), // Used by convert
+                Map.entry("label", "Target Format:"),
+                Map.entry("type", "select"),
+                Map.entry("options", formatOptions), // Reuse format options
+                Map.entry("default", "png"),
+                Map.entry("required", true),
+                Map.entry("condition", "uiOperation === 'convert'")
+        ));
 
-        // Image upload field
-        Map<String, Object> imageField = new HashMap<>();
-        imageField.put("name", "imageUpload");
-        imageField.put("label", "Upload Image:");
-        imageField.put("type", "file");
-        imageField.put("accept", "image/*");
-        imageField.put("required", true);
-        section2Fields.add(imageField);
+        // == Filter Params ==
+        paramInputs.add(Map.ofEntries(
+                Map.entry("id", "filterType"), // Used by filter
+                Map.entry("label", "Filter Type:"),
+                Map.entry("type", "select"),
+                Map.entry("options", List.of(
+                        Map.of("value", "grayscale", "label", "Grayscale"),
+                        Map.of("value", "sepia", "label", "Sepia Tone"),
+                        Map.of("value", "invert", "label", "Invert Colors")
+                        // Add more filters here and implement in backend
+                )),
+                Map.entry("default", "grayscale"),
+                Map.entry("required", true),
+                Map.entry("condition", "uiOperation === 'filter'")
+        ));
 
-        inputSection2.put("fields", section2Fields);
-        uiInputs.add(inputSection2);
+        paramsSection.put("inputs", paramInputs);
+        sections.add(paramsSection);
 
-        // Input Section 3: Resize Parameters (conditional)
-        Map<String, Object> inputSection3 = new HashMap<>();
-        inputSection3.put("header", "Resize Parameters");
-        inputSection3.put("condition", "operation === 'resize'");
-        List<Map<String, Object>> section3Fields = new ArrayList<>();
 
-        // Width field
-        Map<String, Object> widthField = new HashMap<>();
-        widthField.put("name", "width");
-        widthField.put("label", "Width (pixels):");
-        widthField.put("type", "number");
-        widthField.put("min", 1);
-        widthField.put("max", 5000);
-        widthField.put("default", 800);
-        widthField.put("required", true);
-        section3Fields.add(widthField);
+        // --- Section 3: Results ---
+        Map<String, Object> resultsSection = new HashMap<>();
+        resultsSection.put("id", "results");
+        resultsSection.put("label", "Output");
+        resultsSection.put("condition", "success === true"); // Show only on success
 
-        // Height field
-        Map<String, Object> heightField = new HashMap<>();
-        heightField.put("name", "height");
-        heightField.put("label", "Height (pixels):");
-        heightField.put("type", "number");
-        heightField.put("min", 1);
-        heightField.put("max", 5000);
-        heightField.put("default", 600);
-        heightField.put("required", true);
-        section3Fields.add(heightField);
+        List<Map<String, Object>> resultOutputs = new ArrayList<>();
 
-        // Format field
-        Map<String, Object> formatField = new HashMap<>();
-        formatField.put("name", "format");
-        formatField.put("label", "Output Format:");
-        formatField.put("type", "select");
-        List<Map<String, String>> formatOptions = new ArrayList<>();
-        formatOptions.add(Map.of("value", "png", "label", "PNG"));
-        formatOptions.add(Map.of("value", "jpg", "label", "JPEG"));
-        formatOptions.add(Map.of("value", "gif", "label", "GIF"));
-        formatOptions.add(Map.of("value", "bmp", "label", "BMP"));
-        formatField.put("options", formatOptions);
-        formatField.put("default", "png");
-        formatField.put("required", true);
-        section3Fields.add(formatField);
+        // Processed Image Output (for resize, convert, filter)
+        Map<String, Object> imageOutput = createOutputField("processedImageBase64", "", "image",
+                "(uiOperation === 'resize' || uiOperation === 'convert' || uiOperation === 'filter') && typeof processedImageBase64 !== 'undefined'");
+        imageOutput.put("buttons", List.of("download"));
+        imageOutput.put("downloadFilenameKey", "outputFileName"); // Key for download filename
+        resultOutputs.add(imageOutput);
 
-        inputSection3.put("fields", section3Fields);
-        uiInputs.add(inputSection3);
+        // Image Info Outputs (for info operation)
+        resultOutputs.add(createOutputField("imageInfoWidth", "Width", "text", "uiOperation === 'info' && typeof imageInfoWidth !== 'undefined'"));
+        resultOutputs.add(createOutputField("imageInfoHeight", "Height", "text", "uiOperation === 'info' && typeof imageInfoHeight !== 'undefined'"));
+        resultOutputs.add(createOutputField("imageInfoType", "Image Type", "text", "uiOperation === 'info' && typeof imageInfoType !== 'undefined'"));
+        resultOutputs.add(createOutputField("imageInfoAspectRatio", "Aspect Ratio", "text", "uiOperation === 'info' && typeof imageInfoAspectRatio !== 'undefined'"));
+        resultOutputs.add(createOutputField("imageInfoPixelCount", "Pixel Count", "text", "uiOperation === 'info' && typeof imageInfoPixelCount !== 'undefined'"));
 
-        // Input Section 4: Convert Format Parameters (conditional)
-        Map<String, Object> inputSection4 = new HashMap<>();
-        inputSection4.put("header", "Convert Format Parameters");
-        inputSection4.put("condition", "operation === 'convert'");
-        List<Map<String, Object>> section4Fields = new ArrayList<>();
 
-        // Target format field
-        Map<String, Object> targetFormatField = new HashMap<>();
-        targetFormatField.put("name", "targetFormat");
-        targetFormatField.put("label", "Target Format:");
-        targetFormatField.put("type", "select");
-        targetFormatField.put("options", formatOptions); // Reuse the same options
-        targetFormatField.put("default", "png");
-        targetFormatField.put("required", true);
-        section4Fields.add(targetFormatField);
+        resultsSection.put("outputs", resultOutputs);
+        sections.add(resultsSection);
 
-        inputSection4.put("fields", section4Fields);
-        uiInputs.add(inputSection4);
 
-        // Input Section 5: Filter Parameters (conditional)
-        Map<String, Object> inputSection5 = new HashMap<>();
-        inputSection5.put("header", "Filter Parameters");
-        inputSection5.put("condition", "operation === 'filter'");
-        List<Map<String, Object>> section5Fields = new ArrayList<>();
+        // --- Section 4: Error Display ---
+        Map<String, Object> errorSection = new HashMap<>();
+        errorSection.put("id", "errorDisplay");
+        errorSection.put("label", "Error");
+        errorSection.put("condition", "success === false");
 
-        // Filter selection field
-        Map<String, Object> filterField = new HashMap<>();
-        filterField.put("name", "filter");
-        filterField.put("label", "Filter Type:");
-        filterField.put("type", "select");
-        List<Map<String, String>> filterOptions = new ArrayList<>();
-        filterOptions.add(Map.of("value", "grayscale", "label", "Grayscale"));
-        filterOptions.add(Map.of("value", "sepia", "label", "Sepia Tone"));
-        filterOptions.add(Map.of("value", "invert", "label", "Invert Colors"));
-        filterField.put("options", filterOptions);
-        filterField.put("default", "grayscale");
-        filterField.put("required", true);
-        section5Fields.add(filterField);
+        List<Map<String, Object>> errorOutputs = new ArrayList<>();
+        errorOutputs.add(createOutputField("errorMessage", "Details", "text", null)); // style handled by helper
+        errorSection.put("outputs", errorOutputs);
+        sections.add(errorSection);
 
-        inputSection5.put("fields", section5Fields);
-        uiInputs.add(inputSection5);
 
-        uiConfig.put("inputs", uiInputs);
-
-        // --- Define UI Outputs ---
-        List<Map<String, Object>> uiOutputs = new ArrayList<>();
-
-        // Output Section 1: Processed Image
-        Map<String, Object> outputSection1 = new HashMap<>();
-        outputSection1.put("header", "Processed Image");
-        outputSection1.put("condition", "success && (operation === 'resize' || operation === 'convert' || operation === 'filter')");
-        List<Map<String, Object>> section1OutputFields = new ArrayList<>();
-
-        // Image display
-        Map<String, Object> resultImageOutput = new HashMap<>();
-        resultImageOutput.put("title", "Result");
-        resultImageOutput.put("name", "resultImage");
-        resultImageOutput.put("type", "image");
-        resultImageOutput.put("formula", "'data:image/' + (format || targetFormat || 'png') + ';base64,' + base64");
-        resultImageOutput.put("buttons", List.of("download"));
-        section1OutputFields.add(resultImageOutput);
-
-        outputSection1.put("fields", section1OutputFields);
-        uiOutputs.add(outputSection1);
-
-        // Output Section 2: Image Information
-        Map<String, Object> outputSection2 = new HashMap<>();
-        outputSection2.put("header", "Image Information");
-        outputSection2.put("condition", "success && operation === 'info'");
-        List<Map<String, Object>> section2OutputFields = new ArrayList<>();
-
-        // Width
-        Map<String, Object> widthOutput = new HashMap<>();
-        widthOutput.put("title", "Width");
-        widthOutput.put("name", "width");
-        widthOutput.put("type", "text");
-        widthOutput.put("formula", "width + ' pixels'");
-        section2OutputFields.add(widthOutput);
-
-        // Height
-        Map<String, Object> heightOutput = new HashMap<>();
-        heightOutput.put("title", "Height");
-        heightOutput.put("name", "height");
-        heightOutput.put("type", "text");
-        heightOutput.put("formula", "height + ' pixels'");
-        section2OutputFields.add(heightOutput);
-
-        // Type
-        Map<String, Object> typeOutput = new HashMap<>();
-        typeOutput.put("title", "Image Type");
-        typeOutput.put("name", "type");
-        typeOutput.put("type", "text");
-        section2OutputFields.add(typeOutput);
-
-        outputSection2.put("fields", section2OutputFields);
-        uiOutputs.add(outputSection2);
-
-        // Output Section 3: Error Display
-        Map<String, Object> outputSection3 = new HashMap<>();
-        outputSection3.put("header", "Error Information");
-        outputSection3.put("condition", "error");
-        List<Map<String, Object>> section3OutputFields = new ArrayList<>();
-
-        // Error message
-        Map<String, Object> errorOutput = new HashMap<>();
-        errorOutput.put("title", "Error");
-        errorOutput.put("name", "error");
-        errorOutput.put("type", "text");
-        errorOutput.put("style", "error");
-        section3OutputFields.add(errorOutput);
-
-        outputSection3.put("fields", section3OutputFields);
-        uiOutputs.add(outputSection3);
-
-        uiConfig.put("outputs", uiOutputs);
-
-        // Add the structured uiConfig to the main metadata map
-        metadata.put("uiConfig", uiConfig);
-
+        metadata.put("sections", sections);
         return metadata;
     }
 
+    // Helper to create output field definitions more easily
+    private Map<String, Object> createOutputField(String id, String label, String type, String condition) {
+        Map<String, Object> field = new HashMap<>();
+        field.put("id", id);
+        if (label != null && !label.isEmpty()) {
+            field.put("label", label);
+        }
+        field.put("type", type);
+        if (condition != null && !condition.isEmpty()) {
+            field.put("condition", condition);
+        }
+        if (id.toLowerCase().contains("error")) {
+            field.put("style", "error");
+        }
+        if ("text".equals(type) && (id.toLowerCase().contains("count") || id.toLowerCase().contains("width") || id.toLowerCase().contains("height"))) {
+            field.put("monospace", true); // Monospace for counts/dimensions
+        }
+        if ("image".equals(type)){
+            field.put("maxWidth", 400); // Default max width for image outputs
+            field.put("maxHeight", 400); // Default max height
+        }
+        return field;
+    }
+
+    /**
+     * Processes the input parameters (using IDs from the new format)
+     * to perform image operations.
+     */
     @Override
     public Map<String, Object> process(Map<String, Object> input) {
-        Map<String, Object> result = new HashMap<>();
+        String errorOutputId = "errorMessage";
+        String uiOperation = getStringParam(input, "uiOperation", "info"); // Default operation
 
         try {
-            String operation = (String) input.getOrDefault("operation", "info");
-            byte[] imageData = getImageData(input);
+            // --- Get Image Data ---
+            // ** CRITICAL: Assumes frontend sends base64 data with this key **
+            // ** Modify if frontend sends data differently **
+            byte[] imageData = getImageDataFromBase64(input); // Expect base64 key
 
             if (imageData == null || imageData.length == 0) {
-                result.put("error", "No image data provided");
-                return result;
+                throw new IllegalArgumentException("No image data provided or failed to decode. Please upload an image.");
             }
 
-            switch (operation.toLowerCase()) {
+            Map<String, Object> result;
+            // Route based on the selected UI operation
+            switch (uiOperation.toLowerCase()) {
                 case "resize":
-                    int width = Integer.parseInt(input.get("width").toString());
-                    int height = Integer.parseInt(input.get("height").toString());
-                    String format = (String) input.getOrDefault("format", "png");
+                    int width = getIntParam(input, "targetWidth", 800); // Use new ID
+                    int height = getIntParam(input, "targetHeight", 600); // Use new ID
+                    String format = getStringParam(input, "outputFormat", "png"); // Use new ID
                     result = resizeImage(imageData, width, height, format);
-                    result.put("success", !result.containsKey("error"));
                     break;
 
                 case "convert":
-                    String targetFormat = (String) input.getOrDefault("targetFormat", "png");
+                    String targetFormat = getStringParam(input, "targetFormat", "png"); // Use new ID
                     result = convertImageFormat(imageData, targetFormat);
-                    result.put("success", !result.containsKey("error"));
                     break;
 
                 case "filter":
-                    String filter = (String) input.getOrDefault("filter", "grayscale");
+                    String filter = getStringParam(input, "filterType", "grayscale"); // Use new ID
                     result = applyFilter(imageData, filter);
-                    result.put("success", !result.containsKey("error"));
                     break;
 
                 case "info":
                     result = getImageInfo(imageData);
-                    result.put("success", !result.containsKey("error"));
                     break;
 
                 default:
-                    result.put("error", "Unsupported operation: " + operation);
-                    return result;
+                    return Map.of("success", false, errorOutputId, "Unsupported operation: " + uiOperation);
             }
 
-        } catch (Exception e) {
-            result.put("error", "Error processing image: " + e.getMessage());
-            e.printStackTrace();
-        }
+            Map<String, Object> finalResult = new HashMap<>(result); // Start with specific results
+            finalResult.put("success", !result.containsKey("error")); // Determine success
+            finalResult.put("uiOperation", uiOperation); // Add operation context
 
-        return result;
+            // Rename result keys to match output IDs
+            if (finalResult.containsKey("base64")) {
+                finalResult.put("processedImageBase64", "data:image/" + finalResult.getOrDefault("format","png") + ";base64," + finalResult.get("base64"));
+                finalResult.remove("base64"); // Remove original key
+                // Suggest a filename for download
+                finalResult.put("outputFileName", "processed_image." + finalResult.getOrDefault("format","png"));
+            }
+            if (finalResult.containsKey("error") && !finalResult.containsKey(errorOutputId)) {
+                finalResult.put(errorOutputId, finalResult.get("error"));
+                finalResult.remove("error");
+            }
+            // Map info keys with explicit casting for String.format
+            if (finalResult.containsKey("width")) {
+                // Assuming width is Integer from BufferedImage.getWidth()
+                finalResult.put("imageInfoWidth", String.format(Locale.US,"%,d px", (Integer) finalResult.get("width")));
+            }
+            if (finalResult.containsKey("height")) {
+                // Assuming height is Integer from BufferedImage.getHeight()
+                finalResult.put("imageInfoHeight", String.format(Locale.US,"%,d px", (Integer) finalResult.get("height")));
+            }
+            if (finalResult.containsKey("type")) {
+                finalResult.put("imageInfoType", finalResult.get("type")); // Type is already String
+            }
+            if (finalResult.containsKey("aspectRatio")) {
+                // *** Cast to Double ***
+                finalResult.put("imageInfoAspectRatio", String.format(Locale.US, "%.2f", (Double) finalResult.get("aspectRatio")));
+            }
+            if (finalResult.containsKey("pixelCount")) {
+                // *** Cast to Long ***
+                finalResult.put("imageInfoPixelCount", String.format(Locale.US, "%,d", (Long) finalResult.get("pixelCount")));
+            }
+            // Remove original info keys if mapped (do this AFTER using them)
+            finalResult.remove("width");
+            finalResult.remove("height");
+            finalResult.remove("type");
+            finalResult.remove("aspectRatio");
+            finalResult.remove("pixelCount");
+            finalResult.remove("format");
+
+
+            return finalResult;
+
+        } catch (IllegalArgumentException e) {
+            return Map.of("success", false, errorOutputId, e.getMessage());
+        } catch (IOException e) {
+            System.err.println("IO error processing image: " + e.getMessage());
+            e.printStackTrace();
+            return Map.of("success", false, errorOutputId, "Failed to read or process image data: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Unexpected error processing image: " + e.getMessage());
+            e.printStackTrace();
+            return Map.of("success", false, errorOutputId, "Unexpected error: " + e.getMessage());
+        }
     }
 
     /**
-     * Helper method to extract image data from various input formats
+     * Helper method to extract image data from Base64 string in input.
+     * Assumes frontend sends Base64 string with key "imageBase64".
      */
-    private byte[] getImageData(Map<String, Object> input) {
-        try {
-            // Handle direct binary data
-            if (input.containsKey("imageData")) {
-                return (byte[]) input.get("imageData");
-            }
-
-            // Handle base64 encoded data
-            if (input.containsKey("imageBase64")) {
-                String base64Data = (String) input.get("imageBase64");
-                // Remove header if present
-                if (base64Data.contains(",")) {
-                    base64Data = base64Data.split(",")[1];
+    private byte[] getImageDataFromBase64(Map<String, Object> input) {
+        Object data = input.get("imageUploadBase64");
+        if (data instanceof String base64Data) {
+            try {
+                // Remove data URI header if present (e.g., "data:image/png;base64,")
+                if (base64Data.startsWith("data:image")) {
+                    base64Data = base64Data.substring(base64Data.indexOf(',') + 1);
                 }
                 return Base64.getDecoder().decode(base64Data);
+            } catch (IllegalArgumentException e) {
+                System.err.println("Invalid Base64 data received for key '" + "imageUploadBase64" + "'");
+                throw new IllegalArgumentException("Invalid image data format received (expecting Base64).");
             }
-
-            // Handle file upload data (assuming it's already been converted to bytes)
-            if (input.containsKey("imageUpload")) {
-                return (byte[]) input.get("imageUpload");
-            }
-        } catch (Exception e) {
-            System.err.println("Error processing image data: " + e.getMessage());
-            e.printStackTrace();
+        } else if (data != null) {
+            System.err.println("Unexpected data type received for image key '" + "imageUploadBase64" + "': " + data.getClass().getName());
+            throw new IllegalArgumentException("Incorrect image data type received.");
         }
-
+        // If the key wasn't present or data was null
+        // Depending on requirement, either throw or return null
+        // For now, assume required elsewhere if needed.
         return null;
     }
 
+
     /**
-     * Resize an image to the specified dimensions
+     * Resize an image using imgscalr.
      */
     public Map<String, Object> resizeImage(byte[] imageData, int width, int height, String format) throws IOException {
         Map<String, Object> result = new HashMap<>();
-
-        // Load the image
         BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(imageData));
-        if (originalImage == null) {
-            result.put("error", "Could not read input image");
-            return result;
+        if (originalImage == null) throw new IOException("Could not decode input image data.");
+
+        // Use Scalr for quality resizing
+        BufferedImage resizedImage = Scalr.resize(originalImage, Scalr.Method.QUALITY, Scalr.Mode.AUTOMATIC, width, height, Scalr.OP_ANTIALIAS);
+
+        // Convert to bytes in target format
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        if (!ImageIO.write(resizedImage, format, baos)) {
+            throw new IOException("No writer found for format: " + format);
         }
+        byte[] resizedData = baos.toByteArray();
 
-        // Create resized image using imgscalr library for better quality
-        BufferedImage resizedImage = Scalr.resize(originalImage, Scalr.Method.QUALITY, Scalr.Mode.FIT_EXACT, width, height);
-
-        // Convert back to bytes
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ImageIO.write(resizedImage, format, outputStream);
-        byte[] resizedData = outputStream.toByteArray();
-
-        // Return result
-        result.put("data", resizedData);
         result.put("base64", Base64.getEncoder().encodeToString(resizedData));
         result.put("format", format);
-        result.put("width", width);
-        result.put("height", height);
-
+        result.put("width", resizedImage.getWidth()); // Actual width after resize
+        result.put("height", resizedImage.getHeight()); // Actual height
+        // result.put("data", resizedData); // Usually don't return raw bytes
         return result;
     }
 
     /**
-     * Convert an image to a different format
+     * Convert image format.
      */
     public Map<String, Object> convertImageFormat(byte[] imageData, String targetFormat) throws IOException {
         Map<String, Object> result = new HashMap<>();
-
-        // Load the image
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageData));
-        if (image == null) {
-            result.put("error", "Could not read input image");
-            return result;
+        if (image == null) throw new IOException("Could not decode input image data.");
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        // Handle formats like JPEG which don't support transparency well
+        if ("jpg".equalsIgnoreCase(targetFormat) || "jpeg".equalsIgnoreCase(targetFormat)) {
+            // Create a new image with white background if converting from type with alpha
+            if (image.getColorModel().hasAlpha()) {
+                BufferedImage newImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+                Graphics2D g = newImage.createGraphics();
+                try {
+                    g.setColor(Color.WHITE);
+                    g.fillRect(0, 0, image.getWidth(), image.getHeight());
+                    g.drawImage(image, 0, 0, null);
+                } finally {
+                    g.dispose();
+                }
+                image = newImage; // Use the new image without alpha
+            }
         }
 
-        // Convert to target format
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ImageIO.write(image, targetFormat, outputStream);
-        byte[] convertedData = outputStream.toByteArray();
+        if (!ImageIO.write(image, targetFormat, baos)) {
+            throw new IOException("No writer found for format: " + targetFormat);
+        }
+        byte[] convertedData = baos.toByteArray();
 
-        // Return result
-        result.put("data", convertedData);
         result.put("base64", Base64.getEncoder().encodeToString(convertedData));
         result.put("format", targetFormat);
         result.put("width", image.getWidth());
         result.put("height", image.getHeight());
-
         return result;
     }
 
     /**
-     * Apply a filter to an image
+     * Apply a filter to an image.
      */
     public Map<String, Object> applyFilter(byte[] imageData, String filter) throws IOException {
         Map<String, Object> result = new HashMap<>();
-
-        // Load the image
         BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(imageData));
-        if (originalImage == null) {
-            result.put("error", "Could not read input image");
-            return result;
-        }
+        if (originalImage == null) throw new IOException("Could not decode input image data.");
 
-        // Apply filter
         BufferedImage filteredImage;
+        String outputFormat = "png"; // Filters often best saved as PNG
 
-        switch (filter.toLowerCase()) {
-            case "grayscale":
-                filteredImage = toGrayscale(originalImage);
-                break;
-            case "invert":
-                filteredImage = invertColors(originalImage);
-                break;
-            case "sepia":
-                filteredImage = toSepia(originalImage);
-                break;
-            default:
-                result.put("error", "Unknown filter: " + filter);
-                return result;
+        filteredImage = switch (filter.toLowerCase()) {
+            case "grayscale" -> toGrayscale(originalImage);
+            case "invert" -> invertColors(originalImage);
+            case "sepia" -> toSepia(originalImage);
+            default -> throw new IllegalArgumentException("Unknown filter type: " + filter);
+        };
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        if (!ImageIO.write(filteredImage, outputFormat, baos)) {
+            throw new IOException("No writer found for format: " + outputFormat);
         }
+        byte[] filteredData = baos.toByteArray();
 
-        // Convert back to bytes
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ImageIO.write(filteredImage, "png", outputStream);
-        byte[] filteredData = outputStream.toByteArray();
-
-        // Return result
-        result.put("data", filteredData);
         result.put("base64", Base64.getEncoder().encodeToString(filteredData));
+        result.put("format", outputFormat); // Indicate the format saved in
         result.put("filter", filter);
         result.put("width", filteredImage.getWidth());
         result.put("height", filteredImage.getHeight());
-
         return result;
     }
 
     /**
-     * Get information about an image
+     * Get information about an image.
      */
     public Map<String, Object> getImageInfo(byte[] imageData) throws IOException {
         Map<String, Object> result = new HashMap<>();
-
-        // Load the image
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageData));
-        if (image == null) {
-            result.put("error", "Could not read input image");
-            return result;
-        }
+        if (image == null) throw new IOException("Could not decode input image data.");
 
-        // Get image info
         result.put("width", image.getWidth());
         result.put("height", image.getHeight());
-        result.put("type", getImageType(image.getType()));
+        result.put("type", getImageTypeDescription(image.getType())); // Use description
         result.put("aspectRatio", (double) image.getWidth() / image.getHeight());
-        result.put("pixelCount", image.getWidth() * image.getHeight());
+        result.put("pixelCount", (long) image.getWidth() * image.getHeight()); // Use long for pixel count
 
         return result;
     }
 
-    // Helper methods for filter effects
+    // --- Private Filter/Util Methods ---
 
     private BufferedImage toGrayscale(BufferedImage original) {
-        int width = original.getWidth();
-        int height = original.getHeight();
-        BufferedImage grayscaleImage = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);
-        grayscaleImage.getGraphics().drawImage(original, 0, 0, null);
-        return grayscaleImage;
+        BufferedImage gray = new BufferedImage(original.getWidth(), original.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
+        Graphics g = gray.getGraphics();
+        g.drawImage(original, 0, 0, null);
+        g.dispose();
+        return gray;
     }
 
     private BufferedImage invertColors(BufferedImage original) {
-        int width = original.getWidth();
-        int height = original.getHeight();
-        BufferedImage invertedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int rgb = original.getRGB(x, y);
-                int r = 255 - ((rgb >> 16) & 0xff);
-                int g = 255 - ((rgb >> 8) & 0xff);
-                int b = 255 - (rgb & 0xff);
-                int newRgb = (r << 16) | (g << 8) | b;
-                invertedImage.setRGB(x, y, newRgb);
+        BufferedImage inverted = new BufferedImage(original.getWidth(), original.getHeight(), BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < original.getHeight(); y++) {
+            for (int x = 0; x < original.getWidth(); x++) {
+                int rgba = original.getRGB(x, y);
+                Color col = new Color(rgba, true);
+                col = new Color(255 - col.getRed(), 255 - col.getGreen(), 255 - col.getBlue());
+                inverted.setRGB(x, y, col.getRGB());
             }
         }
-
-        return invertedImage;
+        return inverted;
     }
 
     private BufferedImage toSepia(BufferedImage original) {
-        int width = original.getWidth();
-        int height = original.getHeight();
-        BufferedImage sepiaImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int rgb = original.getRGB(x, y);
-                int r = (rgb >> 16) & 0xff;
-                int g = (rgb >> 8) & 0xff;
-                int b = rgb & 0xff;
-
-                // Sepia formula
-                int newRed = (int) (0.393 * r + 0.769 * g + 0.189 * b);
-                int newGreen = (int) (0.349 * r + 0.686 * g + 0.168 * b);
-                int newBlue = (int) (0.272 * r + 0.534 * g + 0.131 * b);
-
-                // Clamp values
-                newRed = Math.min(255, newRed);
-                newGreen = Math.min(255, newGreen);
-                newBlue = Math.min(255, newBlue);
-
-                int newRgb = (newRed << 16) | (newGreen << 8) | newBlue;
-                sepiaImage.setRGB(x, y, newRgb);
+        BufferedImage sepia = new BufferedImage(original.getWidth(), original.getHeight(), BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < original.getHeight(); y++) {
+            for (int x = 0; x < original.getWidth(); x++) {
+                int rgba = original.getRGB(x, y);
+                Color col = new Color(rgba, true);
+                int r = col.getRed(); int g = col.getGreen(); int b = col.getBlue();
+                int tr = (int)(0.393*r + 0.769*g + 0.189*b);
+                int tg = (int)(0.349*r + 0.686*g + 0.168*b);
+                int tb = (int)(0.272*r + 0.534*g + 0.131*b);
+                r = Math.min(255, tr); g = Math.min(255, tg); b = Math.min(255, tb);
+                sepia.setRGB(x, y, new Color(r, g, b).getRGB());
             }
         }
-
-        return sepiaImage;
+        return sepia;
     }
 
-    private String getImageType(int type) {
+    private String getImageTypeDescription(int type) {
         return switch (type) {
-            case BufferedImage.TYPE_3BYTE_BGR -> "3BYTE_BGR";
-            case BufferedImage.TYPE_4BYTE_ABGR -> "4BYTE_ABGR";
-            case BufferedImage.TYPE_4BYTE_ABGR_PRE -> "4BYTE_ABGR_PRE";
-            case BufferedImage.TYPE_BYTE_BINARY -> "BYTE_BINARY";
-            case BufferedImage.TYPE_BYTE_GRAY -> "BYTE_GRAY";
-            case BufferedImage.TYPE_BYTE_INDEXED -> "BYTE_INDEXED";
-            case BufferedImage.TYPE_INT_ARGB -> "INT_ARGB";
-            case BufferedImage.TYPE_INT_ARGB_PRE -> "INT_ARGB_PRE";
-            case BufferedImage.TYPE_INT_BGR -> "INT_BGR";
-            case BufferedImage.TYPE_INT_RGB -> "INT_RGB";
-            case BufferedImage.TYPE_USHORT_555_RGB -> "USHORT_555_RGB";
+            case BufferedImage.TYPE_INT_RGB -> "INT_RGB (Standard Color)";
+            case BufferedImage.TYPE_INT_ARGB -> "INT_ARGB (Color with Alpha)";
+            case BufferedImage.TYPE_INT_ARGB_PRE -> "INT_ARGB_PRE (Color with Premultiplied Alpha)";
+            case BufferedImage.TYPE_INT_BGR -> "INT_BGR (Blue Green Red)";
+            case BufferedImage.TYPE_3BYTE_BGR -> "3BYTE_BGR (Blue Green Red)";
+            case BufferedImage.TYPE_4BYTE_ABGR -> "4BYTE_ABGR (Alpha Blue Green Red)";
+            case BufferedImage.TYPE_4BYTE_ABGR_PRE -> "4BYTE_ABGR_PRE (Alpha Premultiplied)";
             case BufferedImage.TYPE_USHORT_565_RGB -> "USHORT_565_RGB";
-            case BufferedImage.TYPE_USHORT_GRAY -> "USHORT_GRAY";
-            default -> "CUSTOM";
+            case BufferedImage.TYPE_USHORT_555_RGB -> "USHORT_555_RGB";
+            case BufferedImage.TYPE_BYTE_GRAY -> "BYTE_GRAY (Grayscale)";
+            case BufferedImage.TYPE_USHORT_GRAY -> "USHORT_GRAY (Grayscale)";
+            case BufferedImage.TYPE_BYTE_BINARY -> "BYTE_BINARY (Black & White)";
+            case BufferedImage.TYPE_BYTE_INDEXED -> "BYTE_INDEXED (Palette)";
+            default -> "CUSTOM / Unknown (" + type + ")";
         };
     }
+
+    // --- Parameter Parsing Helpers ---
+
+    private int getIntParam(Map<String, Object> input, String key, Integer defaultValue) throws IllegalArgumentException {
+        // Reuse helper from previous examples
+        Object value = input.get(key);
+        // ... (rest of getIntParam implementation) ...
+        if (value == null) {
+            if (defaultValue != null) return defaultValue;
+            throw new IllegalArgumentException("Missing required integer parameter: " + key);
+        }
+        if (value instanceof Integer) return (Integer) value;
+        if (value instanceof Number) {
+            double dValue = ((Number) value).doubleValue();
+            if (dValue == Math.floor(dValue)) return ((Number) value).intValue();
+            else throw new IllegalArgumentException("Non-integer numeric value for integer parameter '" + key + "': " + value);
+        }
+        else {
+            try { return Integer.parseInt(value.toString()); }
+            catch (NumberFormatException e) {
+                if (defaultValue != null) return defaultValue;
+                throw new IllegalArgumentException("Invalid integer value for parameter '" + key + "': " + value);
+            }
+        }
+    }
+
+    private String getStringParam(Map<String, Object> input, String key, String defaultValue) throws IllegalArgumentException {
+        // Reuse helper from previous examples
+        Object value = input.get(key);
+        // ... (rest of getStringParam implementation) ...
+        if (value == null) {
+            if (defaultValue == null) throw new IllegalArgumentException("Missing required parameter: " + key);
+            return defaultValue;
+        }
+        String strValue = value.toString().trim();
+        if (strValue.isEmpty()) {
+            if (defaultValue == null) throw new IllegalArgumentException("Missing required parameter: " + key);
+            return defaultValue;
+        }
+        return strValue;
+    }
+
 }

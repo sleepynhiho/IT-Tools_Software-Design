@@ -8,756 +8,465 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberType;
 import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
 import com.google.i18n.phonenumbers.geocoding.PhoneNumberOfflineGeocoder;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
+import java.util.stream.Collectors; // For stream operations
 
+// Assuming PluginInterface is standard
 public class PhoneParser implements PluginInterface {
 
     private final PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
     private final PhoneNumberOfflineGeocoder geocoder = PhoneNumberOfflineGeocoder.getInstance();
     private final PhoneNumberToCarrierMapper carrierMapper = PhoneNumberToCarrierMapper.getInstance();
 
-    private static final Map<String, String> COUNTRY_DISPLAY_NAMES = new HashMap<>();
+    // Cache for country display names
+    private static final Map<String, String> COUNTRY_DISPLAY_NAMES_CACHE = new TreeMap<>(); // TreeMap for sorted keys
     static {
+        // Pre-populate cache with supported regions
         for (String regionCode : PhoneNumberUtil.getInstance().getSupportedRegions()) {
-            Locale locale = new Locale("", regionCode);
-            COUNTRY_DISPLAY_NAMES.put(regionCode, locale.getDisplayCountry());
+            Locale locale = new Locale("", regionCode); // Get locale for the region code
+            COUNTRY_DISPLAY_NAMES_CACHE.put(regionCode, locale.getDisplayCountry(Locale.ENGLISH)); // Use English display name
         }
     }
 
+    /**
+     * Internal name, should match the class for routing.
+     */
     @Override
     public String getName() {
         return "PhoneParser";
     }
 
+    /**
+     * Standalone execution for testing.
+     */
     @Override
     public void execute() {
-        System.out.println("Phone Parser Plugin executed");
-
-        // Demonstrate basic usage
+        System.out.println("Phone Parser Plugin executed (standalone test)");
         try {
-            // Example phone parsing
             Map<String, Object> params = new HashMap<>();
-            params.put("phoneNumber", "+1 (555) 123-4567");
-            params.put("defaultRegion", "US");
+            params.put("uiOperation", "parse"); // Use new ID
+            params.put("phoneNumberInput", "+44 20 7123 4567"); // Use new ID
+            params.put("defaultRegionCode", "GB"); // Use new ID
 
             Map<String, Object> result = process(params);
-            System.out.println("Parsed phone number: " + result.get("phoneNumber"));
-            System.out.println("Country: " + result.get("countryCode"));
-            System.out.println("Is valid: " + result.get("isValid"));
+            System.out.println("Parse Result: " + result);
+
+            params.clear();
+            params.put("uiOperation", "getSupportedRegions");
+            result = process(params);
+            System.out.println("Get Regions Result (Count): " + (result.containsKey("regions") ? ((List<?>)result.get("regions")).size() : "Error"));
+
+            params.clear();
+            params.put("uiOperation", "getExampleNumber");
+            params.put("exampleRegionCode", "DE"); // Use new ID
+            params.put("exampleNumberType", "MOBILE"); // Use new ID
+            result = process(params);
+            System.out.println("Get Example Result: " + result);
 
         } catch (Exception e) {
+            System.err.println("Standalone test failed: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
+    /**
+     * Generates metadata in the NEW format (sections, id, etc.).
+     */
     @Override
     public Map<String, Object> getMetadata() {
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", getName()); // Corresponds to ToolMetadata.name
-        metadata.put("version", "1.0.0");
-        metadata.put("description", "Parse, validate and format phone numbers"); // Corresponds to ToolMetadata.description
 
-        // Define available backend operations (for informational purposes or direct API calls)
-        Map<String, Object> operations = new HashMap<>();
+        // --- Top Level Attributes (New Format) ---
+        metadata.put("id", "PhoneParser"); // ID matches class name
+        metadata.put("name", "Phone Number Parser"); // User-facing name
+        metadata.put("description", "Parse, validate, format phone numbers, get country info and examples using Google's libphonenumber.");
+        metadata.put("icon", "Phone");
+        metadata.put("category", "Utilities");
+        metadata.put("customUI", false);
+        metadata.put("triggerUpdateOnChange", false); // Requires manual submit
 
-        // Parse phone number operation
-        Map<String, Object> parseOperation = new HashMap<>();
-        parseOperation.put("description", "Parse and validate phone numbers");
-        Map<String, Object> parseInputs = new HashMap<>();
-        parseInputs.put("phoneNumber", Map.of("type", "string", "description", "Phone number to parse", "required", true));
-        parseInputs.put("defaultRegion", Map.of("type", "string", "description", "Default country code (ISO 3166-1 alpha-2) to use for parsing", "required", false));
-        parseOperation.put("inputs", parseInputs);
-        operations.put("parse", parseOperation);
+        // --- Sections ---
+        List<Map<String, Object>> sections = new ArrayList<>();
 
-        // Format phone number operation
-        Map<String, Object> formatOperation = new HashMap<>();
-        formatOperation.put("description", "Format phone numbers");
-        Map<String, Object> formatInputs = new HashMap<>();
-        formatInputs.put("phoneNumber", Map.of("type", "string", "description", "Phone number to format", "required", true));
-        formatInputs.put("defaultRegion", Map.of("type", "string", "description", "Default country code (ISO 3166-1 alpha-2) to use for parsing", "required", false));
-        formatInputs.put("format", Map.of("type", "string", "description", "Format type (INTERNATIONAL, NATIONAL, E164, RFC3966)", "required", false));
-        formatOperation.put("inputs", formatInputs);
-        operations.put("format", formatOperation);
+        // --- Section 1: Operation Selection ---
+        Map<String, Object> operationSection = new HashMap<>();
+        operationSection.put("id", "operationSelection");
+        operationSection.put("label", "Select Action");
+        List<Map<String, Object>> operationInputs = new ArrayList<>();
+        operationInputs.add(Map.ofEntries(
+                Map.entry("id", "uiOperation"),
+                Map.entry("label", "Action:"),
+                Map.entry("type", "select"),
+                Map.entry("options", List.of(
+                        Map.of("value", "parse", "label", "Parse & Validate Number"),
+                        // Map.of("value", "format", "label", "Format Number"), // Format is part of Parse now
+                        Map.of("value", "getSupportedRegions", "label", "List Supported Countries"),
+                        Map.of("value", "getExampleNumber", "label", "Get Example Number")
+                )),
+                Map.entry("default", "parse"),
+                Map.entry("required", true)
+        ));
+        operationSection.put("inputs", operationInputs);
+        sections.add(operationSection);
 
-        // Get supported regions operation
-        Map<String, Object> regionsOperation = new HashMap<>();
-        regionsOperation.put("description", "Get supported regions");
-        operations.put("getSupportedRegions", regionsOperation);
+        // --- Section 2: Input Parameters (Conditional) ---
+        Map<String, Object> paramsSection = new HashMap<>();
+        paramsSection.put("id", "parameters");
+        paramsSection.put("label", "Input Parameters");
+        // No top-level condition, handled by fields
 
-        // Get example number operation
-        Map<String, Object> exampleOperation = new HashMap<>();
-        exampleOperation.put("description", "Get example phone number for region");
-        Map<String, Object> exampleInputs = new HashMap<>();
-        exampleInputs.put("region", Map.of("type", "string", "description", "Region code (ISO 3166-1 alpha-2)", "required", true));
-        exampleInputs.put("type", Map.of("type", "string", "description", "Phone number type (MOBILE, FIXED_LINE, etc.)", "required", false));
-        exampleOperation.put("inputs", exampleInputs);
-        operations.put("getExampleNumber", exampleOperation);
+        List<Map<String, Object>> paramInputs = new ArrayList<>();
 
-        metadata.put("operations", operations); // Keep this for backend/API reference
+        // Phone Number Input (for parse)
+        paramInputs.add(Map.ofEntries(
+                Map.entry("id", "phoneNumberInput"),
+                Map.entry("label", "Phone Number:"),
+                Map.entry("type", "text"), // Use text for flexibility
+                Map.entry("placeholder", "e.g., +1 415 555 2671, 020 7123 4567"),
+                Map.entry("required", true),
+                Map.entry("condition", "uiOperation === 'parse'"),
+                Map.entry("helperText", "Enter full number, include country code if known.")
+        ));
 
-        // --- Define UI Configuration ---
-        Map<String, Object> uiConfig = new HashMap<>();
-        uiConfig.put("id", "PhoneParser"); // Corresponds to ToolMetadata.id
-        uiConfig.put("icon", "Phone"); // Corresponds to ToolMetadata.icon (Material Icon name)
-        uiConfig.put("category", "Utilities"); // Corresponds to ToolMetadata.category
+        // Default Region Select (for parse)
+        List<Map<String, String>> regionOptions = COUNTRY_DISPLAY_NAMES_CACHE.entrySet().stream()
+                .map(entry -> Map.of("value", entry.getKey(), "label", entry.getValue() + " (" + entry.getKey() + ")"))
+                .sorted(Comparator.comparing(option -> option.get("label"))) // Sort alphabetically by display name
+                .toList();
 
-        // --- Define UI Inputs ---
-        List<Map<String, Object>> uiInputs = new ArrayList<>();
+        paramInputs.add(Map.ofEntries(
+                Map.entry("id", "defaultRegionCode"),
+                Map.entry("label", "Default Country (if code missing):"),
+                Map.entry("type", "select"),
+                Map.entry("options", regionOptions),
+                Map.entry("default", Locale.getDefault().getCountry()), // Sensible default
+                Map.entry("required", false), // Not strictly required, library can guess
+                Map.entry("condition", "uiOperation === 'parse'"),
+                Map.entry("helperText", "Helps parse numbers without a country code.")
+        ));
 
-        // Input Section 1: Operation Selection
-        Map<String, Object> inputSection1 = new HashMap<>();
-        inputSection1.put("header", "Phone Number Operation");
-        List<Map<String, Object>> section1Fields = new ArrayList<>();
+        // Region Select (for getExampleNumber)
+        paramInputs.add(Map.ofEntries(
+                Map.entry("id", "exampleRegionCode"),
+                Map.entry("label", "Country:"),
+                Map.entry("type", "select"),
+                Map.entry("options", regionOptions), // Reuse region options
+                Map.entry("default", Locale.getDefault().getCountry()),
+                Map.entry("required", true),
+                Map.entry("condition", "uiOperation === 'getExampleNumber'")
+        ));
 
-        // Operation selection field
-        Map<String, Object> operationField = new HashMap<>();
-        operationField.put("name", "operation");
-        operationField.put("label", "Operation:");
-        operationField.put("type", "select");
-        List<Map<String, String>> operationOptions = new ArrayList<>();
-        operationOptions.add(Map.of("value", "parse", "label", "Parse & Validate Phone Number"));
-        operationOptions.add(Map.of("value", "format", "label", "Format Phone Number"));
-        operationOptions.add(Map.of("value", "getSupportedRegions", "label", "List Supported Countries"));
-        operationOptions.add(Map.of("value", "getExampleNumber", "label", "Get Example Number"));
-        operationField.put("options", operationOptions);
-        operationField.put("default", "parse");
-        operationField.put("required", true);
-        section1Fields.add(operationField);
+        // Example Number Type Select (for getExampleNumber)
+        List<Map<String, String>> typeOptions = Arrays.stream(PhoneNumberType.values())
+                .filter(type -> type != PhoneNumberType.UNKNOWN) // Exclude UNKNOWN type
+                .map(type -> Map.of("value", type.name(), "label", formatNumberType(type)))
+                .sorted(Comparator.comparing(option -> option.get("label")))
+                .toList();
 
-        inputSection1.put("fields", section1Fields);
-        uiInputs.add(inputSection1);
+        paramInputs.add(Map.ofEntries(
+                Map.entry("id", "exampleNumberType"),
+                Map.entry("label", "Number Type (Optional):"),
+                Map.entry("type", "select"),
+                Map.entry("options", typeOptions),
+                Map.entry("default", "MOBILE"), // Common default
+                Map.entry("required", false),
+                Map.entry("condition", "uiOperation === 'getExampleNumber'")
+        ));
 
-        // Input Section 2: Phone Number Input (conditional)
-        Map<String, Object> inputSection2 = new HashMap<>();
-        inputSection2.put("header", "Phone Number");
-        inputSection2.put("condition", "operation === 'parse' || operation === 'format'");
-        List<Map<String, Object>> section2Fields = new ArrayList<>();
 
-        // Phone number field
-        Map<String, Object> phoneField = new HashMap<>();
-        phoneField.put("name", "phoneNumber");
-        phoneField.put("label", "Phone Number:");
-        phoneField.put("type", "text");
-        phoneField.put("placeholder", "e.g., +1 (555) 123-4567");
-        phoneField.put("required", true);
-        phoneField.put("helperText", "Enter a phone number with or without country code");
-        section2Fields.add(phoneField);
+        paramsSection.put("inputs", paramInputs);
+        sections.add(paramsSection);
 
-        // Default region field
-        Map<String, Object> regionField = new HashMap<>();
-        regionField.put("name", "defaultRegion");
-        regionField.put("label", "Default Country:");
-        regionField.put("type", "select");
-        regionField.put("helperText", "Used when country code is not specified in the phone number");
 
-        // Add common countries first
-        List<Map<String, String>> regionOptions = new ArrayList<>();
-        regionOptions.add(Map.of("value", "US", "label", "United States (+1)"));
-        regionOptions.add(Map.of("value", "CA", "label", "Canada (+1)"));
-        regionOptions.add(Map.of("value", "GB", "label", "United Kingdom (+44)"));
-        regionOptions.add(Map.of("value", "AU", "label", "Australia (+61)"));
-        regionOptions.add(Map.of("value", "DE", "label", "Germany (+49)"));
-        regionOptions.add(Map.of("value", "FR", "label", "France (+33)"));
-        regionOptions.add(Map.of("value", "JP", "label", "Japan (+81)"));
-        regionOptions.add(Map.of("value", "CN", "label", "China (+86)"));
-        regionOptions.add(Map.of("value", "IN", "label", "India (+91)"));
-        regionOptions.add(Map.of("value", "BR", "label", "Brazil (+55)"));
-        regionField.put("options", regionOptions);
-        regionField.put("default", "US");
-        regionField.put("required", false);
-        section2Fields.add(regionField);
+        // --- Section 3: Parse Results ---
+        Map<String, Object> parseResultsSection = new HashMap<>();
+        parseResultsSection.put("id", "parseResults");
+        parseResultsSection.put("label", "Parsed Number Details");
+        parseResultsSection.put("condition", "success === true && uiOperation === 'parse'"); // Show only on successful parse
 
-        inputSection2.put("fields", section2Fields);
-        uiInputs.add(inputSection2);
+        List<Map<String, Object>> parseOutputs = new ArrayList<>();
 
-        // Input Section 3: Format Options (conditional)
-        Map<String, Object> inputSection3 = new HashMap<>();
-        inputSection3.put("header", "Format Options");
-        inputSection3.put("condition", "operation === 'format'");
-        List<Map<String, Object>> section3Fields = new ArrayList<>();
+        parseOutputs.add(createOutputField("parse_isValid", "Is Valid Number?", "boolean", null)); // Frontend renders check/cross
+        parseOutputs.add(createOutputField("parse_isPossible", "Is Possible Number?", "boolean", null));
+        parseOutputs.add(createOutputField("parse_country", "Country / Region", "text", null));
+        parseOutputs.add(createOutputField("parse_numberType", "Number Type", "text", null));
+        parseOutputs.add(createOutputField("parse_location", "Location (Approx)", "text", "typeof parse_location !== 'undefined' && parse_location !== ''")); // Optional
+        parseOutputs.add(createOutputField("parse_carrier", "Carrier (Approx)", "text", "typeof parse_carrier !== 'undefined' && parse_carrier !== ''")); // Optional
+        parseOutputs.add(createOutputField("parse_e164", "E.164 Format", "text", null));
+        parseOutputs.add(createOutputField("parse_international", "International Format", "text", null));
+        parseOutputs.add(createOutputField("parse_national", "National Format", "text", null));
+        parseOutputs.add(createOutputField("parse_rfc3966", "RFC3966 URI", "text", null));
+        parseOutputs.add(createOutputField("parse_extension", "Extension", "text", "typeof parse_extension !== 'undefined' && parse_extension !== ''")); // Optional
 
-        // Format selection field
-        Map<String, Object> formatField = new HashMap<>();
-        formatField.put("name", "format");
-        formatField.put("label", "Format Type:");
-        formatField.put("type", "select");
-        List<Map<String, String>> formatOptions = new ArrayList<>();
-        formatOptions.add(Map.of("value", "INTERNATIONAL", "label", "International (+1 555-123-4567)"));
-        formatOptions.add(Map.of("value", "NATIONAL", "label", "National ((555) 123-4567)"));
-        formatOptions.add(Map.of("value", "E164", "label", "E.164 (+15551234567)"));
-        formatOptions.add(Map.of("value", "RFC3966", "label", "RFC3966 (tel:+1-555-123-4567)"));
-        formatField.put("options", formatOptions);
-        formatField.put("default", "INTERNATIONAL");
-        formatField.put("required", false);
-        section3Fields.add(formatField);
+        parseResultsSection.put("outputs", parseOutputs);
+        sections.add(parseResultsSection);
 
-        inputSection3.put("fields", section3Fields);
-        uiInputs.add(inputSection3);
 
-        // Input Section 4: Example Number Request (conditional)
-        Map<String, Object> inputSection4 = new HashMap<>();
-        inputSection4.put("header", "Example Number");
-        inputSection4.put("condition", "operation === 'getExampleNumber'");
-        List<Map<String, Object>> section4Fields = new ArrayList<>();
+        // --- Section 4: Regions List ---
+        Map<String, Object> regionsSection = new HashMap<>();
+        regionsSection.put("id", "regionsList");
+        regionsSection.put("label", "Supported Countries");
+        regionsSection.put("condition", "success === true && uiOperation === 'getSupportedRegions'");
 
-        // Region selection field
-        Map<String, Object> exampleRegionField = new HashMap<>();
-        exampleRegionField.put("name", "region");
-        exampleRegionField.put("label", "Country:");
-        exampleRegionField.put("type", "select");
-        exampleRegionField.put("options", regionOptions); // Reuse the same options
-        exampleRegionField.put("default", "US");
-        exampleRegionField.put("required", true);
-        section4Fields.add(exampleRegionField);
+        List<Map<String, Object>> regionOutputs = new ArrayList<>();
+        regionOutputs.add(createOutputField("regions_count", "Total Count", "text", null));
+        // Regions Table
+        Map<String, Object> regionTable = createOutputField("regions_list", "", "table", null); // Label handled by section
+        regionTable.put("columns", List.of(
+                Map.of("header", "Code", "field", "code"),
+                Map.of("header", "Country Name", "field", "name"),
+                Map.of("header", "Calling Code", "field", "callingCode")
+        ));
+        regionOutputs.add(regionTable);
 
-        // Phone number type selection field
-        Map<String, Object> typeField = new HashMap<>();
-        typeField.put("name", "type");
-        typeField.put("label", "Number Type:");
-        typeField.put("type", "select");
-        List<Map<String, String>> typeOptions = new ArrayList<>();
-        typeOptions.add(Map.of("value", "MOBILE", "label", "Mobile"));
-        typeOptions.add(Map.of("value", "FIXED_LINE", "label", "Fixed Line"));
-        typeOptions.add(Map.of("value", "TOLL_FREE", "label", "Toll Free"));
-        typeOptions.add(Map.of("value", "PREMIUM_RATE", "label", "Premium Rate"));
-        typeOptions.add(Map.of("value", "VOIP", "label", "VoIP"));
-        typeField.put("options", typeOptions);
-        typeField.put("default", "MOBILE");
-        typeField.put("required", false);
-        section4Fields.add(typeField);
+        regionsSection.put("outputs", regionOutputs);
+        sections.add(regionsSection);
 
-        inputSection4.put("fields", section4Fields);
-        uiInputs.add(inputSection4);
+        // --- Section 5: Example Number Result ---
+        Map<String, Object> exampleSection = new HashMap<>();
+        exampleSection.put("id", "exampleResult");
+        exampleSection.put("label", "Example Number");
+        exampleSection.put("condition", "success === true && uiOperation === 'getExampleNumber'");
 
-        uiConfig.put("inputs", uiInputs);
+        List<Map<String, Object>> exampleOutputs = new ArrayList<>();
+        exampleOutputs.add(createOutputField("example_country", "Country", "text", null));
+        exampleOutputs.add(createOutputField("example_type", "Number Type", "text", null));
+        exampleOutputs.add(createOutputField("example_international", "International Format", "text", null));
+        exampleOutputs.add(createOutputField("example_national", "National Format", "text", null));
+        exampleOutputs.add(createOutputField("example_e164", "E.164 Format", "text", null));
 
-        // --- Define UI Outputs ---
-        List<Map<String, Object>> uiOutputs = new ArrayList<>();
+        exampleSection.put("outputs", exampleOutputs);
+        sections.add(exampleSection);
 
-        // Output Section 1: Validation Results
-        Map<String, Object> outputSection1 = new HashMap<>();
-        outputSection1.put("header", "Validation Results");
-        outputSection1.put("condition", "success && operation === 'parse'");
-        List<Map<String, Object>> section1OutputFields = new ArrayList<>();
 
-        // Validity indicators
-        Map<String, Object> validityOutput = new HashMap<>();
-        validityOutput.put("title", "Valid Number");
-        validityOutput.put("name", "isValid");
-        validityOutput.put("type", "checkmark");
-        section1OutputFields.add(validityOutput);
+        // --- Section 6: Error Display ---
+        Map<String, Object> errorSection = new HashMap<>();
+        errorSection.put("id", "errorDisplay");
+        errorSection.put("label", "Error");
+        errorSection.put("condition", "success === false");
 
-        // Original number
-        Map<String, Object> originalNumberOutput = new HashMap<>();
-        originalNumberOutput.put("title", "Input Number");
-        originalNumberOutput.put("name", "phoneNumber");
-        originalNumberOutput.put("type", "text");
-        section1OutputFields.add(originalNumberOutput);
+        List<Map<String, Object>> errorOutputs = new ArrayList<>();
+        errorOutputs.add(createOutputField("errorMessage", "Details", "text", null)); // style handled by helper
+        errorOutputs.add(createOutputField("errorType", "Error Type", "text", "typeof errorType !== 'undefined'")); // Specific parse error type
 
-        // Parsed number
-        Map<String, Object> parsedNumberOutput = new HashMap<>();
-        parsedNumberOutput.put("title", "Parsed Number");
-        parsedNumberOutput.put("name", "internationalFormat");
-        parsedNumberOutput.put("type", "text");
-        parsedNumberOutput.put("style", "isValid ? 'success' : 'warning'");
-        parsedNumberOutput.put("buttons", List.of("copy"));
-        section1OutputFields.add(parsedNumberOutput);
+        errorSection.put("outputs", errorOutputs);
+        sections.add(errorSection);
 
-        // Country information
-        Map<String, Object> countryOutput = new HashMap<>();
-        countryOutput.put("title", "Country");
-        countryOutput.put("name", "countryInfo");
-        countryOutput.put("type", "text");
-        countryOutput.put("formula", "countryName + ' (' + countryCode + ', +' + callingCode + ')'");
-        section1OutputFields.add(countryOutput);
 
-        // Number type
-        Map<String, Object> numberTypeOutput = new HashMap<>();
-        numberTypeOutput.put("title", "Number Type");
-        numberTypeOutput.put("name", "numberTypeName");
-        numberTypeOutput.put("type", "text");
-        section1OutputFields.add(numberTypeOutput);
-
-        outputSection1.put("fields", section1OutputFields);
-        uiOutputs.add(outputSection1);
-
-        // Output Section 2: Formatting Options
-        Map<String, Object> outputSection2 = new HashMap<>();
-        outputSection2.put("header", "Formatting Options");
-        outputSection2.put("condition", "success && (operation === 'parse' || operation === 'format')");
-        List<Map<String, Object>> section2OutputFields = new ArrayList<>();
-
-        // Format options with copy buttons
-
-        Map<String, Object> internationalFormatOutput = new HashMap<>();
-        internationalFormatOutput.put("title", "International");
-        internationalFormatOutput.put("name", "internationalFormat");
-        internationalFormatOutput.put("type", "text");
-        internationalFormatOutput.put("monospace", true);
-        internationalFormatOutput.put("buttons", List.of("copy"));
-        section2OutputFields.add(internationalFormatOutput);
-
-        Map<String, Object> nationalFormatOutput = new HashMap<>();
-        nationalFormatOutput.put("title", "National");
-        nationalFormatOutput.put("name", "nationalFormat");
-        nationalFormatOutput.put("type", "text");
-        nationalFormatOutput.put("monospace", true);
-        nationalFormatOutput.put("buttons", List.of("copy"));
-        section2OutputFields.add(nationalFormatOutput);
-
-        Map<String, Object> e164FormatOutput = new HashMap<>();
-        e164FormatOutput.put("title", "E.164");
-        e164FormatOutput.put("name", "e164Format");
-        e164FormatOutput.put("type", "text");
-        e164FormatOutput.put("monospace", true);
-        e164FormatOutput.put("buttons", List.of("copy"));
-        section2OutputFields.add(e164FormatOutput);
-
-        Map<String, Object> rfc3966FormatOutput = new HashMap<>();
-        rfc3966FormatOutput.put("title", "RFC3966 (URI)");
-        rfc3966FormatOutput.put("name", "rfc3966Format");
-        rfc3966FormatOutput.put("type", "text");
-        rfc3966FormatOutput.put("monospace", true);
-        rfc3966FormatOutput.put("buttons", List.of("copy"));
-        section2OutputFields.add(rfc3966FormatOutput);
-
-        outputSection2.put("fields", section2OutputFields);
-        uiOutputs.add(outputSection2);
-
-        // Output Section 3: Additional Info
-        Map<String, Object> outputSection3 = new HashMap<>();
-        outputSection3.put("header", "Additional Information");
-        outputSection3.put("condition", "success && operation === 'parse' && (location || carrier || extension)");
-        List<Map<String, Object>> section3OutputFields = new ArrayList<>();
-
-        // Location information
-        Map<String, Object> locationOutput = new HashMap<>();
-        locationOutput.put("title", "Location");
-        locationOutput.put("name", "location");
-        locationOutput.put("type", "text");
-        locationOutput.put("condition", "location");
-        section3OutputFields.add(locationOutput);
-
-        // Carrier information
-        Map<String, Object> carrierOutput = new HashMap<>();
-        carrierOutput.put("title", "Carrier");
-        carrierOutput.put("name", "carrier");
-        carrierOutput.put("type", "text");
-        carrierOutput.put("condition", "carrier");
-        section3OutputFields.add(carrierOutput);
-
-        // Extension information
-        Map<String, Object> extensionOutput = new HashMap<>();
-        extensionOutput.put("title", "Extension");
-        extensionOutput.put("name", "extension");
-        extensionOutput.put("type", "text");
-        extensionOutput.put("condition", "extension");
-        section3OutputFields.add(extensionOutput);
-
-        outputSection3.put("fields", section3OutputFields);
-        uiOutputs.add(outputSection3);
-
-        // Output Section 4: Example Number Result
-        Map<String, Object> outputSection4 = new HashMap<>();
-        outputSection4.put("header", "Example Number");
-        outputSection4.put("condition", "success && operation === 'getExampleNumber'");
-        List<Map<String, Object>> section4OutputFields = new ArrayList<>();
-
-        // Country and type information
-        Map<String, Object> exampleCountryOutput = new HashMap<>();
-        exampleCountryOutput.put("title", "Country");
-        exampleCountryOutput.put("name", "countryName");
-        exampleCountryOutput.put("type", "text");
-        section4OutputFields.add(exampleCountryOutput);
-
-        Map<String, Object> exampleTypeOutput = new HashMap<>();
-        exampleTypeOutput.put("title", "Number Type");
-        exampleTypeOutput.put("name", "typeName");
-        exampleTypeOutput.put("type", "text");
-        section4OutputFields.add(exampleTypeOutput);
-
-        // Example number in different formats
-        Map<String, Object> exampleInternationalOutput = new HashMap<>();
-        exampleInternationalOutput.put("title", "Example Number");
-        exampleInternationalOutput.put("name", "internationalFormat");
-        exampleInternationalOutput.put("type", "text");
-        exampleInternationalOutput.put("buttons", List.of("copy"));
-        section4OutputFields.add(exampleInternationalOutput);
-
-        Map<String, Object> exampleNationalOutput = new HashMap<>();
-        exampleNationalOutput.put("title", "National Format");
-        exampleNationalOutput.put("name", "nationalFormat");
-        exampleNationalOutput.put("type", "text");
-        exampleNationalOutput.put("buttons", List.of("copy"));
-        section4OutputFields.add(exampleNationalOutput);
-
-        outputSection4.put("fields", section4OutputFields);
-        uiOutputs.add(outputSection4);
-
-        // Output Section 5: Supported Regions (for getSupportedRegions operation)
-        Map<String, Object> outputSection5 = new HashMap<>();
-        outputSection5.put("header", "Supported Countries");
-        outputSection5.put("condition", "success && operation === 'getSupportedRegions'");
-        List<Map<String, Object>> section5OutputFields = new ArrayList<>();
-
-        // Country count
-        Map<String, Object> countOutput = new HashMap<>();
-        countOutput.put("title", "Total Countries");
-        countOutput.put("name", "count");
-        countOutput.put("type", "text");
-        section5OutputFields.add(countOutput);
-
-        // Country list
-        Map<String, Object> regionListOutput = new HashMap<>();
-        regionListOutput.put("name", "regions");
-        regionListOutput.put("type", "table");
-        List<Map<String, Object>> regionColumns = new ArrayList<>();
-        regionColumns.add(Map.of("header", "Code", "field", "code"));
-        regionColumns.add(Map.of("header", "Country", "field", "name"));
-        regionColumns.add(Map.of("header", "Calling Code", "field", "callingCodeDisplay", "formula", "'+' + callingCode"));
-        regionListOutput.put("columns", regionColumns);
-        section5OutputFields.add(regionListOutput);
-
-        outputSection5.put("fields", section5OutputFields);
-        uiOutputs.add(outputSection5);
-
-        // Output Section 6: Error Display
-        Map<String, Object> outputSection6 = new HashMap<>();
-        outputSection6.put("header", "Error Information");
-        outputSection6.put("condition", "error");
-        List<Map<String, Object>> section6OutputFields = new ArrayList<>();
-
-        // Error message
-        Map<String, Object> errorOutput = new HashMap<>();
-        errorOutput.put("title", "Error Message");
-        errorOutput.put("name", "error");
-        errorOutput.put("type", "text");
-        errorOutput.put("style", "error");
-        section6OutputFields.add(errorOutput);
-
-        // Error type for parsing errors
-        Map<String, Object> errorTypeOutput = new HashMap<>();
-        errorTypeOutput.put("title", "Error Type");
-        errorTypeOutput.put("name", "errorType");
-        errorTypeOutput.put("type", "text");
-        errorTypeOutput.put("style", "error");
-        errorTypeOutput.put("condition", "errorType");
-        section6OutputFields.add(errorTypeOutput);
-
-        outputSection6.put("fields", section6OutputFields);
-        uiOutputs.add(outputSection6);
-
-        uiConfig.put("outputs", uiOutputs);
-
-        // Add the structured uiConfig to the main metadata map
-        metadata.put("uiConfig", uiConfig);
-
+        metadata.put("sections", sections);
         return metadata;
     }
 
+    // Helper to create output field definitions
+    private Map<String, Object> createOutputField(String id, String label, String type, String condition) {
+        Map<String, Object> field = new HashMap<>();
+        field.put("id", id);
+        if (label != null && !label.isEmpty()) {
+            field.put("label", label);
+        }
+        field.put("type", type);
+        if (condition != null && !condition.isEmpty()) {
+            field.put("condition", condition);
+        }
+        if (id.toLowerCase().contains("error")) {
+            field.put("style", "error");
+        }
+        if ("text".equals(type) && (id.toLowerCase().contains("format") || id.toLowerCase().contains("e164"))) {
+            field.put("monospace", true); // Monospace for formatted numbers
+            field.put("buttons", List.of("copy")); // Add copy button
+        }
+        // No specific attributes needed, frontend renders check/cross
+        return field;
+    }
+
+    /**
+     * Processes the input parameters (using IDs from the new format).
+     */
     @Override
     public Map<String, Object> process(Map<String, Object> input) {
-        Map<String, Object> result = new HashMap<>();
+        String uiOperation = getStringParam(input, "uiOperation", null); // Operation is required
+        String errorOutputId = "errorMessage";
+
+        Map<String, Object> processingInput = new HashMap<>(input); // Copy
 
         try {
-            String operation = (String) input.getOrDefault("operation", "parse");
-
-            return switch (operation.toLowerCase()) {
-                case "parse" -> parsePhoneNumber(input);
-                case "format" -> formatPhoneNumber(input);
-                case "getsupportedregions" -> getSupportedRegions();
-                case "getexamplenumber" -> getExampleNumber(input);
+            Map<String, Object> result;
+            // Route based on the selected UI operation
+            switch (uiOperation.toLowerCase()) {
+                case "parse" -> result = parsePhoneNumber(processingInput);
+                // Format operation removed, included within parse
+                // case "format" -> result = formatPhoneNumber(processingInput);
+                case "getsupportedregions" -> result = getSupportedRegions();
+                case "getexamplenumber" -> result = getExampleNumber(processingInput);
                 default -> {
-                    result.put("error", "Unsupported operation: " + operation);
-                    yield result;
+                    return Map.of("success", false, errorOutputId, "Unsupported operation: " + uiOperation);
                 }
-            };
+            }
 
-        } catch (Exception e) {
-            result.put("error", "Error processing request: " + e.getMessage());
+            // Add uiOperation to success result for context
+            if (result.get("success") == Boolean.TRUE) {
+                Map<String, Object> finalResult = new HashMap<>(result);
+                finalResult.put("uiOperation", uiOperation);
+                return finalResult;
+            } else {
+                // Ensure error key consistency
+                if (result.containsKey("error") && !result.containsKey(errorOutputId)) {
+                    Map<String, Object> finalResult = new HashMap<>(result);
+                    finalResult.put(errorOutputId, result.get("error"));
+                    finalResult.remove("error");
+                    return finalResult;
+                }
+                return result;
+            }
+
+        } catch (IllegalArgumentException e) { // Catch validation errors
+            return Map.of("success", false, errorOutputId, e.getMessage());
+        } catch (Exception e) { // Catch unexpected errors
+            System.err.println("Error processing phone number request: " + e.getMessage());
             e.printStackTrace();
+            return Map.of("success", false, errorOutputId, "Unexpected error: " + e.getMessage());
         }
-
-        return result;
     }
 
-    /**
-     * Parse and validate a phone number
-     *
-     * @param input Input parameters
-     * @return Parsing result
-     */
+    // ========================================================================
+    // Private Action Methods (Updated for new IDs)
+    // ========================================================================
+
     private Map<String, Object> parsePhoneNumber(Map<String, Object> input) {
-        Map<String, Object> result = new HashMap<>();
+        Map<String, Object> result = new LinkedHashMap<>(); // Preserve order
+        String errorOutputId = "errorMessage";
 
         try {
-            String phoneNumberStr = (String) input.get("phoneNumber");
-            String defaultRegion = (String) input.getOrDefault("defaultRegion", "US");
+            String phoneNumberStr = getStringParam(input, "phoneNumberInput", null); // Use new ID, required
+            String defaultRegion = getStringParam(input, "defaultRegionCode", Locale.getDefault().getCountry()); // Use new ID
 
-            if (phoneNumberStr == null || phoneNumberStr.trim().isEmpty()) {
-                result.put("error", "Phone number cannot be empty");
-                return result;
-            }
-
-            // Try to parse the phone number
             PhoneNumber parsedNumber;
             try {
-                parsedNumber = phoneUtil.parse(phoneNumberStr, defaultRegion);
+                parsedNumber = phoneUtil.parse(phoneNumberStr, defaultRegion.toUpperCase());
             } catch (NumberParseException e) {
-                result.put("error", "Could not parse phone number: " + e.getMessage());
-                result.put("errorType", e.getErrorType().toString());
-
-                // Try to provide partial information even though parsing failed
-                result.put("phoneNumber", phoneNumberStr);
-                result.put("defaultRegion", defaultRegion);
-                result.put("isValid", false);
-                result.put("isPossible", false);
-
+                // Provide detailed error info for NumberParseException
+                result.put("success", false);
+                result.put(errorOutputId, "Parsing failed: " + e.getMessage());
+                result.put("errorType", e.getErrorType().toString()); // Matches output ID
                 return result;
             }
 
-            // Get country information
-            String regionCode = phoneUtil.getRegionCodeForNumber(parsedNumber);
-
-            // Check if the number is valid for the specified region
+            // Basic Info
             boolean isValid = phoneUtil.isValidNumber(parsedNumber);
             boolean isPossible = phoneUtil.isPossibleNumber(parsedNumber);
-
-            // Get number type
+            String regionCode = phoneUtil.getRegionCodeForNumber(parsedNumber);
+            String countryName = getCountryDisplayName(regionCode);
+            int callingCode = parsedNumber.getCountryCode();
             PhoneNumberType numberType = phoneUtil.getNumberType(parsedNumber);
-
-            // Format the number in different formats
-            String internationalFormat = phoneUtil.format(parsedNumber, PhoneNumberFormat.INTERNATIONAL);
-            String nationalFormat = phoneUtil.format(parsedNumber, PhoneNumberFormat.NATIONAL);
-            String e164Format = phoneUtil.format(parsedNumber, PhoneNumberFormat.E164);
-            String rfc3966Format = phoneUtil.format(parsedNumber, PhoneNumberFormat.RFC3966);
-
-            // Get location information
             String location = geocoder.getDescriptionForNumber(parsedNumber, Locale.ENGLISH);
-
-            // Get carrier information
             String carrier = carrierMapper.getNameForNumber(parsedNumber, Locale.ENGLISH);
+            String extension = parsedNumber.hasExtension() ? parsedNumber.getExtension() : null;
 
-            // Build the result
+            // Build success result map using NEW output IDs
             result.put("success", true);
-            result.put("phoneNumber", phoneNumberStr);
-            result.put("parsedNumber", String.valueOf(parsedNumber));
-            result.put("countryCode", regionCode);
-            result.put("countryName", getCountryDisplayName(regionCode));
-            result.put("callingCode", parsedNumber.getCountryCode());
-            result.put("nationalNumber", parsedNumber.getNationalNumber());
-            result.put("isValid", isValid);
-            result.put("isPossible", isPossible);
-            result.put("numberType", numberType.toString());
-            result.put("numberTypeName", formatNumberType(numberType));
+            result.put("parse_isValid", isValid); // boolean
+            result.put("parse_isPossible", isPossible); // boolean
+            result.put("parse_country", countryName + " (" + regionCode + ", +" + callingCode + ")");
+            result.put("parse_numberType", formatNumberType(numberType));
 
-            result.put("internationalFormat", internationalFormat);
-            result.put("nationalFormat", nationalFormat);
-            result.put("e164Format", e164Format);
-            result.put("rfc3966Format", rfc3966Format);
+            // Optional fields
+            if (location != null && !location.isEmpty()) result.put("parse_location", location);
+            if (carrier != null && !carrier.isEmpty()) result.put("parse_carrier", carrier);
+            if (extension != null && !extension.isEmpty()) result.put("parse_extension", extension);
 
-            if (location != null && !location.isEmpty()) {
-                result.put("location", location);
-            }
+            // Formatted numbers
+            result.put("parse_e164", phoneUtil.format(parsedNumber, PhoneNumberFormat.E164));
+            result.put("parse_international", phoneUtil.format(parsedNumber, PhoneNumberFormat.INTERNATIONAL));
+            result.put("parse_national", phoneUtil.format(parsedNumber, PhoneNumberFormat.NATIONAL));
+            result.put("parse_rfc3966", phoneUtil.format(parsedNumber, PhoneNumberFormat.RFC3966));
 
-            if (carrier != null && !carrier.isEmpty()) {
-                result.put("carrier", carrier);
-            }
-
-            // Additional metadata
-            if (parsedNumber.hasExtension() && !parsedNumber.getExtension().isEmpty()) {
-                result.put("extension", parsedNumber.getExtension());
-            }
-
-        } catch (Exception e) {
-            result.put("error", "Error parsing phone number: " + e.getMessage());
+        } catch (IllegalArgumentException e) {
+            result.put("success", false);
+            result.put(errorOutputId, e.getMessage());
+        } catch (Exception e) { // Catch unexpected errors during lib calls
+            System.err.println("Unexpected error during phone parsing: " + e.getMessage());
             e.printStackTrace();
+            result.put("success", false);
+            result.put(errorOutputId, "Internal error during parsing.");
         }
-
         return result;
     }
 
-    /**
-     * Format a phone number in a specific format
-     *
-     * @param input Input parameters
-     * @return Formatted number
-     */
-    private Map<String, Object> formatPhoneNumber(Map<String, Object> input) {
-        Map<String, Object> result = new HashMap<>();
-
-        try {
-            String phoneNumberStr = (String) input.get("phoneNumber");
-            String defaultRegion = (String) input.getOrDefault("defaultRegion", "US");
-            String format = (String) input.getOrDefault("format", "INTERNATIONAL");
-
-            if (phoneNumberStr == null || phoneNumberStr.trim().isEmpty()) {
-                result.put("error", "Phone number cannot be empty");
-                return result;
-            }
-
-            // Try to parse the phone number
-            PhoneNumber parsedNumber;
-            try {
-                parsedNumber = phoneUtil.parse(phoneNumberStr, defaultRegion);
-            } catch (NumberParseException e) {
-                result.put("error", "Could not parse phone number: " + e.getMessage());
-                return result;
-            }
-
-            // Determine the format to use
-            PhoneNumberFormat phoneNumberFormat = switch (format.toUpperCase()) {
-                case "NATIONAL" -> PhoneNumberFormat.NATIONAL;
-                case "E164" -> PhoneNumberFormat.E164;
-                case "RFC3966" -> PhoneNumberFormat.RFC3966;
-                default -> PhoneNumberFormat.INTERNATIONAL;
-            };
-
-            // Format the number
-            String formattedNumber = phoneUtil.format(parsedNumber, phoneNumberFormat);
-
-            // Build the result
-            result.put("success", true);
-            result.put("phoneNumber", phoneNumberStr);
-            result.put("formattedNumber", formattedNumber);
-            result.put("format", format);
-            result.put("isValid", phoneUtil.isValidNumber(parsedNumber));
-
-        } catch (Exception e) {
-            result.put("error", "Error formatting phone number: " + e.getMessage());
-        }
-
-        return result;
-    }
-
-    /**
-     * Get a list of supported regions with their country codes
-     *
-     * @return Supported regions
-     */
     private Map<String, Object> getSupportedRegions() {
         Map<String, Object> result = new HashMap<>();
-
+        String errorOutputId = "errorMessage";
         try {
-            Set<String> regions = phoneUtil.getSupportedRegions();
-
-            // Create a list of regions with details
-            List<Map<String, Object>> regionList = new ArrayList<>();
-
-            for (String regionCode : regions) {
-                Map<String, Object> regionInfo = new HashMap<>();
-                regionInfo.put("code", regionCode);
-                regionInfo.put("name", getCountryDisplayName(regionCode));
-                regionInfo.put("callingCode", phoneUtil.getCountryCodeForRegion(regionCode));
-
-                regionList.add(regionInfo);
-            }
-
-            // Sort by country name
-            regionList.sort((r1, r2) -> {
-                String name1 = (String) r1.get("name");
-                String name2 = (String) r2.get("name");
-                return name1.compareToIgnoreCase(name2);
-            });
-
-            // Group regions by calling code
-            Map<Integer, List<Map<String, Object>>> regionsByCallingCode = new TreeMap<>();
-
-            for (Map<String, Object> regionInfo : regionList) {
-                int callingCode = (Integer) regionInfo.get("callingCode");
-
-                if (!regionsByCallingCode.containsKey(callingCode)) {
-                    regionsByCallingCode.put(callingCode, new ArrayList<>());
-                }
-
-                regionsByCallingCode.get(callingCode).add(regionInfo);
-            }
+            List<Map<String, Object>> regionList = COUNTRY_DISPLAY_NAMES_CACHE.entrySet().stream()
+                    .map(entry -> {
+                        String code = entry.getKey();
+                        String name = entry.getValue();
+                        int callingCode = phoneUtil.getCountryCodeForRegion(code);
+                        return Map.<String, Object>of(
+                                "code", code,
+                                "name", name,
+                                "callingCode", "+" + callingCode // Add '+' for display
+                        );
+                    })
+                    .sorted(Comparator.comparing(map -> (String) map.get("name"))) // Sort by name
+                    .collect(Collectors.toList());
 
             result.put("success", true);
-            result.put("regions", regionList);
-            result.put("regionsByCallingCode", regionsByCallingCode);
-            result.put("count", regions.size());
+            result.put("regions_list", regionList); // Matches table output ID
+            result.put("regions_count", regionList.size()); // Matches text output ID
 
         } catch (Exception e) {
-            result.put("error", "Error getting supported regions: " + e.getMessage());
+            System.err.println("Error getting supported regions: " + e.getMessage());
+            result.put("success", false);
+            result.put(errorOutputId, "Could not retrieve supported regions list.");
         }
-
         return result;
     }
 
-    /**
-     * Get an example phone number for a region and type
-     *
-     * @param input Input parameters
-     * @return Example phone number
-     */
     private Map<String, Object> getExampleNumber(Map<String, Object> input) {
         Map<String, Object> result = new HashMap<>();
-
+        String errorOutputId = "errorMessage";
         try {
-            String region = (String) input.get("region");
-            String type = (String) input.getOrDefault("type", "MOBILE");
+            String region = getStringParam(input, "exampleRegionCode", null); // Required
+            String typeStr = getStringParam(input, "exampleNumberType", "MOBILE"); // Optional
 
-            if (region == null || region.trim().isEmpty()) {
-                result.put("error", "Region code cannot be empty");
-                return result;
-            }
-
-            // Determine the phone number type
-            PhoneNumberType numberType = PhoneNumberType.MOBILE;
+            PhoneNumberType numberType = PhoneNumberType.MOBILE; // Default
             try {
-                numberType = PhoneNumberType.valueOf(type.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                // Default to MOBILE if the type is not recognized
-            }
+                numberType = PhoneNumberType.valueOf(typeStr.toUpperCase());
+            } catch (IllegalArgumentException e) { /* Ignore, use default */ }
 
-            // Get an example number
-            PhoneNumber exampleNumber = phoneUtil.getExampleNumberForType(region, numberType);
-
-            if (exampleNumber == null) {
-                // Try to get a general example number if type-specific example is not available
-                exampleNumber = phoneUtil.getExampleNumber(region);
+            PhoneNumber exampleNumber = phoneUtil.getExampleNumberForType(region.toUpperCase(), numberType);
+            if (exampleNumber == null) { // Try general example if type specific fails
+                exampleNumber = phoneUtil.getExampleNumber(region.toUpperCase());
             }
 
             if (exampleNumber == null) {
-                result.put("error", "No example number available for " + region + " of type " + type);
-                return result;
+                throw new IllegalArgumentException("No example number found for " + region + " (Type: " + numberType + ")");
             }
-
-            // Format the number in different formats
-            String internationalFormat = phoneUtil.format(exampleNumber, PhoneNumberFormat.INTERNATIONAL);
-            String nationalFormat = phoneUtil.format(exampleNumber, PhoneNumberFormat.NATIONAL);
-            String e164Format = phoneUtil.format(exampleNumber, PhoneNumberFormat.E164);
 
             result.put("success", true);
-            result.put("region", region);
-            result.put("countryName", getCountryDisplayName(region));
-            result.put("type", numberType.toString());
-            result.put("typeName", formatNumberType(numberType));
-            result.put("internationalFormat", internationalFormat);
-            result.put("nationalFormat", nationalFormat);
-            result.put("e164Format", e164Format);
+            result.put("example_country", getCountryDisplayName(region));
+            result.put("example_type", formatNumberType(numberType));
+            result.put("example_international", phoneUtil.format(exampleNumber, PhoneNumberFormat.INTERNATIONAL));
+            result.put("example_national", phoneUtil.format(exampleNumber, PhoneNumberFormat.NATIONAL));
+            result.put("example_e164", phoneUtil.format(exampleNumber, PhoneNumberFormat.E164));
 
+        } catch (IllegalArgumentException e) {
+            result.put("success", false);
+            result.put(errorOutputId, e.getMessage());
         } catch (Exception e) {
-            result.put("error", "Error getting example number: " + e.getMessage());
+            System.err.println("Error getting example number: " + e.getMessage());
+            result.put("success", false);
+            result.put(errorOutputId, "Could not retrieve example number.");
         }
-
         return result;
     }
 
-    /**
-     * Format the phone number type to a human-readable string
-     *
-     * @param type PhoneNumberType
-     * @return Formatted type name
-     */
+    // ========================================================================
+    // Helper Methods
+    // ========================================================================
+
     private String formatNumberType(PhoneNumberType type) {
+        // Reuse existing switch, make sure it covers all enum values if needed
         return switch (type) {
             case FIXED_LINE -> "Fixed Line";
             case MOBILE -> "Mobile";
@@ -768,23 +477,37 @@ public class PhoneParser implements PluginInterface {
             case VOIP -> "VoIP";
             case PERSONAL_NUMBER -> "Personal Number";
             case PAGER -> "Pager";
-            case UAN -> "UAN (Universal Access Number)";
+            case UAN -> "UAN";
             case VOICEMAIL -> "Voicemail";
-            default -> "Unknown";
+            // case UNKNOWN -> "Unknown"; // Excluded from options usually
+            default -> type.name(); // Fallback to enum name
         };
     }
 
-    /**
-     * Get country display name from region code
-     *
-     * @param regionCode Region code
-     * @return Country display name
-     */
     private String getCountryDisplayName(String regionCode) {
-        if (regionCode == null) {
-            return "Unknown";
-        }
+        return regionCode == null ? "Unknown" : COUNTRY_DISPLAY_NAMES_CACHE.getOrDefault(regionCode.toUpperCase(), regionCode);
+    }
 
-        return COUNTRY_DISPLAY_NAMES.getOrDefault(regionCode, regionCode);
+    // Null default indicates required
+    private String getStringParam(Map<String, Object> input, String key, String defaultValue) throws IllegalArgumentException {
+        Object value = input.get(key);
+        if (value == null) {
+            if (defaultValue == null) throw new IllegalArgumentException("Missing required parameter: " + key);
+            return defaultValue;
+        }
+        String strValue = value.toString().trim(); // Trim region codes and phone numbers
+        if (strValue.isEmpty()) {
+            if (defaultValue == null) throw new IllegalArgumentException("Missing required parameter: " + key);
+            return defaultValue;
+        }
+        return strValue;
+    }
+
+    // Null default indicates required
+    private boolean getBooleanParam(Map<String, Object> input, String key, boolean defaultValue) {
+        Object value = input.get(key);
+        if (value instanceof Boolean) return (Boolean) value;
+        if (value != null) return "true".equalsIgnoreCase(value.toString());
+        return defaultValue;
     }
 }

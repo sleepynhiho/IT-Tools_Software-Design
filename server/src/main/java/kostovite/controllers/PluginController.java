@@ -1,13 +1,11 @@
 package kostovite.controllers;
 
-import org.pf4j.PluginWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import kostovite.PluginInterface;
-import kostovite.CustomPluginManager;
 import kostovite.ManualPluginLoader;
 
 import java.io.IOException;
@@ -22,13 +20,11 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/plugins")
 public class PluginController {
-    private final CustomPluginManager customPluginManager;
     private final ManualPluginLoader manualPluginLoader;
     private final Path pluginsDirectory = Paths.get("plugins-deploy");
 
     @Autowired
-    public PluginController(CustomPluginManager customPluginManager, ManualPluginLoader manualPluginLoader) {
-        this.customPluginManager = customPluginManager;
+    public PluginController(ManualPluginLoader manualPluginLoader) {
         this.manualPluginLoader = manualPluginLoader;
 
         // Ensure plugins directory exists
@@ -43,13 +39,12 @@ public class PluginController {
 
     @GetMapping
     public List<Map<String, Object>> getPlugins() {
-        return customPluginManager.getPluginWrappers().stream()
+        List<PluginInterface> plugins = manualPluginLoader.getLoadedPlugins();
+        return plugins.stream()
                 .map(plugin -> {
                     Map<String, Object> pluginInfo = new HashMap<>();
-                    pluginInfo.put("id", plugin.getPluginId());
-                    pluginInfo.put("version", plugin.getDescriptor().getVersion());
-                    pluginInfo.put("state", plugin.getPluginState().toString());
-                    pluginInfo.put("path", plugin.getPluginPath().toString());
+                    pluginInfo.put("name", plugin.getName());
+                    // You could add more details from the plugin here
                     return pluginInfo;
                 })
                 .collect(Collectors.toList());
@@ -116,24 +111,15 @@ public class PluginController {
             Path targetPath = pluginsDirectory.resolve(file.getOriginalFilename());
             Files.copy(file.getInputStream(), targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 
-            // Use PF4J for metadata, but manually load the plugin afterwards
-            String pluginId = customPluginManager.loadPlugin(targetPath);
-
-            // Now reload all plugins using the manual loader
+            // Reload all plugins using the manual loader
             Path pluginsPath = Paths.get(System.getProperty("user.dir"), "plugins-deploy").toAbsolutePath();
             manualPluginLoader.loadPlugins(pluginsPath);
 
             Map<String, String> response = new HashMap<>();
-            if (pluginId != null) {
-                response.put("status", "success");
-                response.put("message", "Plugin uploaded and loaded successfully");
-                response.put("pluginId", pluginId);
-                return ResponseEntity.ok(response);
-            } else {
-                response.put("status", "error");
-                response.put("message", "Failed to load plugin");
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-            }
+            response.put("status", "success");
+            response.put("message", "Plugin uploaded and loaded successfully");
+            response.put("pluginPath", targetPath.toString());
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             Map<String, String> response = new HashMap<>();
             response.put("status", "error");
@@ -142,41 +128,44 @@ public class PluginController {
         }
     }
 
-    @DeleteMapping("/{pluginId}")
-    public ResponseEntity<Map<String, String>> deletePlugin(@PathVariable String pluginId) {
+    @DeleteMapping("/{pluginName}")
+    public ResponseEntity<Map<String, String>> deletePlugin(@PathVariable String pluginName) {
         try {
-            // Find plugin by ID
-            PluginWrapper pluginWrapper = null;
-            for (PluginWrapper pw : customPluginManager.getPluginWrappers()) {
-                if (pw.getPluginId().equals(pluginId)) {
-                    pluginWrapper = pw;
+            // Find plugin by name
+            List<PluginInterface> plugins = manualPluginLoader.getLoadedPlugins();
+            PluginInterface targetPlugin = null;
+
+            for (PluginInterface plugin : plugins) {
+                if (plugin.getName().equals(pluginName)) {
+                    targetPlugin = plugin;
                     break;
                 }
             }
 
-            if (pluginWrapper == null) {
+            if (targetPlugin == null) {
                 Map<String, String> response = new HashMap<>();
                 response.put("status", "error");
-                response.put("message", "Plugin not found: " + pluginId);
+                response.put("message", "Plugin not found: " + pluginName);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
             }
 
-            // Get plugin file path
-            Path pluginPath = pluginWrapper.getPluginPath();
+            // Find and delete the plugin JAR file
+            boolean deleted = manualPluginLoader.deletePlugin(pluginName);
 
-            // Unload the plugin from PF4J
-            customPluginManager.unloadPlugin(pluginId);
+            if (!deleted) {
+                Map<String, String> response = new HashMap<>();
+                response.put("status", "error");
+                response.put("message", "Failed to delete plugin file");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            }
 
-            // Delete the file
-            Files.deleteIfExists(pluginPath);
-
-            // Reload plugins using manual loader after deletion
+            // Reload plugins
             Path pluginsPath = Paths.get(System.getProperty("user.dir"), "plugins-deploy").toAbsolutePath();
             manualPluginLoader.loadPlugins(pluginsPath);
 
             Map<String, String> response = new HashMap<>();
             response.put("status", "success");
-            response.put("message", "Plugin unloaded and deleted successfully");
+            response.put("message", "Plugin deleted and unloaded successfully");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             Map<String, String> response = new HashMap<>();

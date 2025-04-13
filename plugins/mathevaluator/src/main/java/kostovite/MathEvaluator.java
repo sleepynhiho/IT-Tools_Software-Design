@@ -8,621 +8,638 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException; // Import IOException
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.ArrayList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.*;
 import javax.imageio.ImageIO;
 
 import org.mariuszgromada.math.mxparser.Expression;
 import org.mariuszgromada.math.mxparser.License;
+import org.mariuszgromada.math.mxparser.mXparser; // Import for static methods/constants
 
+// Assuming PluginInterface is standard
 public class MathEvaluator implements PluginInterface {
 
-    private final String uploadDir = "math-images";
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
-    private final DecimalFormat decimalFormat = new DecimalFormat("#,##0.##########");
+    private final DecimalFormat decimalFormat = new DecimalFormat("#,##0.##########"); // Default formatter
 
     public MathEvaluator() {
-        // Create upload directory if it doesn't exist
-        File directory = new File(uploadDir);
-        if (!directory.exists()) {
-            directory.mkdirs();
-        }
-
         // Accept mXparser non-commercial license terms
         License.iConfirmNonCommercialUse("Kostovite");
+        // Use getLicense() which includes version info
+        System.out.println("mXparser License Confirmed for MathEvaluator. Info: " + mXparser.getLicense());
+
+        // Create upload directory if it doesn't exist - Consider error handling
+        try {
+            // Consider making configurable
+            String uploadDir = "math-images";
+            File directory = new File(uploadDir);
+            if (!directory.exists()) {
+                if (directory.mkdirs()) {
+                    System.out.println("Created math image directory: " + directory.getAbsolutePath());
+                } else {
+                    System.err.println("Failed to create math image directory: " + directory.getAbsolutePath());
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error creating math image directory: " + e.getMessage());
+        }
     }
 
+    /**
+     * Internal name, should match the class for routing.
+     */
     @Override
     public String getName() {
         return "MathEvaluator";
     }
 
+    /**
+     * Standalone execution for testing.
+     */
     @Override
     public void execute() {
-        System.out.println("Math Evaluator Plugin executed");
-
-        // Demonstrate basic usage
+        System.out.println("Math Evaluator Plugin executed (standalone test)");
         try {
-            String expression = "2^2 + sqrt(16) - sin(0)";
-
             Map<String, Object> params = new HashMap<>();
-            params.put("expression", expression);
+            params.put("uiOperation", "evaluate"); // Use ID
+            params.put("expression", "sqrt(variableX^2 + variableY^2)"); // Use ID and match variable names
+            params.put("variableX", 3.0); // Use new variable ID
+            params.put("variableY", 4.0); // Use new variable ID
+            params.put("precision", 5);  // Use new ID
+            params.put("generateImage", true); // Use new ID
 
             Map<String, Object> result = process(params);
-            System.out.println("Expression: " + expression);
-            System.out.println("Result: " + result.get("result"));
-            System.out.println("Formatted: " + result.get("formatted"));
+            System.out.println("Test Evaluation Result: " + result);
+
+            Map<String, Object> funcParams = new HashMap<>();
+            funcParams.put("uiOperation", "getFunctions");
+            Map<String, Object> funcResult = process(funcParams);
+            System.out.println("Supported Functions Result: " + funcResult);
 
         } catch (Exception e) {
+            System.err.println("Standalone test failed: " + e.getMessage());
             e.printStackTrace();
         }
-    }
-
-    @Override
-    public Map<String, Object> getMetadata() {
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", getName()); // Corresponds to ToolMetadata.name
-        metadata.put("version", "1.0.0");
-        metadata.put("description", "Evaluate and format mathematical expressions"); // Corresponds to ToolMetadata.description
-
-        // Define available backend operations (for informational purposes or direct API calls)
-        Map<String, Object> operations = new HashMap<>();
-
-        // Evaluate operation
-        Map<String, Object> evaluateOperation = new HashMap<>();
-        evaluateOperation.put("description", "Evaluate a mathematical expression");
-        Map<String, Object> evaluateInputs = new HashMap<>();
-        evaluateInputs.put("expression", Map.of("type", "string", "description", "Mathematical expression to evaluate", "required", true));
-        evaluateInputs.put("formatOutput", Map.of("type", "boolean", "description", "Whether to format the expression (default: true)", "required", false));
-        evaluateInputs.put("generateImage", Map.of("type", "boolean", "description", "Whether to generate a rendered image (default: true)", "required", false));
-        evaluateInputs.put("precision", Map.of("type", "integer", "description", "Number of decimal places for result (default: 10)", "required", false));
-        evaluateInputs.put("variables", Map.of("type", "object", "description", "Map of variable names to values", "required", false));
-        evaluateOperation.put("inputs", evaluateInputs);
-        operations.put("evaluate", evaluateOperation);
-
-        // Get supported functions operation
-        Map<String, Object> getFunctionsOperation = new HashMap<>();
-        getFunctionsOperation.put("description", "Get list of supported mathematical functions");
-        operations.put("getSupportedFunctions", getFunctionsOperation);
-
-        metadata.put("operations", operations); // Keep this for backend/API reference
-
-        // --- Define UI Configuration ---
-        Map<String, Object> uiConfig = new HashMap<>();
-        uiConfig.put("id", "MathEvaluator"); // Corresponds to ToolMetadata.id
-        uiConfig.put("icon", "Calculate"); // Corresponds to ToolMetadata.icon (Material Icon name)
-        uiConfig.put("category", "Math"); // Corresponds to ToolMetadata.category
-
-        // --- Define UI Inputs ---
-        List<Map<String, Object>> uiInputs = new ArrayList<>();
-
-        // Input Section 1: Math Expression
-        Map<String, Object> inputSection1 = new HashMap<>();
-        inputSection1.put("header", "Math Expression");
-        List<Map<String, Object>> section1Fields = new ArrayList<>();
-
-        // Expression input field
-        Map<String, Object> expressionField = new HashMap<>();
-        expressionField.put("name", "expression");
-        expressionField.put("label", "Expression:");
-        expressionField.put("type", "text");
-        expressionField.put("placeholder", "Enter a mathematical expression...");
-        expressionField.put("required", true);
-        expressionField.put("helperText", "Example: 2+2, sin(pi/2), sqrt(16), etc.");
-        section1Fields.add(expressionField);
-
-        inputSection1.put("fields", section1Fields);
-        uiInputs.add(inputSection1);
-
-        // Input Section 2: Variables
-        Map<String, Object> inputSection2 = new HashMap<>();
-        inputSection2.put("header", "Variables");
-        List<Map<String, Object>> section2Fields = new ArrayList<>();
-
-        // Variable X input
-        Map<String, Object> xVariableField = new HashMap<>();
-        xVariableField.put("name", "variables.x");
-        xVariableField.put("label", "x =");
-        xVariableField.put("type", "number");
-        xVariableField.put("helperText", "Use in expressions as: x");
-        xVariableField.put("required", false);
-        section2Fields.add(xVariableField);
-
-        // Variable Y input
-        Map<String, Object> yVariableField = new HashMap<>();
-        yVariableField.put("name", "variables.y");
-        yVariableField.put("label", "y =");
-        yVariableField.put("type", "number");
-        yVariableField.put("helperText", "Use in expressions as: y");
-        yVariableField.put("required", false);
-        section2Fields.add(yVariableField);
-
-        // Variable Z input
-        Map<String, Object> zVariableField = new HashMap<>();
-        zVariableField.put("name", "variables.z");
-        zVariableField.put("label", "z =");
-        zVariableField.put("type", "number");
-        zVariableField.put("helperText", "Use in expressions as: z");
-        zVariableField.put("required", false);
-        section2Fields.add(zVariableField);
-
-        inputSection2.put("fields", section2Fields);
-        uiInputs.add(inputSection2);
-
-        // Input Section 3: Options
-        Map<String, Object> inputSection3 = new HashMap<>();
-        inputSection3.put("header", "Options");
-        List<Map<String, Object>> section3Fields = new ArrayList<>();
-
-        // Precision slider
-        Map<String, Object> precisionField = new HashMap<>();
-        precisionField.put("name", "precision");
-        precisionField.put("label", "Decimal Precision:");
-        precisionField.put("type", "slider");
-        precisionField.put("min", 0);
-        precisionField.put("max", 15);
-        precisionField.put("default", 10);
-        precisionField.put("required", false);
-        section3Fields.add(precisionField);
-
-        // Format output switch
-        Map<String, Object> formatOutputField = new HashMap<>();
-        formatOutputField.put("name", "formatOutput");
-        formatOutputField.put("label", "Format Math Symbols");
-        formatOutputField.put("type", "switch");
-        formatOutputField.put("default", true);
-        formatOutputField.put("required", false);
-        formatOutputField.put("helperText", "Use Unicode math symbols in output");
-        section3Fields.add(formatOutputField);
-
-        // Generate image switch
-        Map<String, Object> generateImageField = new HashMap<>();
-        generateImageField.put("name", "generateImage");
-        generateImageField.put("label", "Generate Image");
-        generateImageField.put("type", "switch");
-        generateImageField.put("default", true);
-        generateImageField.put("required", false);
-        formatOutputField.put("helperText", "Create a rendered image of the equation");
-        section3Fields.add(generateImageField);
-
-        inputSection3.put("fields", section3Fields);
-        uiInputs.add(inputSection3);
-
-        uiConfig.put("inputs", uiInputs);
-
-        // --- Define UI Outputs ---
-        List<Map<String, Object>> uiOutputs = new ArrayList<>();
-
-        // Output Section 1: Calculation Result
-        Map<String, Object> outputSection1 = new HashMap<>();
-        outputSection1.put("header", "Calculation Result");
-        outputSection1.put("condition", "success");
-        List<Map<String, Object>> section1OutputFields = new ArrayList<>();
-
-        // Formatted Expression
-        Map<String, Object> formattedExpressionOutput = new HashMap<>();
-        formattedExpressionOutput.put("title", "Expression");
-        formattedExpressionOutput.put("name", "formatted");
-        formattedExpressionOutput.put("type", "text");
-        formattedExpressionOutput.put("condition", "formatOutput");
-        section1OutputFields.add(formattedExpressionOutput);
-
-        // Raw Expression (shown when formatting is disabled)
-        Map<String, Object> rawExpressionOutput = new HashMap<>();
-        rawExpressionOutput.put("title", "Expression");
-        rawExpressionOutput.put("name", "expression");
-        rawExpressionOutput.put("type", "text");
-        rawExpressionOutput.put("condition", "!formatOutput");
-        section1OutputFields.add(rawExpressionOutput);
-
-        // Result
-        Map<String, Object> resultOutput = new HashMap<>();
-        resultOutput.put("title", "Result");
-        resultOutput.put("name", "formattedResult");
-        resultOutput.put("type", "text");
-        resultOutput.put("buttons", List.of("copy"));
-        section1OutputFields.add(resultOutput);
-
-        // Raw Result (for precision operations)
-        Map<String, Object> rawResultOutput = new HashMap<>();
-        rawResultOutput.put("title", "Raw Result");
-        rawResultOutput.put("name", "result");
-        rawResultOutput.put("type", "text");
-        rawResultOutput.put("condition", "result !== formattedResult");
-        section1OutputFields.add(rawResultOutput);
-
-        outputSection1.put("fields", section1OutputFields);
-        uiOutputs.add(outputSection1);
-
-        // Output Section 2: Rendered Image
-        Map<String, Object> outputSection2 = new HashMap<>();
-        outputSection2.put("header", "Rendered Equation");
-        outputSection2.put("condition", "generateImage && imageBase64");
-        List<Map<String, Object>> section2OutputFields = new ArrayList<>();
-
-        // Image display
-        Map<String, Object> imageOutput = new HashMap<>();
-        imageOutput.put("title", "");
-        imageOutput.put("name", "imageBase64");
-        imageOutput.put("type", "image");
-        imageOutput.put("buttons", List.of("download"));
-        section2OutputFields.add(imageOutput);
-
-        outputSection2.put("fields", section2OutputFields);
-        uiOutputs.add(outputSection2);
-
-        // Output Section 3: Error Display
-        Map<String, Object> outputSection3 = new HashMap<>();
-        outputSection3.put("header", "Error Information");
-        outputSection3.put("condition", "error");
-        List<Map<String, Object>> section3OutputFields = new ArrayList<>();
-
-        // Error message
-        Map<String, Object> errorOutput = new HashMap<>();
-        errorOutput.put("title", "Error");
-        errorOutput.put("name", "error");
-        errorOutput.put("type", "text");
-        errorOutput.put("style", "error");
-        section3OutputFields.add(errorOutput);
-
-        // Extended error message
-        Map<String, Object> errorMessageOutput = new HashMap<>();
-        errorMessageOutput.put("title", "Details");
-        errorMessageOutput.put("name", "errorMessage");
-        errorMessageOutput.put("type", "text");
-        errorMessageOutput.put("condition", "errorMessage");
-        errorMessageOutput.put("style", "error");
-        section3OutputFields.add(errorMessageOutput);
-
-        outputSection3.put("fields", section3OutputFields);
-        uiOutputs.add(outputSection3);
-
-        // Output Section 4: Supported Functions (for getSupportedFunctions operation)
-        Map<String, Object> outputSection4 = new HashMap<>();
-        outputSection4.put("header", "Supported Functions");
-        outputSection4.put("condition", "functions");
-        List<Map<String, Object>> section4OutputFields = new ArrayList<>();
-
-        // Functions table
-        Map<String, Object> functionsOutput = new HashMap<>();
-        functionsOutput.put("name", "functions");
-        functionsOutput.put("type", "table");
-        List<Map<String, Object>> functionsColumns = new ArrayList<>();
-        functionsColumns.add(Map.of("header", "Function", "field", "name"));
-        functionsColumns.add(Map.of("header", "Description", "field", "description"));
-        functionsColumns.add(Map.of("header", "Example", "field", "example"));
-        functionsOutput.put("columns", functionsColumns);
-        section4OutputFields.add(functionsOutput);
-
-        outputSection4.put("fields", section4OutputFields);
-        uiOutputs.add(outputSection4);
-
-        uiConfig.put("outputs", uiOutputs);
-
-        // Add the structured uiConfig to the main metadata map
-        metadata.put("uiConfig", uiConfig);
-
-        return metadata;
-    }
-
-    @Override
-    public Map<String, Object> process(Map<String, Object> input) {
-        Map<String, Object> result = new HashMap<>();
-
-        try {
-            String operation = (String) input.getOrDefault("operation", "evaluate");
-
-            switch (operation.toLowerCase()) {
-                case "evaluate":
-                    String expression = (String) input.get("expression");
-                    if (expression == null || expression.trim().isEmpty()) {
-                        result.put("error", "Expression cannot be empty");
-                        return result;
-                    }
-
-                    boolean formatOutput = Boolean.parseBoolean(String.valueOf(
-                            input.getOrDefault("formatOutput", true)));
-                    boolean generateImage = Boolean.parseBoolean(String.valueOf(
-                            input.getOrDefault("generateImage", true)));
-
-                    int precision = input.containsKey("precision") ?
-                            Integer.parseInt(input.get("precision").toString()) : 10;
-
-                    @SuppressWarnings("unchecked")
-                    Map<String, Double> variables = (Map<String, Double>) input.getOrDefault("variables", new HashMap<>());
-
-                    return evaluateExpression(expression, formatOutput, generateImage, precision, variables);
-
-                case "getsupportedfunctions":
-                    return getSupportedFunctions();
-
-                default:
-                    result.put("error", "Unsupported operation: " + operation);
-                    return result;
-            }
-
-        } catch (Exception e) {
-            result.put("error", "Error processing request: " + e.getMessage());
-            e.printStackTrace();
-        }
-
-        return result;
     }
 
     /**
-     * Evaluate a mathematical expression
-     *
-     * @param expression Mathematical expression to evaluate
-     * @param formatOutput Whether to format the expression
-     * @param generateImage Whether to generate a rendered image
-     * @param precision Number of decimal places for result
-     * @param variables Map of variable names to values
-     * @return Result information
+     * Generates metadata in the NEW format (sections, id, etc.).
      */
-    private Map<String, Object> evaluateExpression(String expression, boolean formatOutput,
-                                                   boolean generateImage, int precision, Map<String, Double> variables) {
+    @Override
+    public Map<String, Object> getMetadata() {
+        Map<String, Object> metadata = new HashMap<>();
 
-        Map<String, Object> result = new HashMap<>();
+        // --- Top Level Attributes (New Format) ---
+        metadata.put("id", "MathEvaluator"); // ID matches class name
+        metadata.put("name", "Math Expression Evaluator"); // User-facing name
+        metadata.put("description", "Evaluate mathematical expressions with variables, format output, and generate images.");
+        metadata.put("icon", "Calculate");
+        metadata.put("category", "Math");
+        metadata.put("customUI", false);
+        metadata.put("triggerUpdateOnChange", false); // Requires manual submit
+
+        // --- Sections ---
+        List<Map<String, Object>> sections = new ArrayList<>();
+
+        // --- Section 1: Input Expression and Variables ---
+        Map<String, Object> inputSection = new HashMap<>();
+        inputSection.put("id", "inputConfig");
+        inputSection.put("label", "Expression & Variables");
+
+        List<Map<String, Object>> mainInputs = new ArrayList<>();
+
+        // Operation Selection (even if only one primary op now, good for future)
+        mainInputs.add(Map.ofEntries(
+                Map.entry("id", "uiOperation"),
+                Map.entry("label", "Action:"),
+                Map.entry("type", "select"),
+                Map.entry("options", List.of(
+                        Map.of("value", "evaluate", "label", "Evaluate Expression"),
+                        Map.of("value", "getFunctions", "label", "List Supported Functions")
+                )),
+                Map.entry("default", "evaluate"),
+                Map.entry("required", true)
+        ));
+
+
+        // Expression Input
+        mainInputs.add(Map.ofEntries(
+                Map.entry("id", "expression"),
+                Map.entry("label", "Expression:"),
+                Map.entry("type", "text"),
+                Map.entry("multiline", true),
+                Map.entry("rows", 3),
+                Map.entry("placeholder", "e.g., sin(pi/4) + log10(100)"),
+                Map.entry("required", true),
+                Map.entry("condition", "uiOperation === 'evaluate'"), // Only show for evaluate
+                Map.entry("helperText", "Enter the mathematical expression.")
+        ));
+
+        // Variable Inputs (Example for x, y, z) - Consider a more dynamic approach later if needed
+        mainInputs.add(createVariableInput("variableX", "Variable x ="));
+        mainInputs.add(createVariableInput("variableY", "Variable y ="));
+        mainInputs.add(createVariableInput("variableZ", "Variable z ="));
+
+
+        inputSection.put("inputs", mainInputs);
+        sections.add(inputSection);
+
+        // --- Section 2: Formatting Options ---
+        Map<String, Object> optionsSection = new HashMap<>();
+        optionsSection.put("id", "options");
+        optionsSection.put("label", "Output Options");
+        optionsSection.put("condition", "uiOperation === 'evaluate'"); // Only show for evaluate
+
+        List<Map<String, Object>> optionInputs = new ArrayList<>();
+
+        // Precision Slider
+        optionInputs.add(Map.ofEntries(
+                Map.entry("id", "precision"),
+                Map.entry("label", "Decimal Precision:"),
+                Map.entry("type", "slider"),
+                Map.entry("min", 0),
+                Map.entry("max", 15),
+                Map.entry("default", 10),
+                Map.entry("required", false)
+        ));
+
+        // Generate Image Switch
+        optionInputs.add(Map.ofEntries(
+                Map.entry("id", "generateImage"),
+                Map.entry("label", "Generate Image of Equation"),
+                Map.entry("type", "switch"),
+                Map.entry("default", true), // Default to generating image
+                Map.entry("required", false)
+        ));
+
+        optionsSection.put("inputs", optionInputs);
+        sections.add(optionsSection);
+
+
+        // --- Section 3: Results ---
+        Map<String, Object> resultsSection = new HashMap<>();
+        resultsSection.put("id", "results");
+        resultsSection.put("label", "Result");
+        // Show if evaluate succeeded OR if functions were requested and succeeded
+        resultsSection.put("condition", "success === true && (uiOperation === 'evaluate' || uiOperation === 'getFunctions')");
+
+        List<Map<String, Object>> resultOutputs = new ArrayList<>();
+
+        // Evaluated Expression (Formatted for Image, Raw for Text)
+        resultOutputs.add(createOutputField("evaluatedExpression", "Evaluated Expression", "text", "uiOperation === 'evaluate'"));
+        // Calculated Result
+        resultOutputs.add(createOutputField("calculatedResult", "Result", "text", "uiOperation === 'evaluate'"));
+        // Raw Numeric Result (Optional)
+        // resultOutputs.add(createOutputField("rawResult", "Raw Result", "text", "uiOperation === 'evaluate' && typeof rawResult !== 'undefined'"));
+        // Rendered Image
+        Map<String, Object> imageOutput = createOutputField("renderedImage", "", "image", "uiOperation === 'evaluate' && typeof renderedImage !== 'undefined'");
+        imageOutput.put("buttons", List.of("download"));
+        // Add filename to metadata for download button context
+        imageOutput.put("downloadFilenameKey", "imageFileName"); // Tell frontend where to find filename in results
+        resultOutputs.add(imageOutput);
+
+        // Supported Functions Table
+        Map<String, Object> functionsTable = createOutputField("supportedFunctions", "Supported Functions", "table", "uiOperation === 'getFunctions' && typeof supportedFunctions !== 'undefined'");
+        functionsTable.put("columns", List.of(
+                Map.of("header", "Name", "field", "name"),
+                Map.of("header", "Description", "field", "description"),
+                Map.of("header", "Syntax", "field", "syntax")
+        ));
+        resultOutputs.add(functionsTable);
+
+
+        resultsSection.put("outputs", resultOutputs);
+        sections.add(resultsSection);
+
+
+        // --- Section 4: Error Display ---
+        Map<String, Object> errorSection = new HashMap<>();
+        errorSection.put("id", "errorDisplay");
+        errorSection.put("label", "Error");
+        errorSection.put("condition", "success === false"); // Show only on failure
+
+        List<Map<String, Object>> errorOutputs = new ArrayList<>();
+        errorOutputs.add(createOutputField("errorMessage", "Details", "text", null)); // style handled by helper
+        // Extended mXparser error message if available
+        errorOutputs.add(createOutputField("parserErrorMessage", "Parser Message", "text", "typeof parserErrorMessage !== 'undefined'"));
+
+
+        errorSection.put("outputs", errorOutputs);
+        sections.add(errorSection);
+
+
+        metadata.put("sections", sections);
+        return metadata;
+    }
+
+    // Helper to create variable input field definitions
+    private Map<String, Object> createVariableInput(String id, String label) {
+        return Map.ofEntries(
+                Map.entry("id", id),
+                Map.entry("label", label),
+                Map.entry("type", "number"),
+                Map.entry("required", false), // Variables are optional
+                Map.entry("placeholder", "Enter value..."),
+                Map.entry("condition", "uiOperation === 'evaluate'") // Only show for evaluate
+        );
+    }
+
+    // Helper to create output field definitions more easily
+    private Map<String, Object> createOutputField(String id, String label, String type, String condition) {
+        Map<String, Object> field = new HashMap<>();
+        field.put("id", id);
+        if (label != null && !label.isEmpty()) {
+            field.put("label", label);
+        }
+        field.put("type", type);
+        if (condition != null && !condition.isEmpty()) {
+            field.put("condition", condition);
+        }
+        if (id.toLowerCase().contains("error")) { // Basic check for error fields
+            field.put("style", "error");
+        }
+        // Add monospace for specific result types
+        if ("text".equals(type) && (id.toLowerCase().contains("result") || id.toLowerCase().contains("expression"))) {
+            field.put("monospace", true);
+        }
+        if ("json".equals(type)) { // Add copy button for JSON type
+            field.put("buttons", List.of("copy"));
+        }
+        return field;
+    }
+
+
+    /**
+     * Processes the input parameters (using IDs from the new format)
+     * to evaluate an expression or list functions.
+     */
+    @Override
+    public Map<String, Object> process(Map<String, Object> input) {
+        // Read the operation using the ID defined in UI metadata
+        String uiOperation = getStringParam(input, "uiOperation", "evaluate"); // Default to evaluate
+        String errorOutputId = "errorMessage"; // Matches the error output field ID
+
+        // Include the operation in the input map for context
+        Map<String, Object> processingInput = new HashMap<>(input);
 
         try {
+            Map<String, Object> result;
+            // Route based on the selected UI operation
+            switch (uiOperation.toLowerCase()) {
+                case "evaluate" -> result = evaluateExpression(processingInput);
+                case "getfunctions" -> result = getSupportedFunctions();
+                default -> {
+                    return Map.of("success", false, errorOutputId, "Unsupported operation: " + uiOperation);
+                }
+            }
+
+            // Add uiOperation to success result for context
+            if (result.get("success") == Boolean.TRUE) {
+                Map<String, Object> finalResult = new HashMap<>(result);
+                finalResult.put("uiOperation", uiOperation);
+                return finalResult;
+            } else {
+                // Ensure error key consistency
+                if (result.containsKey("error") && !result.containsKey(errorOutputId)) {
+                    Map<String, Object> finalResult = new HashMap<>(result);
+                    finalResult.put(errorOutputId, result.get("error"));
+                    finalResult.remove("error");
+                    return finalResult;
+                }
+                return result; // Return error as is
+            }
+
+        } catch (IllegalArgumentException e) { // Catch validation errors
+            return Map.of("success", false, errorOutputId, e.getMessage());
+        } catch (Exception e) { // Catch unexpected errors
+            System.err.println("Error processing math request: " + e.getMessage());
+            e.printStackTrace();
+            return Map.of("success", false, errorOutputId, "Unexpected error: " + e.getMessage());
+        }
+    }
+
+    // ========================================================================
+    // Private Calculation Methods (Updated for new IDs)
+    // ========================================================================
+
+    /**
+     * Evaluate a mathematical expression using mXparser.
+     */
+    private Map<String, Object> evaluateExpression(Map<String, Object> input) {
+        Map<String, Object> result = new HashMap<>();
+        String errorOutputId = "errorMessage";
+        String parserErrorId = "parserErrorMessage"; // Specific ID for parser errors
+
+        try {
+            // Get parameters using NEW IDs
+            String expression = getStringParam(input, "expression", null); // Required
+            // **Use getIntParam here**
+            int precision = getIntParam(input); // Default 10
+            boolean generateImage = getBooleanParam(input); // Default true
+
             // Create expression parser
             Expression expr = new Expression(expression);
 
-            // Add variables if provided
-            for (Map.Entry<String, Double> variable : variables.entrySet()) {
-                expr.defineArgument(variable.getKey(), variable.getValue());
+            // Add variables (Check x, y, z specifically for now)
+            addVariableIfPresent(expr, input, "variableX", "x");
+            addVariableIfPresent(expr, input, "variableY", "y");
+            addVariableIfPresent(expr, input, "variableZ", "z");
+            // Add more variable inputs if needed
+
+            // Check Syntax FIRST
+            if (!expr.checkSyntax()) {
+                result.put("success", false);
+                result.put(errorOutputId, "Syntax error in expression.");
+                result.put(parserErrorId, expr.getErrorMessage()); // Provide specific parser error
+                return result;
             }
 
             // Calculate the result
             double calculatedResult = expr.calculate();
 
-            // Check for errors
+            // Check for calculation errors (NaN usually indicates issues like div by zero, log neg, etc.)
             if (Double.isNaN(calculatedResult)) {
-                result.put("error", "Invalid expression or calculation error");
-                result.put("errorMessage", expr.getErrorMessage());
+                result.put("success", false);
+                result.put(errorOutputId, "Calculation error (e.g., division by zero, invalid input for function).");
+                // mXparser might not have a separate error message after successful syntax check but NaN result
+                result.put(parserErrorId, "Result is Not-a-Number (NaN). Check function domains (e.g., sqrt of negative).");
                 return result;
             }
 
-            // Apply precision and format the result
-            decimalFormat.setMaximumFractionDigits(precision);
+            // --- Prepare Success Output ---
+            result.put("success", true);
+
+            // Set decimal format precision
+            decimalFormat.setMaximumFractionDigits(Math.max(0, precision)); // Ensure non-negative
             String formattedResult = decimalFormat.format(calculatedResult);
 
-            // Format the expression if requested
-            String formattedExpression = expression;
-            if (formatOutput) {
-                formattedExpression = formatMathExpression(expression);
-            }
+            result.put("evaluatedExpression", expression); // Echo raw expression
+            result.put("calculatedResult", formattedResult); // Formatted result
+            // result.put("rawResult", calculatedResult); // Optional: raw double value
 
             // Generate image if requested
-            String imageBase64 = null;
-            String imagePath = null;
-
             if (generateImage) {
-                Map<String, Object> imageResult = generateExpressionImage(expression, calculatedResult);
-                imageBase64 = (String) imageResult.get("imageBase64");
-                imagePath = (String) imageResult.get("imagePath");
+                try {
+                    Map<String, Object> imageGenResult = generateExpressionImage(expression, formattedResult);
+                    if (imageGenResult.containsKey("imageBase64")) {
+                        result.put("renderedImage", imageGenResult.get("imageBase64")); // Matches output ID
+                        result.put("imageFileName", imageGenResult.get("fileName")); // For download button context
+                    } else {
+                        System.err.println("Image generation failed: " + imageGenResult.get("error"));
+                        // Don't fail the whole operation, just omit the image
+                    }
+                } catch (Exception imgEx) {
+                    System.err.println("Exception during image generation: " + imgEx.getMessage());
+                    // Omit image on error
+                }
             }
 
-            // Build the result
-            result.put("success", true);
-            result.put("expression", expression);
-            result.put("formatted", formattedExpression);
-            result.put("result", calculatedResult);
-            result.put("formattedResult", formattedResult);
-
-            if (imageBase64 != null) {
-                result.put("imageBase64", imageBase64);
-                result.put("imagePath", imagePath);
-            }
-
-        } catch (Exception e) {
-            result.put("error", "Error evaluating expression: " + e.getMessage());
+        } catch (IllegalArgumentException e) { // Catch our own validation errors
+            result.put("success", false);
+            result.put(errorOutputId, e.getMessage());
+        } catch (Exception e) { // Catch unexpected errors during setup/parsing
+            System.err.println("Unexpected error during evaluation: " + e.getMessage());
             e.printStackTrace();
+            result.put("success", false);
+            result.put(errorOutputId, "Unexpected error evaluating expression.");
         }
-
         return result;
     }
 
-    /**
-     * Format a math expression with proper typography
-     *
-     * @param expression Mathematical expression
-     * @return Formatted expression with Unicode math symbols
-     */
-    private String formatMathExpression(String expression) {
-        String formatted = expression;
-
-        // Replace operators with their symbolic Unicode equivalents
-        formatted = formatted.replace("sqrt", "√");
-        formatted = formatted.replace("^2", "²");
-        formatted = formatted.replace("^3", "³");
-        formatted = formatted.replace("^(1/2)", "½");
-        formatted = formatted.replace("*", "×");
-        formatted = formatted.replace("/", "÷");
-        formatted = formatted.replace("<=", "≤");
-        formatted = formatted.replace(">=", "≥");
-        formatted = formatted.replace("!=", "≠");
-        formatted = formatted.replace("pi", "π");
-
-        // Handle powers with regex
-        Pattern powerPattern = Pattern.compile("\\^\\((\\d+)/(\\d+)\\)");
-        Matcher powerMatcher = powerPattern.matcher(formatted);
-        StringBuilder sb = new StringBuilder();
-        while (powerMatcher.find()) {
-            String numerator = powerMatcher.group(1);
-            String denominator = powerMatcher.group(2);
-            powerMatcher.appendReplacement(sb, "^(" + numerator + "⁄" + denominator + ")");
+    /** Adds argument to expression if present and valid in input map */
+    private void addVariableIfPresent(Expression expr, Map<String, Object> input, String inputId, String variableName) {
+        Object value = input.get(inputId);
+        if (value != null && !value.toString().trim().isEmpty()) { // Check not null AND not empty string
+            try {
+                double doubleValue;
+                if (value instanceof Number) {
+                    doubleValue = ((Number)value).doubleValue();
+                } else {
+                    // Attempt to parse string, allow for different decimal separators potentially
+                    String valStr = value.toString().replace(',', '.');
+                    doubleValue = Double.parseDouble(valStr);
+                }
+                expr.defineArgument(variableName, doubleValue);
+                System.out.println("Defined variable: " + variableName + " = " + doubleValue); // Debug log
+            } catch (NumberFormatException e) {
+                System.err.println("Warning: Could not parse variable '" + inputId + "' value '" + value + "' as number. Ignoring.");
+                // Optionally throw an exception here if invalid variable input should halt processing
+                // throw new IllegalArgumentException("Invalid value for variable '" + variableName + "': " + value);
+            }
         }
-        powerMatcher.appendTail(sb);
-        formatted = sb.toString();
-
-        // Handle general exponents
-        formatted = formatted.replaceAll("\\^\\(([^)]+)\\)", "^($1)");
-
-        // Format trig functions
-        formatted = formatted.replace("sin", "sin");
-        formatted = formatted.replace("cos", "cos");
-        formatted = formatted.replace("tan", "tan");
-        formatted = formatted.replace("asin", "sin⁻¹");
-        formatted = formatted.replace("acos", "cos⁻¹");
-        formatted = formatted.replace("atan", "tan⁻¹");
-
-        return formatted;
     }
 
+
     /**
-     * Generate an image of the expression and its result
-     *
-     * @param expression Mathematical expression
-     * @param result Calculated result
-     * @return Map with image data
+     * Generate an image representation of the expression and its result.
      */
-    private Map<String, Object> generateExpressionImage(String expression, double result) {
+    private Map<String, Object> generateExpressionImage(String expression, String formattedResult) throws IOException {
         Map<String, Object> imageResult = new HashMap<>();
+        int width; // Initial width
+        int height; // Initial height
+        int padding = 10;
+
+        Font mathFont = new Font("DejaVu Sans", Font.PLAIN, 20);
+        if (!canDisplayMath(mathFont)) {
+            mathFont = new Font("Arial", Font.PLAIN, 20); // Fallback
+        }
+
+        String equationText = expression + " = " + formattedResult;
+
+        // --- Calculate text width dynamically ---
+        BufferedImage tempImage = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D tempG2d = tempImage.createGraphics();
+        tempG2d.setFont(mathFont);
+        FontMetrics fm = tempG2d.getFontMetrics();
+        int textWidth = fm.stringWidth(equationText);
+        int textHeight = fm.getHeight();
+        tempG2d.dispose();
+
+        width = textWidth + (2 * padding); // Adjust width based on text
+        height = textHeight + (2* padding); // Adjust height based on font
+
+
+        // --- Create final image ---
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = image.createGraphics();
 
         try {
-            // Format the expression
-            String formattedExpression = formatMathExpression(expression);
-            String formattedResult = decimalFormat.format(result);
-
-            // Create a buffered image
-            int width = 500;
-            int height = 100;
-            BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g2d = image.createGraphics();
-
-            // Set up rendering hints for better text quality
+            // Setup rendering hints
             g2d.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
-            // Fill the background
+            // Background
             g2d.setColor(Color.WHITE);
             g2d.fillRect(0, 0, width, height);
 
-            // Draw expression and result
+            // Draw Text
             g2d.setColor(Color.BLACK);
-            g2d.setFont(new Font("Arial", Font.PLAIN, 18));
-            FontMetrics fm = g2d.getFontMetrics();
+            g2d.setFont(mathFont);
+            // Center text vertically and horizontally
+            int y = padding + fm.getAscent(); // Position based on ascent
+            g2d.drawString(equationText, padding, y);
 
-            String equationText = formattedExpression + " = " + formattedResult;
-            int textWidth = fm.stringWidth(equationText);
-            int x = (width - textWidth) / 2;
-            int y = height / 2 + fm.getAscent() / 2;
-
-            g2d.drawString(equationText, x, y);
-
-            // Add a border
-            g2d.setColor(new Color(200, 200, 200));
-            g2d.drawRect(0, 0, width - 1, height - 1);
-
+        } finally {
             g2d.dispose();
-
-            // Save the image
-            String fileName = "math_" + LocalDateTime.now().format(formatter) + ".png";
-            String filePath = uploadDir + File.separator + fileName;
-            File outputFile = new File(filePath);
-            ImageIO.write(image, "png", outputFile);
-
-            // Convert to Base64 for inline display
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            ImageIO.write(image, "png", outputStream);
-            String base64Image = Base64.getEncoder().encodeToString(outputStream.toByteArray());
-
-            imageResult.put("imageBase64", "data:image/png;base64," + base64Image);
-            imageResult.put("imagePath", filePath);
-
-        } catch (Exception e) {
-            imageResult.put("error", "Error generating image: " + e.getMessage());
-            e.printStackTrace();
         }
+
+        // Convert to Base64
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        if (!ImageIO.write(image, "png", baos)) {
+            throw new IOException("Failed to write generated image to byte stream.");
+        }
+        String base64Image = Base64.getEncoder().encodeToString(baos.toByteArray());
+        String dataUri = "data:image/png;base64," + base64Image;
+
+        String fileName = "math_result_" + LocalDateTime.now().format(formatter) + ".png";
+
+        imageResult.put("imageBase64", dataUri);
+        imageResult.put("fileName", fileName);
 
         return imageResult;
     }
 
-    /**
-     * Get a list of supported mathematical functions
-     *
-     * @return Map with supported functions information
-     */
-    private Map<String, Object> getSupportedFunctions() {
-        Map<String, Object> result = new HashMap<>();
-
-        try {
-            List<Map<String, String>> functions = new ArrayList<>();
-
-            // Basic operators
-            addFunction(functions, "+", "Addition", "a + b");
-            addFunction(functions, "-", "Subtraction", "a - b");
-            addFunction(functions, "*", "Multiplication", "a * b");
-            addFunction(functions, "/", "Division", "a / b");
-            addFunction(functions, "^", "Exponentiation", "a^b or a^(n/m)");
-            addFunction(functions, "%", "Modulo", "a % b");
-
-            // Trigonometric functions
-            addFunction(functions, "sin", "Sine", "sin(x)");
-            addFunction(functions, "cos", "Cosine", "cos(x)");
-            addFunction(functions, "tan", "Tangent", "tan(x)");
-            addFunction(functions, "asin", "Arcsine", "asin(x)");
-            addFunction(functions, "acos", "Arccosine", "acos(x)");
-            addFunction(functions, "atan", "Arctangent", "atan(x)");
-
-            // Logarithmic functions
-            addFunction(functions, "ln", "Natural logarithm", "ln(x)");
-            addFunction(functions, "log", "Logarithm base 10", "log(x)");
-
-            // Roots
-            addFunction(functions, "sqrt", "Square root", "sqrt(x)");
-            addFunction(functions, "cbrt", "Cube root", "cbrt(x)");
-            addFunction(functions, "root", "N-th root", "root(n, x)");
-
-            // Other functions
-            addFunction(functions, "abs", "Absolute value", "abs(x)");
-            addFunction(functions, "floor", "Floor function", "floor(x)");
-            addFunction(functions, "ceil", "Ceiling function", "ceil(x)");
-            addFunction(functions, "round", "Round to nearest integer", "round(x)");
-            addFunction(functions, "sgn", "Signum function", "sgn(x)");
-            addFunction(functions, "min", "Minimum", "min(a,b,...)");
-            addFunction(functions, "max", "Maximum", "max(a,b,...)");
-
-            // Constants
-            addFunction(functions, "pi", "Pi constant", "pi");
-            addFunction(functions, "e", "Euler's number", "e");
-
-            // Build the result
-            result.put("success", true);
-            result.put("functions", functions);
-
-        } catch (Exception e) {
-            result.put("error", "Error retrieving functions: " + e.getMessage());
-            e.printStackTrace();
-        }
-
-        return result;
+    /** Check if font can display basic math symbols */
+    private boolean canDisplayMath(Font font) {
+        return font.canDisplay('√') && font.canDisplay('÷') && font.canDisplay('≠') && font.canDisplay('π');
     }
 
     /**
-     * Helper method to add a function to the list
-     *
-     * @param list List to add to
-     * @param name Function name
-     * @param description Function description
-     * @param example Usage example
+     * Get a list of supported mathematical functions from mXparser.
      */
-    private void addFunction(List<Map<String, String>> list, String name, String description, String example) {
-        Map<String, String> function = new HashMap<>();
-        function.put("name", name);
-        function.put("description", description);
-        function.put("example", example);
-        list.add(function);
+    private Map<String, Object> getSupportedFunctions() {
+        Map<String, Object> result = new HashMap<>();
+        String errorOutputId = "errorMessage";
+        try {
+            // Manually list common functions
+            List<Map<String, String>> functions = new ArrayList<>();
+            addFunctionInfo(functions, "+", "Addition", "a + b");
+            addFunctionInfo(functions, "-", "Subtraction", "a - b");
+            addFunctionInfo(functions, "*", "Multiplication", "a * b");
+            addFunctionInfo(functions, "/", "Division", "a / b");
+            addFunctionInfo(functions, "^", "Power", "a^b");
+            addFunctionInfo(functions, "sqrt", "Square Root", "sqrt(x)");
+            addFunctionInfo(functions, "sin", "Sine (radians)", "sin(x)");
+            addFunctionInfo(functions, "cos", "Cosine (radians)", "cos(x)");
+            addFunctionInfo(functions, "tan", "Tangent (radians)", "tan(x)");
+            addFunctionInfo(functions, "asin", "Arcsine (inverse sine)", "asin(x)");
+            addFunctionInfo(functions, "acos", "Arccosine (inverse cosine)", "acos(x)");
+            addFunctionInfo(functions, "atan", "Arctangent (inverse tangent)", "atan(x)");
+            addFunctionInfo(functions, "ln", "Natural Logarithm (base e)", "ln(x)");
+            addFunctionInfo(functions, "log10", "Common Logarithm (base 10)", "log10(x)");
+            addFunctionInfo(functions, "log", "Logarithm (base b)", "log(b, x)");
+            addFunctionInfo(functions, "abs", "Absolute Value", "abs(x)");
+            addFunctionInfo(functions, "round", "Round to nearest integer", "round(x, n_digits)");
+            addFunctionInfo(functions, "floor", "Floor (largest integer <= x)", "floor(x)");
+            addFunctionInfo(functions, "ceil", "Ceiling (smallest integer >= x)", "ceil(x)");
+            addFunctionInfo(functions, "!", "Factorial", "n!");
+            addFunctionInfo(functions, "mod", "Modulo", "mod(a, b)");
+            addFunctionInfo(functions, "pi", "Constant Pi", "pi");
+            addFunctionInfo(functions, "e", "Constant Euler's number", "e");
+            // Add more...
+
+            result.put("success", true);
+            result.put("supportedFunctions", functions); // Matches output ID
+
+        } catch (Exception e) {
+            System.err.println("Error retrieving functions: " + e.getMessage());
+            result.put("success", false);
+            result.put(errorOutputId, "Could not retrieve function list.");
+        }
+        return result;
+    }
+
+    /** Helper to add function info to the list */
+    private void addFunctionInfo(List<Map<String, String>> list, String name, String description, String syntax) {
+        list.add(Map.of("name", name, "description", description, "syntax", syntax));
+    }
+
+
+    // ========================================================================
+    // Parameter Parsing Helpers
+    // ========================================================================
+
+    // Null default indicates required
+    private double parseDoubleParam(Map<String, Object> input, String key, Double defaultValue) throws IllegalArgumentException {
+        Object value = input.get(key);
+        if (value == null) {
+            if (defaultValue != null) return defaultValue;
+            throw new IllegalArgumentException("Missing required numeric parameter: " + key);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        } else {
+            try {
+                // Replace comma potentially used as decimal separator
+                return Double.parseDouble(value.toString().replace(',', '.'));
+            } catch (NumberFormatException e) {
+                if (defaultValue != null) return defaultValue;
+                throw new IllegalArgumentException("Invalid numeric value for parameter '" + key + "': " + value);
+            }
+        }
+    }
+
+    // *** ADDED getIntParam definition ***
+    // Null default indicates required
+    private int getIntParam(Map<String, Object> input) throws IllegalArgumentException {
+        Object value = input.get("precision");
+        if (value == null) {
+            return 10;
+        }
+        if (value instanceof Integer) return (Integer) value;
+        if (value instanceof Number) {
+            double dValue = ((Number) value).doubleValue();
+            // Allow for slight precision issues when casting from double slider value
+            if (Math.abs(dValue - Math.round(dValue)) < 0.00001) {
+                return ((Number) value).intValue();
+            } else {
+                return 10; // Return default if not integer-like
+            }
+        }
+        else {
+            try {
+                // Try parsing as double first to handle potential decimals, then cast
+                double dValue = Double.parseDouble(value.toString());
+                if (Math.abs(dValue - Math.round(dValue)) < 0.00001) {
+                    return (int) Math.round(dValue);
+                } else {
+                    return 10;
+                }
+            } catch (NumberFormatException e) {
+                return 10;
+            }
+        }
+    }
+
+    // Null default indicates required
+    private String getStringParam(Map<String, Object> input, String key, String defaultValue) throws IllegalArgumentException {
+        Object value = input.get(key);
+        if (value == null) {
+            if (defaultValue == null) throw new IllegalArgumentException("Missing required parameter: " + key);
+            return defaultValue;
+        }
+        String strValue = value.toString(); // Don't trim expressions
+        if (strValue.isEmpty() && defaultValue == null) {
+            throw new IllegalArgumentException("Missing required parameter: " + key);
+        }
+        // Return empty string if not required and empty, otherwise return value
+        return strValue.isEmpty() ? defaultValue : strValue;
+    }
+
+    // Null default indicates required
+    private boolean getBooleanParam(Map<String, Object> input) {
+        Object value = input.get("generateImage");
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        if (value != null) {
+            return "true".equalsIgnoreCase(value.toString());
+        }
+        return true;
     }
 }

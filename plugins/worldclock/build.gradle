@@ -12,6 +12,7 @@ repositories {
 dependencies {
     implementation project(':plugin-api')
     implementation 'org.pf4j:pf4j:3.10.0'
+    implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.19'
 }
 
 tasks.named('jar') {

@@ -11,12 +11,23 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/plugin-api" />
             <option value="$PROJECT_DIR$/plugins" />
+            <option value="$PROJECT_DIR$/plugins/chronometer" />
             <option value="$PROJECT_DIR$/plugins/cryptotools" />
+            <option value="$PROJECT_DIR$/plugins/etacalculator" />
             <option value="$PROJECT_DIR$/plugins/hashtools" />
+            <option value="$PROJECT_DIR$/plugins/jwtparser" />
+            <option value="$PROJECT_DIR$/plugins/mathevaluator" />
             <option value="$PROJECT_DIR$/plugins/mediatools" />
             <option value="$PROJECT_DIR$/plugins/passwordanalyzer" />
+            <option value="$PROJECT_DIR$/plugins/percentagecalculator" />
+            <option value="$PROJECT_DIR$/plugins/phoneparser" />
+            <option value="$PROJECT_DIR$/plugins/qrcodegenerator" />
             <option value="$PROJECT_DIR$/plugins/tokengenerator" />
             <option value="$PROJECT_DIR$/plugins/urlformatter" />
+            <option value="$PROJECT_DIR$/plugins/useragentparser" />
+            <option value="$PROJECT_DIR$/plugins/webcamcapture" />
+            <option value="$PROJECT_DIR$/plugins/wifiqrcodegenerator" />
+            <option value="$PROJECT_DIR$/plugins/worldclock" />
             <option value="$PROJECT_DIR$/server" />
           </set>
         </option>

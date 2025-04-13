@@ -3,23 +3,52 @@ package kostovite;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom; // Use SecureRandom
 import java.util.*;
 
 import javax.crypto.Cipher;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.BadPaddingException; // More specific exceptions
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import java.security.InvalidKeyException; // More specific exceptions
+import java.security.InvalidAlgorithmParameterException;
 
-public class CryptoTools implements ExtendedPluginInterface {
-    // Supported algorithms
-    private static final String[] SUPPORTED_ALGORITHMS = {
-            "AES", "DES", "TripleDES", "Blowfish", "RC4"
-    };
 
-    // IV size for GCM mode (in bytes)
-    private static final int GCM_IV_LENGTH = 12;
-    // Tag size for GCM mode (in bits)
-    private static final int GCM_TAG_LENGTH = 128;
+// Note: Using ExtendedPluginInterface if required by your framework, otherwise use PluginInterface
+public class CryptoTools implements PluginInterface { // Assuming standard PluginInterface for now
+
+    // Supported algorithms - Map for easier lookup and clearer names
+    private static final Map<String, String> SUPPORTED_ALGORITHMS_MAP = new LinkedHashMap<>(); // Preserve order
+    static {
+        SUPPORTED_ALGORITHMS_MAP.put("AES", "AES/GCM/NoPadding"); // Recommended: Authenticated Encryption
+        SUPPORTED_ALGORITHMS_MAP.put("DES", "DES/CBC/PKCS5Padding"); // Legacy, Weak
+        SUPPORTED_ALGORITHMS_MAP.put("TripleDES", "DESede/CBC/PKCS5Padding"); // Legacy
+        SUPPORTED_ALGORITHMS_MAP.put("Blowfish", "Blowfish/CBC/PKCS5Padding"); // Okay, but less common
+        SUPPORTED_ALGORITHMS_MAP.put("RC4", "ARCFOUR"); // Insecure, Avoid! Included for completeness based on original code.
+    }
+
+    // Key lengths in bytes corresponding to map keys above (adjust if needed)
+    private static final Map<String, Integer> KEY_LENGTHS = Map.of(
+            "AES", 32, // 256-bit
+            "DES", 8,  // 64-bit (effectively 56-bit)
+            "TripleDES", 24, // 192-bit (effectively 112 or 168-bit)
+            "Blowfish", 16, // 128-bit (can range, but 16 is common)
+            "RC4", 16 // 128-bit (can range)
+    );
+
+    // IV size map (bytes) - DES/3DES/Blowfish use 8, AES/GCM uses 12, RC4 uses none
+    private static final Map<String, Integer> IV_LENGTHS = Map.of(
+            "AES", 12, // For GCM mode
+            "DES", 8,
+            "TripleDES", 8,
+            "Blowfish", 8,
+            "RC4", 0 // RC4 does not use an IV
+    );
+
+    private static final int GCM_TAG_LENGTH = 128; // bits
 
     @Override
     public String getName() {
@@ -28,28 +57,32 @@ public class CryptoTools implements ExtendedPluginInterface {
 
     @Override
     public void execute() {
-        System.out.println("CryptoTools Plugin executed");
-
-        // Demonstrate basic usage
+        // Standalone test execution
+        System.out.println("CryptoTools Plugin executed (standalone test)");
         try {
             Map<String, Object> encryptParams = new HashMap<>();
-            encryptParams.put("operation", "encrypt");
+            encryptParams.put("uiOperation", "encrypt"); // Use uiOperation for testing
             encryptParams.put("algorithm", "AES");
-            encryptParams.put("text", "Hello, World!");
-            encryptParams.put("key", "MySuperSecretKey");
+            encryptParams.put("inputText", "This is a secret message!"); // Use new input ID
+            encryptParams.put("secretKey", "correct horse battery staple"); // Use new input ID
 
             Map<String, Object> encryptResult = process(encryptParams);
-            System.out.println("Sample encryption: " + encryptResult.get("encryptedText"));
+            System.out.println("Encryption Result: " + encryptResult);
 
-            Map<String, Object> decryptParams = new HashMap<>();
-            decryptParams.put("operation", "decrypt");
-            decryptParams.put("algorithm", "AES");
-            decryptParams.put("encryptedText", encryptResult.get("encryptedText"));
-            decryptParams.put("key", "MySuperSecretKey");
+            if (encryptResult.get("success") == Boolean.TRUE) {
+                Map<String, Object> decryptParams = new HashMap<>();
+                decryptParams.put("uiOperation", "decrypt"); // Use uiOperation
+                decryptParams.put("algorithm", "AES");
+                // Use the correct output key from the encrypt result
+                decryptParams.put("encryptedInput", encryptResult.get("encryptedResult")); // Use new input ID
+                decryptParams.put("secretKey", "correct horse battery staple"); // Use new input ID
 
-            Map<String, Object> decryptResult = process(decryptParams);
-            System.out.println("Sample decryption: " + decryptResult.get("decryptedText"));
+                Map<String, Object> decryptResult = process(decryptParams);
+                System.out.println("Decryption Result: " + decryptResult);
+            }
+
         } catch (Exception e) {
+            System.err.println("Standalone test failed: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -57,612 +90,397 @@ public class CryptoTools implements ExtendedPluginInterface {
     @Override
     public Map<String, Object> getMetadata() {
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", getName()); // Corresponds to ToolMetadata.name
-        metadata.put("version", "1.0.0");
-        metadata.put("description", "Provides encryption and decryption functionality with various algorithms"); // Corresponds to ToolMetadata.description
 
-        // Define available backend operations (for informational purposes or direct API calls)
-        Map<String, Object> operations = new HashMap<>();
+        // --- Top Level Attributes (New Format) ---
+        metadata.put("id", "CryptoTools"); // ID matches class name
+        metadata.put("name", "Encryption/Decryption Tools"); // User-facing name
+        metadata.put("description", "Encrypt or decrypt text using various algorithms and a secret key.");
+        metadata.put("icon", "Lock");
+        metadata.put("category", "Security");
+        metadata.put("customUI", false);
+        // This tool requires explicit action, not dynamic updates on input change
+        metadata.put("triggerUpdateOnChange", false);
 
-        // Encrypt operation
-        Map<String, Object> encryptOperation = new HashMap<>();
-        encryptOperation.put("description", "Encrypt text with a secret key");
-        Map<String, Object> encryptInputs = new HashMap<>();
-        encryptInputs.put("text", Map.of("type", "string", "description", "Text to encrypt", "required", true));
-        encryptInputs.put("key", Map.of("type", "string", "description", "Secret key for encryption", "required", true));
-        encryptInputs.put("algorithm", Map.of("type", "string", "description", "Encryption algorithm (AES, DES, TripleDES, Blowfish, RC4)", "required", true));
-        encryptOperation.put("inputs", encryptInputs);
-        operations.put("encrypt", encryptOperation);
+        // --- Sections ---
+        List<Map<String, Object>> sections = new ArrayList<>();
 
-        // Decrypt operation
-        Map<String, Object> decryptOperation = new HashMap<>();
-        decryptOperation.put("description", "Decrypt encrypted text with a secret key");
-        Map<String, Object> decryptInputs = new HashMap<>();
-        decryptInputs.put("encryptedText", Map.of("type", "string", "description", "Text to decrypt (Base64 encoded)", "required", true));
-        decryptInputs.put("key", Map.of("type", "string", "description", "Secret key for decryption (must match the encryption key)", "required", true));
-        decryptInputs.put("algorithm", Map.of("type", "string", "description", "Decryption algorithm (must match the encryption algorithm)", "required", true));
-        decryptOperation.put("inputs", decryptInputs);
-        operations.put("decrypt", decryptOperation);
+        // --- Section 1: Settings and Input ---
+        Map<String, Object> settingsSection = new HashMap<>();
+        settingsSection.put("id", "settings");
+        settingsSection.put("label", "Settings & Input Text");
 
-        // List algorithms operation
-        Map<String, Object> listAlgorithmsOperation = new HashMap<>();
-        listAlgorithmsOperation.put("description", "List supported encryption/decryption algorithms");
-        operations.put("listAlgorithms", listAlgorithmsOperation);
+        List<Map<String, Object>> settingsInputs = new ArrayList<>();
 
-        metadata.put("operations", operations); // Keep this for backend/API reference
+        // Operation (Encrypt/Decrypt)
+        settingsInputs.add(Map.ofEntries(
+                Map.entry("id", "uiOperation"), // Use ID
+                Map.entry("label", "Action:"),
+                Map.entry("type", "select"),
+                Map.entry("options", List.of(
+                        Map.of("value", "encrypt", "label", "Encrypt Text"),
+                        Map.of("value", "decrypt", "label", "Decrypt Text (Base64)")
+                )),
+                Map.entry("default", "encrypt"),
+                Map.entry("required", true)
+        ));
 
-        // --- Define UI Configuration ---
-        Map<String, Object> uiConfig = new HashMap<>();
-        uiConfig.put("id", "CryptoTools"); // Corresponds to ToolMetadata.id
-        uiConfig.put("icon", "EnhancedEncryption"); // Corresponds to ToolMetadata.icon (Material Icon name)
-        uiConfig.put("category", "Crypto"); // Corresponds to ToolMetadata.category
+        // Algorithm Selection
+        List<Map<String, String>> algoOptions = new ArrayList<>();
+        SUPPORTED_ALGORITHMS_MAP.forEach((key, value) -> {
+            String label = key;
+            if ("DES".equals(key) || "RC4".equals(key)) label += " (Weak - Avoid)";
+            else if ("TripleDES".equals(key)) label += " (Legacy - Avoid)";
+            else if ("AES".equals(key)) label += " (Recommended)";
+            algoOptions.add(Map.of("value", key, "label", label));
+        });
+        settingsInputs.add(Map.ofEntries(
+                Map.entry("id", "algorithm"), // Use ID
+                Map.entry("label", "Algorithm:"),
+                Map.entry("type", "select"),
+                Map.entry("options", algoOptions),
+                Map.entry("default", "AES"),
+                Map.entry("required", true),
+                Map.entry("helperText", "AES (GCM mode) recommended.")
+        ));
 
-        // --- Define UI Inputs ---
-        List<Map<String, Object>> uiInputs = new ArrayList<>();
+        // Secret Key Input
+        settingsInputs.add(Map.ofEntries(
+                Map.entry("id", "secretKey"), // Use ID
+                Map.entry("label", "Secret Key / Password:"),
+                Map.entry("type", "password"), // Use password input type
+                Map.entry("required", true),
+                Map.entry("placeholder", "Enter secret key"),
+                Map.entry("helperText", "Used to derive the encryption key.")
+        ));
 
-        // Input Section 1: Main Operation Selection
-        Map<String, Object> inputSection1 = new HashMap<>();
-        inputSection1.put("header", "Encryption/Decryption Settings");
-        List<Map<String, Object>> section1Fields = new ArrayList<>();
+        // Plain Text Input (Conditional for Encrypt)
+        settingsInputs.add(Map.ofEntries(
+                Map.entry("id", "inputText"), // Use ID
+                Map.entry("label", "Text to Encrypt:"),
+                Map.entry("type", "text"),
+                Map.entry("multiline", true),
+                Map.entry("rows", 5),
+                Map.entry("required", true), // Required only for encrypt, checked in process
+                Map.entry("placeholder", "Enter plain text here..."),
+                Map.entry("condition", "uiOperation === 'encrypt'") // Condition based on ID
+        ));
 
-        // Operation selection field
-        Map<String, Object> operationField = new HashMap<>();
-        operationField.put("name", "uiOperation");
-        operationField.put("label", "Operation:");
-        operationField.put("type", "select");
-        List<Map<String, String>> operationOptions = new ArrayList<>();
-        operationOptions.add(Map.of("value", "encrypt", "label", "Encrypt"));
-        operationOptions.add(Map.of("value", "decrypt", "label", "Decrypt"));
-        operationField.put("options", operationOptions);
-        operationField.put("default", "encrypt");
-        operationField.put("required", true);
-        section1Fields.add(operationField);
+        // Encrypted Text Input (Conditional for Decrypt)
+        settingsInputs.add(Map.ofEntries(
+                Map.entry("id", "encryptedInput"), // Use ID
+                Map.entry("label", "Text to Decrypt (Base64):"),
+                Map.entry("type", "text"),
+                Map.entry("multiline", true),
+                Map.entry("rows", 5),
+                Map.entry("required", true), // Required only for decrypt, checked in process
+                Map.entry("placeholder", "Paste Base64 encoded text here..."),
+                Map.entry("condition", "uiOperation === 'decrypt'") // Condition based on ID
+        ));
 
-        // Algorithm selection field
-        Map<String, Object> algorithmField = new HashMap<>();
-        algorithmField.put("name", "algorithm");
-        algorithmField.put("label", "Algorithm:");
-        algorithmField.put("type", "select");
-        List<Map<String, String>> algorithmOptions = new ArrayList<>();
-        algorithmOptions.add(Map.of("value", "AES", "label", "AES (Advanced Encryption Standard)"));
-        algorithmOptions.add(Map.of("value", "DES", "label", "DES (Data Encryption Standard)"));
-        algorithmOptions.add(Map.of("value", "TripleDES", "label", "Triple DES"));
-        algorithmOptions.add(Map.of("value", "Blowfish", "label", "Blowfish"));
-        algorithmOptions.add(Map.of("value", "RC4", "label", "RC4 (Rivest Cipher 4)"));
-        algorithmField.put("options", algorithmOptions);
-        algorithmField.put("default", "AES");
-        algorithmField.put("required", true);
-        section1Fields.add(algorithmField);
+        settingsSection.put("inputs", settingsInputs);
+        sections.add(settingsSection);
 
-        // Secret key field
-        Map<String, Object> keyField = new HashMap<>();
-        keyField.put("name", "key");
-        keyField.put("label", "Secret Key:");
-        keyField.put("type", "password"); // Use password type for better security
-        keyField.put("default", "");
-        keyField.put("required", true);
-        section1Fields.add(keyField);
 
-        inputSection1.put("fields", section1Fields);
-        uiInputs.add(inputSection1);
+        // --- Section 2: Results ---
+        Map<String, Object> resultsSection = new HashMap<>();
+        resultsSection.put("id", "results");
+        resultsSection.put("label", "Output");
+        resultsSection.put("condition", "success === true"); // Show only on success
 
-        // Input Section 2: Encrypt Inputs (conditional)
-        Map<String, Object> inputSection2 = new HashMap<>();
-        inputSection2.put("header", "Text to Encrypt");
-        inputSection2.put("condition", "uiOperation === 'encrypt'");
-        List<Map<String, Object>> section2Fields = new ArrayList<>();
+        List<Map<String, Object>> resultOutputs = new ArrayList<>();
 
-        // Text to encrypt field
-        Map<String, Object> textField = new HashMap<>();
-        textField.put("name", "text");
-        textField.put("label", "Text to Encrypt:");
-        textField.put("type", "text");
-        textField.put("multiline", true); // For longer text
-        textField.put("rows", 5); // Suggest multi-line input
-        textField.put("default", "");
-        textField.put("required", true);
-        section2Fields.add(textField);
+        // Output for Encrypted Result
+        resultOutputs.add(Map.ofEntries(
+                Map.entry("id", "encryptedResult"), // ID matches key in response map
+                Map.entry("label", "Encrypted (Base64)"),
+                Map.entry("type", "text"),
+                Map.entry("multiline", true),
+                Map.entry("rows", 4),
+                Map.entry("monospace", true),
+                Map.entry("buttons", List.of("copy")),
+                Map.entry("condition", "uiOperation === 'encrypt' && typeof encryptedResult !== 'undefined'") // Show only on successful encrypt
+        ));
 
-        inputSection2.put("fields", section2Fields);
-        uiInputs.add(inputSection2);
+        // Output for Decrypted Result
+        resultOutputs.add(Map.ofEntries(
+                Map.entry("id", "decryptedResult"), // ID matches key in response map
+                Map.entry("label", "Decrypted Text"),
+                Map.entry("type", "text"),
+                Map.entry("multiline", true),
+                Map.entry("rows", 4),
+                Map.entry("monospace", false), // Usually not monospace
+                Map.entry("buttons", List.of("copy")),
+                Map.entry("condition", "uiOperation === 'decrypt' && typeof decryptedResult !== 'undefined'") // Show only on successful decrypt
+        ));
 
-        // Input Section 3: Decrypt Inputs (conditional)
-        Map<String, Object> inputSection3 = new HashMap<>();
-        inputSection3.put("header", "Text to Decrypt");
-        inputSection3.put("condition", "uiOperation === 'decrypt'");
-        List<Map<String, Object>> section3Fields = new ArrayList<>();
+        // Output for Algorithm Used
+        resultOutputs.add(Map.ofEntries(
+                Map.entry("id", "algorithmUsed"), // ID matches key in response map
+                Map.entry("label", "Algorithm Used"),
+                Map.entry("type", "text"),
+                // No extra condition needed, shown whenever result section is shown
+                Map.entry("condition", "typeof algorithmUsed !== 'undefined'")
+        ));
 
-        // Text to decrypt field
-        Map<String, Object> encryptedTextField = new HashMap<>();
-        encryptedTextField.put("name", "encryptedText");
-        encryptedTextField.put("label", "Encrypted Text (Base64):");
-        encryptedTextField.put("type", "text");
-        encryptedTextField.put("multiline", true); // For longer text
-        encryptedTextField.put("rows", 5); // Suggest multi-line input
-        encryptedTextField.put("default", "");
-        encryptedTextField.put("required", true);
-        section3Fields.add(encryptedTextField);
+        // Optional: Output for Original Input Text (during encrypt)
+        resultOutputs.add(Map.ofEntries(
+                Map.entry("id", "originalInputText"), // ID matches key in response map
+                Map.entry("label", "Original Input"),
+                Map.entry("type", "text"),
+                Map.entry("multiline", true),
+                Map.entry("rows", 2),
+                Map.entry("condition", "uiOperation === 'encrypt' && typeof originalInputText !== 'undefined'")
+        ));
 
-        inputSection3.put("fields", section3Fields);
-        uiInputs.add(inputSection3);
 
-        uiConfig.put("inputs", uiInputs);
+        resultsSection.put("outputs", resultOutputs);
+        sections.add(resultsSection);
 
-        // --- Define UI Outputs ---
-        List<Map<String, Object>> uiOutputs = new ArrayList<>();
 
-        // Output Section 1: Encryption Result
-        Map<String, Object> outputSection1 = new HashMap<>();
-        outputSection1.put("header", "Encryption Result");
-        outputSection1.put("condition", "uiOperation === 'encrypt'");
-        List<Map<String, Object>> section1OutputFields = new ArrayList<>();
+        // --- Section 3: Error Display ---
+        Map<String, Object> errorSection = new HashMap<>();
+        errorSection.put("id", "errorDisplay");
+        errorSection.put("label", "Error");
+        errorSection.put("condition", "success === false"); // Show only on failure
 
-        // Original text
-        Map<String, Object> originalTextOutput = new HashMap<>();
-        originalTextOutput.put("title", "Original Text");
-        originalTextOutput.put("name", "originalText");
-        originalTextOutput.put("type", "text");
-        section1OutputFields.add(originalTextOutput);
+        List<Map<String, Object>> errorOutputs = new ArrayList<>();
+        errorOutputs.add(Map.ofEntries(
+                Map.entry("id", "errorMessage"), // Specific ID for the error message
+                Map.entry("label", "Details"),
+                Map.entry("type", "text"),
+                Map.entry("style", "error") // Hint for styling
+        ));
+        errorSection.put("outputs", errorOutputs);
+        sections.add(errorSection);
 
-        // Encrypted text
-        Map<String, Object> encryptedTextOutput = new HashMap<>();
-        encryptedTextOutput.put("title", "Encrypted Text (Base64)");
-        encryptedTextOutput.put("name", "encryptedText");
-        encryptedTextOutput.put("type", "text");
-        encryptedTextOutput.put("buttons", List.of("copy")); // Add copy button
-        section1OutputFields.add(encryptedTextOutput);
 
-        // Algorithm used
-        Map<String, Object> encryptAlgorithmOutput = new HashMap<>();
-        encryptAlgorithmOutput.put("title", "Algorithm Used");
-        encryptAlgorithmOutput.put("name", "algorithm");
-        encryptAlgorithmOutput.put("type", "text");
-        section1OutputFields.add(encryptAlgorithmOutput);
-
-        outputSection1.put("fields", section1OutputFields);
-        uiOutputs.add(outputSection1);
-
-        // Output Section 2: Decryption Result
-        Map<String, Object> outputSection2 = new HashMap<>();
-        outputSection2.put("header", "Decryption Result");
-        outputSection2.put("condition", "uiOperation === 'decrypt'");
-        List<Map<String, Object>> section2OutputFields = new ArrayList<>();
-
-        // Original encrypted text
-        Map<String, Object> originalEncryptedOutput = new HashMap<>();
-        originalEncryptedOutput.put("title", "Original Encrypted Text");
-        originalEncryptedOutput.put("name", "encryptedText");
-        originalEncryptedOutput.put("type", "text");
-        section2OutputFields.add(originalEncryptedOutput);
-
-        // Decrypted text
-        Map<String, Object> decryptedTextOutput = new HashMap<>();
-        decryptedTextOutput.put("title", "Decrypted Text");
-        decryptedTextOutput.put("name", "decryptedText");
-        decryptedTextOutput.put("type", "text");
-        decryptedTextOutput.put("buttons", List.of("copy")); // Add copy button
-        section2OutputFields.add(decryptedTextOutput);
-
-        // Algorithm used
-        Map<String, Object> decryptAlgorithmOutput = new HashMap<>();
-        decryptAlgorithmOutput.put("title", "Algorithm Used");
-        decryptAlgorithmOutput.put("name", "algorithm");
-        decryptAlgorithmOutput.put("type", "text");
-        section2OutputFields.add(decryptAlgorithmOutput);
-
-        outputSection2.put("fields", section2OutputFields);
-        uiOutputs.add(outputSection2);
-
-        // Output Section 3: Error Display (conditional)
-        Map<String, Object> outputSection3 = new HashMap<>();
-        outputSection3.put("header", "Error Information");
-        outputSection3.put("condition", "error");
-        List<Map<String, Object>> section3OutputFields = new ArrayList<>();
-
-        // Error message
-        Map<String, Object> errorOutput = new HashMap<>();
-        errorOutput.put("title", "Error Message");
-        errorOutput.put("name", "error");
-        errorOutput.put("type", "text");
-        errorOutput.put("style", "error");
-        section3OutputFields.add(errorOutput);
-
-        outputSection3.put("fields", section3OutputFields);
-        uiOutputs.add(outputSection3);
-
-        uiConfig.put("outputs", uiOutputs);
-
-        // Add the structured uiConfig to the main metadata map
-        metadata.put("uiConfig", uiConfig);
-
+        metadata.put("sections", sections);
         return metadata;
     }
 
     @Override
     public Map<String, Object> process(Map<String, Object> input) {
-        Map<String, Object> result = new HashMap<>();
+        // Read the operation using the ID defined in UI metadata
+        String uiOperation = (String) input.get("uiOperation");
+        String errorOutputId = "errorMessage"; // Matches the error output field ID
+
+        if (uiOperation == null || uiOperation.isBlank()) {
+            return Map.of("success", false, errorOutputId, "No operation specified.");
+        }
+
+        // Include the operation in the input map for potential use later
+        Map<String, Object> processingInput = new HashMap<>(input);
 
         try {
-            String operation = (String) input.getOrDefault("operation", "");
-
-            switch (operation.toLowerCase()) {
-                case "encrypt":
-                    return encrypt(input);
-                case "decrypt":
-                    return decrypt(input);
-                case "listalgorithms":
-                    result.put("algorithms", SUPPORTED_ALGORITHMS);
-                    result.put("success", true);
-                    break;
-                default:
-                    result.put("error", "Unsupported operation: " + operation);
-                    return result;
+            Map<String, Object> result;
+            // Route based on the selected UI operation
+            switch (uiOperation.toLowerCase()) {
+                case "encrypt" -> result = encrypt(processingInput);
+                case "decrypt" -> result = decrypt(processingInput);
+                default -> {
+                    return Map.of("success", false, errorOutputId, "Unsupported operation: " + uiOperation);
+                }
             }
-        } catch (Exception e) {
-            result.put("error", "Error processing request: " + e.getMessage());
+
+            // Add uiOperation to success result for context if needed by complex conditions
+            if (result.get("success") == Boolean.TRUE) {
+                Map<String, Object> finalResult = new HashMap<>(result);
+                finalResult.put("uiOperation", uiOperation);
+                return finalResult;
+            } else {
+                // Ensure error key consistency
+                if (result.containsKey("error") && !result.containsKey(errorOutputId)) {
+                    Map<String, Object> finalResult = new HashMap<>(result);
+                    finalResult.put(errorOutputId, result.get("error"));
+                    finalResult.remove("error");
+                    return finalResult;
+                }
+                return result; // Return error as is
+            }
+
+        } catch (IllegalArgumentException e) { // Catch validation errors
+            return Map.of("success", false, errorOutputId, e.getMessage());
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException e) {
+            System.err.println("Crypto algorithm/padding error: " + e.getMessage());
+            return Map.of("success", false, errorOutputId, "Invalid/unsupported algorithm or padding.");
+        } catch (InvalidKeyException e) {
+            System.err.println("Invalid key error: " + e.getMessage());
+            String algo = (String) input.getOrDefault("algorithm", "?");
+            String message = "Invalid key for algorithm '" + algo + "'. Check key length/format.";
+            return Map.of("success", false, errorOutputId, message);
+        } catch (InvalidAlgorithmParameterException e) {
+            System.err.println("Invalid IV/Parameter error: " + e.getMessage());
+            return Map.of("success", false, errorOutputId, "Invalid crypto parameters (e.g., IV).");
+        } catch (IllegalBlockSizeException | BadPaddingException e) {
+            System.err.println("Decryption padding/block size error: " + e.getMessage());
+            return Map.of("success", false, errorOutputId, "Decryption failed (wrong key/data/algo?).");
+        } catch (Exception e) { // Catch unexpected errors
+            System.err.println("Error processing crypto request: " + e.getMessage());
             e.printStackTrace();
+            return Map.of("success", false, errorOutputId, "Unexpected error: " + e.getMessage());
         }
+    }
+
+    // --- Corrected Private Helper Methods ---
+
+    private Map<String, Object> encrypt(Map<String, Object> input) throws Exception {
+        // Get parameters using new IDs & Validate using null for required fields
+        String text = getStringParameter(input, "inputText"); // Use new ID
+        String keyStr = getStringParameter(input, "secretKey"); // Use new ID
+        String algorithm = Objects.requireNonNull(getStringParameter(input, "algorithm")).toUpperCase(); // Use new ID
+
+        if (!SUPPORTED_ALGORITHMS_MAP.containsKey(algorithm)) {
+            throw new IllegalArgumentException("Unsupported algorithm specified: " + algorithm);
+        }
+
+        String transformation = SUPPORTED_ALGORITHMS_MAP.get(algorithm);
+        int keyLength = KEY_LENGTHS.get(algorithm);
+        int ivLength = IV_LENGTHS.get(algorithm);
+
+        // Derive key
+        byte[] keyBytes = createKey(keyStr, algorithm, keyLength);
+        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, algorithm.equals("RC4") ? "ARCFOUR" : algorithm.split("/")[0]); // Use base algo name for KeySpec
+
+        // Initialize Cipher
+        Cipher cipher = Cipher.getInstance(transformation);
+        byte[] iv = null;
+        if (ivLength > 0) {
+            iv = getRandomNonce(ivLength);
+            if ("AES".equals(algorithm)) { // GCM mode needs GCMParameterSpec
+                GCMParameterSpec parameterSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
+                cipher.init(Cipher.ENCRYPT_MODE, secretKey, parameterSpec);
+            } else { // CBC modes use IvParameterSpec
+                IvParameterSpec ivSpec = new IvParameterSpec(iv);
+                cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec);
+            }
+        } else { // RC4 has no IV
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+        }
+
+        // Encrypt
+        byte[] encryptedBytes = cipher.doFinal(text.getBytes(StandardCharsets.UTF_8));
+
+        // Combine IV (if used) and encrypted data
+        byte[] combined = (iv != null) ? combineBytes(iv, encryptedBytes) : encryptedBytes;
+        String encryptedBase64 = Base64.getEncoder().encodeToString(combined);
+
+        // Build result map matching NEW output field IDs
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true); // ** Indicate success**
+        result.put("originalInputText", text);      // Matches output ID "originalInputText"
+        result.put("encryptedResult", encryptedBase64); // Matches output ID "encryptedResult"
+        result.put("algorithmUsed", algorithm);     // Matches output ID "algorithmUsed"
 
         return result;
     }
 
-    private Map<String, Object> encrypt(Map<String, Object> input) {
-        Map<String, Object> result = new HashMap<>();
+    private Map<String, Object> decrypt(Map<String, Object> input) throws Exception {
+        // Get parameters using new IDs & Validate using null for required fields
+        String encryptedBase64 = getStringParameter(input, "encryptedInput"); // Use new ID
+        String keyStr = getStringParameter(input, "secretKey"); // Use new ID
+        String algorithm = Objects.requireNonNull(getStringParameter(input, "algorithm")).toUpperCase(); // Use new ID
 
-        try {
-            // Get parameters
-            String text = (String) input.get("text");
-            String key = (String) input.get("key");
-            String algorithm = ((String) input.getOrDefault("algorithm", "AES")).toUpperCase();
-
-            // Validation
-            if (text == null || text.isEmpty()) {
-                result.put("error", "Text to encrypt cannot be empty");
-                return result;
-            }
-
-            if (key == null || key.isEmpty()) {
-                result.put("error", "Encryption key cannot be empty");
-                return result;
-            }
-
-            // Check if algorithm is supported
-            if (!Arrays.asList(SUPPORTED_ALGORITHMS).contains(algorithm)) {
-                result.put("error", "Unsupported algorithm: " + algorithm);
-                return result;
-            }
-
-            // Perform encryption based on algorithm
-            String encryptedText;
-
-            switch (algorithm) {
-                case "AES":
-                    encryptedText = encryptAES(text, key);
-                    break;
-                case "DES":
-                    encryptedText = encryptDES(text, key);
-                    break;
-                case "TRIPLEDES":
-                    encryptedText = encryptTripleDES(text, key);
-                    break;
-                case "BLOWFISH":
-                    encryptedText = encryptBlowfish(text, key);
-                    break;
-                case "RC4":
-                    encryptedText = encryptRC4(text, key);
-                    break;
-                default:
-                    result.put("error", "Unsupported algorithm: " + algorithm);
-                    return result;
-            }
-
-            // Return results
-            result.put("originalText", text);
-            result.put("encryptedText", encryptedText);
-            result.put("algorithm", algorithm);
-            result.put("success", true);
-
-        } catch (Exception e) {
-            result.put("error", "Encryption failed: " + e.getMessage());
-            e.printStackTrace();
+        if (!SUPPORTED_ALGORITHMS_MAP.containsKey(algorithm)) {
+            throw new IllegalArgumentException("Unsupported algorithm specified: " + algorithm);
         }
+
+        String transformation = SUPPORTED_ALGORITHMS_MAP.get(algorithm);
+        int keyLength = KEY_LENGTHS.get(algorithm);
+        int ivLength = IV_LENGTHS.get(algorithm);
+
+        // Decode from Base64
+        byte[] combined;
+        try {
+            combined = Base64.getDecoder().decode(encryptedBase64);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid Base64 input text.", e);
+        }
+
+        // Derive key
+        byte[] keyBytes = createKey(keyStr, algorithm, keyLength);
+        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, algorithm.equals("RC4") ? "ARCFOUR" : algorithm.split("/")[0]);
+
+        // Extract IV and Encrypted Data
+        byte[] iv = null;
+        byte[] encryptedBytes;
+        if (ivLength > 0) {
+            if (combined.length < ivLength) {
+                throw new IllegalArgumentException("Input text too short for IV (Algorithm: " + algorithm + ")");
+            }
+            iv = Arrays.copyOfRange(combined, 0, ivLength);
+            encryptedBytes = Arrays.copyOfRange(combined, ivLength, combined.length);
+        } else { // RC4
+            encryptedBytes = combined;
+        }
+
+        // Initialize Cipher
+        Cipher cipher = Cipher.getInstance(transformation);
+        if (ivLength > 0) {
+            if ("AES".equals(algorithm)) { // GCM mode needs GCMParameterSpec
+                GCMParameterSpec parameterSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
+                cipher.init(Cipher.DECRYPT_MODE, secretKey, parameterSpec);
+            } else { // CBC modes use IvParameterSpec
+                IvParameterSpec ivSpec = new IvParameterSpec(iv);
+                cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec);
+            }
+        } else { // RC4 has no IV
+            cipher.init(Cipher.DECRYPT_MODE, secretKey);
+        }
+
+        // Decrypt (This is where BadPaddingException etc. often occur)
+        byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+        String decryptedText = new String(decryptedBytes, StandardCharsets.UTF_8);
+
+
+        // Build result map matching NEW output field IDs
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true); // ** Indicate success**
+        // result.put("originalEncryptedInput", encryptedBase64); // Optional: echo original input if needed
+        result.put("decryptedResult", decryptedText);   // Matches output ID "decryptedResult"
+        result.put("algorithmUsed", algorithm);       // Matches output ID "algorithmUsed"
 
         return result;
     }
 
-    private Map<String, Object> decrypt(Map<String, Object> input) {
-        Map<String, Object> result = new HashMap<>();
 
-        try {
-            // Get parameters
-            String encryptedText = (String) input.get("encryptedText");
-            String key = (String) input.get("key");
-            String algorithm = ((String) input.getOrDefault("algorithm", "AES")).toUpperCase();
-
-            // Validation
-            if (encryptedText == null || encryptedText.isEmpty()) {
-                result.put("error", "Encrypted text cannot be empty");
-                return result;
-            }
-
-            if (key == null || key.isEmpty()) {
-                result.put("error", "Decryption key cannot be empty");
-                return result;
-            }
-
-            // Check if algorithm is supported
-            if (!Arrays.asList(SUPPORTED_ALGORITHMS).contains(algorithm)) {
-                result.put("error", "Unsupported algorithm: " + algorithm);
-                return result;
-            }
-
-            // Perform decryption based on algorithm
-            String decryptedText;
-
-            switch (algorithm) {
-                case "AES":
-                    decryptedText = decryptAES(encryptedText, key);
-                    break;
-                case "DES":
-                    decryptedText = decryptDES(encryptedText, key);
-                    break;
-                case "TRIPLEDES":
-                    decryptedText = decryptTripleDES(encryptedText, key);
-                    break;
-                case "BLOWFISH":
-                    decryptedText = decryptBlowfish(encryptedText, key);
-                    break;
-                case "RC4":
-                    decryptedText = decryptRC4(encryptedText, key);
-                    break;
-                default:
-                    result.put("error", "Unsupported algorithm: " + algorithm);
-                    return result;
-            }
-
-            // Return results
-            result.put("encryptedText", encryptedText);
-            result.put("decryptedText", decryptedText);
-            result.put("algorithm", algorithm);
-            result.put("success", true);
-
-        } catch (Exception e) {
-            result.put("error", "Decryption failed: " + e.getMessage());
-            e.printStackTrace();
+    // Helper to get String parameter and check if required (null default means required)
+    private String getStringParameter(Map<String, Object> input, String key) throws IllegalArgumentException {
+        Object value = input.get(key);
+        if (value == null) {
+            // Required? -> Throw error
+            throw new IllegalArgumentException("Missing required parameter: " + key);
         }
-
-        return result;
+        String strValue = value.toString();
+        if (strValue.isEmpty()) {
+            // Required? -> Throw error
+            throw new IllegalArgumentException("Missing required parameter: " + key);
+        }
+        return strValue; // Return the non-empty string value
     }
 
-    // AES Implementation (AES/GCM/NoPadding)
-    private String encryptAES(String text, String key) throws Exception {
-        // Create a secure key from the provided key
-        byte[] keyBytes = createKey(key, "AES", 32); // 256-bit key
-        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "AES");
-
-        // Initialize cipher
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        byte[] iv = getRandomNonce(GCM_IV_LENGTH);
-        GCMParameterSpec parameterSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey, parameterSpec);
-
-        // Encrypt
-        byte[] encryptedBytes = cipher.doFinal(text.getBytes(StandardCharsets.UTF_8));
-
-        // Combine IV and encrypted data
-        byte[] combined = new byte[iv.length + encryptedBytes.length];
-        System.arraycopy(iv, 0, combined, 0, iv.length);
-        System.arraycopy(encryptedBytes, 0, combined, iv.length, encryptedBytes.length);
-
-        // Encode as Base64
-        return Base64.getEncoder().encodeToString(combined);
-    }
-
-    private String decryptAES(String encryptedText, String key) throws Exception {
-        // Decode from Base64
-        byte[] combined = Base64.getDecoder().decode(encryptedText);
-
-        // Create a secure key from the provided key
-        byte[] keyBytes = createKey(key, "AES", 32); // 256-bit key
-        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "AES");
-
-        // Extract IV and encrypted data
-        byte[] iv = new byte[GCM_IV_LENGTH];
-        byte[] encryptedBytes = new byte[combined.length - GCM_IV_LENGTH];
-        System.arraycopy(combined, 0, iv, 0, iv.length);
-        System.arraycopy(combined, iv.length, encryptedBytes, 0, encryptedBytes.length);
-
-        // Initialize cipher
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        GCMParameterSpec parameterSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
-        cipher.init(Cipher.DECRYPT_MODE, secretKey, parameterSpec);
-
-        // Decrypt
-        byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
-        return new String(decryptedBytes, StandardCharsets.UTF_8);
-    }
-
-    // DES Implementation
-    private String encryptDES(String text, String key) throws Exception {
-        byte[] keyBytes = createKey(key, "DES", 8); // 64-bit key
-        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "DES");
-
-        // Initialize cipher
-        Cipher cipher = Cipher.getInstance("DES/CBC/PKCS5Padding");
-        byte[] iv = getRandomNonce(8);
-        IvParameterSpec ivSpec = new IvParameterSpec(iv);
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec);
-
-        // Encrypt
-        byte[] encryptedBytes = cipher.doFinal(text.getBytes(StandardCharsets.UTF_8));
-
-        // Combine IV and encrypted data
-        byte[] combined = new byte[iv.length + encryptedBytes.length];
-        System.arraycopy(iv, 0, combined, 0, iv.length);
-        System.arraycopy(encryptedBytes, 0, combined, iv.length, encryptedBytes.length);
-
-        // Encode as Base64
-        return Base64.getEncoder().encodeToString(combined);
-    }
-
-    private String decryptDES(String encryptedText, String key) throws Exception {
-        // Decode from Base64
-        byte[] combined = Base64.getDecoder().decode(encryptedText);
-
-        byte[] keyBytes = createKey(key, "DES", 8); // 64-bit key
-        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "DES");
-
-        // Extract IV and encrypted data
-        byte[] iv = new byte[8];
-        byte[] encryptedBytes = new byte[combined.length - 8];
-        System.arraycopy(combined, 0, iv, 0, iv.length);
-        System.arraycopy(combined, iv.length, encryptedBytes, 0, encryptedBytes.length);
-
-        // Initialize cipher
-        Cipher cipher = Cipher.getInstance("DES/CBC/PKCS5Padding");
-        IvParameterSpec ivSpec = new IvParameterSpec(iv);
-        cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec);
-
-        // Decrypt
-        byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
-        return new String(decryptedBytes, StandardCharsets.UTF_8);
-    }
-
-    // TripleDES Implementation
-    private String encryptTripleDES(String text, String key) throws Exception {
-        byte[] keyBytes = createKey(key, "DESede", 24); // 192-bit key
-        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "DESede");
-
-        // Initialize cipher
-        Cipher cipher = Cipher.getInstance("DESede/CBC/PKCS5Padding");
-        byte[] iv = getRandomNonce(8);
-        IvParameterSpec ivSpec = new IvParameterSpec(iv);
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec);
-
-        // Encrypt
-        byte[] encryptedBytes = cipher.doFinal(text.getBytes(StandardCharsets.UTF_8));
-
-        // Combine IV and encrypted data
-        byte[] combined = new byte[iv.length + encryptedBytes.length];
-        System.arraycopy(iv, 0, combined, 0, iv.length);
-        System.arraycopy(encryptedBytes, 0, combined, iv.length, encryptedBytes.length);
-
-        // Encode as Base64
-        return Base64.getEncoder().encodeToString(combined);
-    }
-
-    private String decryptTripleDES(String encryptedText, String key) throws Exception {
-        // Decode from Base64
-        byte[] combined = Base64.getDecoder().decode(encryptedText);
-
-        byte[] keyBytes = createKey(key, "DESede", 24); // 192-bit key
-        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "DESede");
-
-        // Extract IV and encrypted data
-        byte[] iv = new byte[8];
-        byte[] encryptedBytes = new byte[combined.length - 8];
-        System.arraycopy(combined, 0, iv, 0, iv.length);
-        System.arraycopy(combined, iv.length, encryptedBytes, 0, encryptedBytes.length);
-
-        // Initialize cipher
-        Cipher cipher = Cipher.getInstance("DESede/CBC/PKCS5Padding");
-        IvParameterSpec ivSpec = new IvParameterSpec(iv);
-        cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec);
-
-        // Decrypt
-        byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
-        return new String(decryptedBytes, StandardCharsets.UTF_8);
-    }
-
-    // Blowfish Implementation
-    private String encryptBlowfish(String text, String key) throws Exception {
-        byte[] keyBytes = createKey(key, "Blowfish", 16); // 128-bit key
-        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "Blowfish");
-
-        // Initialize cipher
-        Cipher cipher = Cipher.getInstance("Blowfish/CBC/PKCS5Padding");
-        byte[] iv = getRandomNonce(8);
-        IvParameterSpec ivSpec = new IvParameterSpec(iv);
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec);
-
-        // Encrypt
-        byte[] encryptedBytes = cipher.doFinal(text.getBytes(StandardCharsets.UTF_8));
-
-        // Combine IV and encrypted data
-        byte[] combined = new byte[iv.length + encryptedBytes.length];
-        System.arraycopy(iv, 0, combined, 0, iv.length);
-        System.arraycopy(encryptedBytes, 0, combined, iv.length, encryptedBytes.length);
-
-        // Encode as Base64
-        return Base64.getEncoder().encodeToString(combined);
-    }
-
-    private String decryptBlowfish(String encryptedText, String key) throws Exception {
-        // Decode from Base64
-        byte[] combined = Base64.getDecoder().decode(encryptedText);
-
-        byte[] keyBytes = createKey(key, "Blowfish", 16); // 128-bit key
-        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "Blowfish");
-
-        // Extract IV and encrypted data
-        byte[] iv = new byte[8];
-        byte[] encryptedBytes = new byte[combined.length - 8];
-        System.arraycopy(combined, 0, iv, 0, iv.length);
-        System.arraycopy(combined, iv.length, encryptedBytes, 0, encryptedBytes.length);
-
-        // Initialize cipher
-        Cipher cipher = Cipher.getInstance("Blowfish/CBC/PKCS5Padding");
-        IvParameterSpec ivSpec = new IvParameterSpec(iv);
-        cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec);
-
-        // Decrypt
-        byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
-        return new String(decryptedBytes, StandardCharsets.UTF_8);
-    }
-
-    // RC4 Implementation (Using ARC4 as Java calls it)
-    private String encryptRC4(String text, String key) throws Exception {
-        byte[] keyBytes = createKey(key, "ARCFOUR", 16); // 128-bit key
-        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "ARCFOUR");
-
-        // Initialize cipher (RC4 doesn't use an IV)
-        Cipher cipher = Cipher.getInstance("ARCFOUR");
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-
-        // Encrypt
-        byte[] encryptedBytes = cipher.doFinal(text.getBytes(StandardCharsets.UTF_8));
-
-        // Encode as Base64
-        return Base64.getEncoder().encodeToString(encryptedBytes);
-    }
-
-    private String decryptRC4(String encryptedText, String key) throws Exception {
-        // Decode from Base64
-        byte[] encryptedBytes = Base64.getDecoder().decode(encryptedText);
-
-        byte[] keyBytes = createKey(key, "ARCFOUR", 16); // 128-bit key
-        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "ARCFOUR");
-
-        // Initialize cipher
-        Cipher cipher = Cipher.getInstance("ARCFOUR");
-        cipher.init(Cipher.DECRYPT_MODE, secretKey);
-
-        // Decrypt
-        byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
-        return new String(decryptedBytes, StandardCharsets.UTF_8);
-    }
-
-    // Helper method to generate a random nonce (IV)
+    // Helper method to generate a random nonce (IV) using SecureRandom
     private byte[] getRandomNonce(int size) {
         byte[] nonce = new byte[size];
-        new java.security.SecureRandom().nextBytes(nonce);
+        // Use SecureRandom for cryptographically strong random numbers
+        new SecureRandom().nextBytes(nonce);
         return nonce;
     }
 
-    // Helper method to create a fixed-length key from a password
+    /** Combines two byte arrays. */
+    private byte[] combineBytes(byte[] first, byte[] second) {
+        byte[] combined = new byte[first.length + second.length];
+        System.arraycopy(first, 0, combined, 0, first.length);
+        System.arraycopy(second, 0, combined, first.length, second.length);
+        return combined;
+    }
+
+
+    /** Creates fixed-length key derived via SHA-256 (Basic KDF - see warning). */
     private byte[] createKey(String password, String algorithm, int keyLength) throws NoSuchAlgorithmException {
+        // Warning: This is a basic key derivation. For passwords, using PBKDF2 or Argon2 with a salt is strongly recommended.
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] key = digest.digest(password.getBytes(StandardCharsets.UTF_8));
-        return Arrays.copyOf(key, keyLength);
+        byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
+        // Arrays.fill(hash, (byte) 0); // Optional cleanup
+        return Arrays.copyOf(hash, keyLength);
     }
 }

@@ -2,379 +2,347 @@ package kostovite;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class PasswordAnalyzer implements ExtendedPluginInterface {
+// Assuming PluginInterface is standard
+public class PasswordAnalyzer implements PluginInterface {
+
     // Character set patterns
     private static final Pattern LOWERCASE = Pattern.compile("[a-z]");
     private static final Pattern UPPERCASE = Pattern.compile("[A-Z]");
     private static final Pattern DIGITS = Pattern.compile("[0-9]");
-    private static final Pattern SPECIAL = Pattern.compile("[^a-zA-Z0-9]");
+    private static final Pattern SPECIAL = Pattern.compile("[^a-zA-Z0-9]"); // Basic special chars
 
-    // Character set sizes
+    // Character set sizes for entropy calculation
     private static final int LOWERCASE_SIZE = 26;
     private static final int UPPERCASE_SIZE = 26;
     private static final int DIGITS_SIZE = 10;
-    private static final int SPECIAL_SIZE = 33; // Common special characters
+    private static final int SPECIAL_SIZE = 33; // OWASP common ~33
 
-    // Average cracking speeds (passwords per second) for different attack scenarios
-    private static final long ONLINE_THROTTLED = 100L; // Online service with throttling
-    private static final long ONLINE_UNTHROTTLED = 10_000L; // Online service without throttling
-    private static final long OFFLINE_SLOW_HASH = 1_000_000L; // Offline attack, slow hash function
-    private static final long OFFLINE_FAST_HASH = 1_000_000_000L; // Offline attack, fast hash function
-    private static final long OFFLINE_GPU_CLUSTER = 1_000_000_000_000L; // Large GPU cluster
+    // Cracking speeds (guesses per second) - Rough estimates
+    // Using LinkedHashMap to preserve order for dropdown options
+    private static final Map<String, Long> CRACKING_SPEEDS = new LinkedHashMap<>();
+    static {
+        CRACKING_SPEEDS.put("online_throttled", 10L);
+        CRACKING_SPEEDS.put("online_unthrottled", 1000L);
+        CRACKING_SPEEDS.put("offline_slow_hash", 10_000L);
+        CRACKING_SPEEDS.put("offline_fast_hash", 100_000_000_000L); // Default
+        CRACKING_SPEEDS.put("offline_gpu_cluster", 100_000_000_000_000L);
+    }
+    private static final String DEFAULT_SCENARIO = "offline_fast_hash";
 
     // Time units in seconds
     private static final long SECOND = 1;
     private static final long MINUTE = 60 * SECOND;
     private static final long HOUR = 60 * MINUTE;
     private static final long DAY = 24 * HOUR;
-    private static final long MONTH = 30 * DAY;
-    private static final long YEAR = 365 * DAY;
+    private static final long MONTH = 30 * DAY; // Approximation
+    private static final long YEAR = 365 * DAY; // Approximation
     private static final long CENTURY = 100 * YEAR;
 
+    /**
+     * Internal name, should match the class for routing.
+     */
     @Override
     public String getName() {
         return "PasswordAnalyzer";
     }
 
+    /**
+     * Standalone execution for testing.
+     */
     @Override
     public void execute() {
-        System.out.println("PasswordAnalyzer Plugin executed");
-
-        // Demonstrate basic usage
+        System.out.println("PasswordAnalyzer Plugin executed (standalone test)");
         try {
-            Map<String, Object> analyzeParams = new HashMap<>();
-            analyzeParams.put("password", "P@ssw0rd123");
+            Map<String, Object> params = new HashMap<>();
+            params.put("passwordInput", "P@ssw0rd!"); // Use new ID
+            params.put("attackScenario", DEFAULT_SCENARIO); // Use new ID
 
-            Map<String, Object> result = process(analyzeParams);
-            System.out.println("Sample analysis: " + result.toString());
+            Map<String, Object> result = process(params);
+            System.out.println("Test Analysis Result: " + result);
+
         } catch (Exception e) {
+            System.err.println("Standalone test failed: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
+    /**
+     * Generates metadata in the NEW format (sections, id, etc.).
+     */
     @Override
     public Map<String, Object> getMetadata() {
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", getName()); // Corresponds to ToolMetadata.name
-        metadata.put("version", "1.0.0");
-        metadata.put("description", "Analyzes password strength and security"); // Corresponds to ToolMetadata.description
 
-        // Define available backend operations (for informational purposes or direct API calls)
-        Map<String, Object> operations = new HashMap<>();
+        // --- Top Level Attributes (New Format) ---
+        metadata.put("id", "PasswordAnalyzer");
+        metadata.put("name", "Password Strength Analyzer");
+        metadata.put("description", "Analyze password length, complexity, entropy, and estimated cracking time.");
+        metadata.put("icon", "Password");
+        metadata.put("category", "Security");
+        metadata.put("customUI", false);
+        metadata.put("triggerUpdateOnChange", true); // Analyze dynamically
 
-        // Analyze operation
-        Map<String, Object> analyzeOperation = new HashMap<>();
-        analyzeOperation.put("description", "Analyze password strength");
-        Map<String, Object> analyzeInputs = new HashMap<>();
-        analyzeInputs.put("password", Map.of("type", "string", "description", "Password to analyze", "required", true));
-        analyzeInputs.put("scenario", Map.of("type", "string", "description", "Attack scenario (online-throttled, online-unthrottled, offline-slow-hash, offline-fast-hash, offline-gpu-cluster)", "required", false));
-        analyzeOperation.put("inputs", analyzeInputs);
-        operations.put("analyze", analyzeOperation);
+        // --- Sections ---
+        List<Map<String, Object>> sections = new ArrayList<>();
 
-        metadata.put("operations", operations); // Keep this for backend/API reference
+        // --- Section 1: Input ---
+        Map<String, Object> inputSection = new HashMap<>();
+        inputSection.put("id", "inputConfig");
+        inputSection.put("label", "Password Input & Scenario");
 
-        // --- Define UI Configuration ---
-        Map<String, Object> uiConfig = new HashMap<>();
-        uiConfig.put("id", "PasswordAnalyzer"); // Corresponds to ToolMetadata.id
-        uiConfig.put("icon", "Password"); // Corresponds to ToolMetadata.icon (Material Icon name)
-        uiConfig.put("category", "Security"); // Corresponds to ToolMetadata.category
+        List<Map<String, Object>> inputs = new ArrayList<>();
 
-        // --- Define UI Inputs ---
-        List<Map<String, Object>> uiInputs = new ArrayList<>();
+        inputs.add(Map.ofEntries(
+                Map.entry("id", "passwordInput"),
+                Map.entry("label", "Password to Analyze:"),
+                Map.entry("type", "password"), // Use password type for masking
+                Map.entry("required", false), // Not technically required, analysis runs on empty string
+                Map.entry("placeholder", "Type password here...")
+                // Helper text removed, handled by description/section labels
+        ));
 
-        // Input Section 1: Password Input
-        Map<String, Object> inputSection1 = new HashMap<>();
-        inputSection1.put("header", "Password to Analyze");
-        List<Map<String, Object>> section1Fields = new ArrayList<>();
-
-        // Password input field
-        Map<String, Object> passwordField = new HashMap<>();
-        passwordField.put("name", "password");
-        passwordField.put("label", "Password:");
-        passwordField.put("type", "password");
-        passwordField.put("required", true);
-        passwordField.put("placeholder", "Enter password to analyze...");
-        passwordField.put("helperText", "The password will be analyzed locally and never sent to any server");
-        section1Fields.add(passwordField);
-
-        inputSection1.put("fields", section1Fields);
-        uiInputs.add(inputSection1);
-
-        // Input Section 2: Attack Scenario
-        Map<String, Object> inputSection2 = new HashMap<>();
-        inputSection2.put("header", "Attack Scenario");
-        List<Map<String, Object>> section2Fields = new ArrayList<>();
-
-        // Scenario selection field
-        Map<String, Object> scenarioField = new HashMap<>();
-        scenarioField.put("name", "scenario");
-        scenarioField.put("label", "Attack Scenario:");
-        scenarioField.put("type", "select");
+        // Attack Scenario Select
         List<Map<String, String>> scenarioOptions = new ArrayList<>();
-        scenarioOptions.add(Map.of("value", "online-throttled", "label", "Online Attack (Throttled)"));
-        scenarioOptions.add(Map.of("value", "online-unthrottled", "label", "Online Attack (Unthrottled)"));
-        scenarioOptions.add(Map.of("value", "offline-slow-hash", "label", "Offline Attack (Slow Hash, e.g., bcrypt)"));
-        scenarioOptions.add(Map.of("value", "offline-fast-hash", "label", "Offline Attack (Fast Hash, e.g., MD5)"));
-        scenarioOptions.add(Map.of("value", "offline-gpu-cluster", "label", "Offline Attack (GPU Cluster)"));
-        scenarioField.put("options", scenarioOptions);
-        scenarioField.put("default", "offline-fast-hash");
-        scenarioField.put("required", false);
-        scenarioField.put("helperText", "Different attack types affect the estimated cracking time");
-        section2Fields.add(scenarioField);
+        Pattern wordStartPattern = Pattern.compile("\\b\\w");
+        CRACKING_SPEEDS.forEach((key, value) -> {
+            String tempLabel = key.replace("_", " ").replace("-", " ");
+            Matcher matcher = wordStartPattern.matcher(tempLabel);
+            StringBuilder sb = new StringBuilder();
+            while (matcher.find()) {
+                matcher.appendReplacement(sb, matcher.group().toUpperCase());
+            }
+            matcher.appendTail(sb);
+            String finalLabel = sb + String.format(Locale.US, " (~%,d g/s)", value);
+            scenarioOptions.add(Map.of("value", key, "label", finalLabel));
+        });
+        inputs.add(Map.ofEntries(
+                Map.entry("id", "attackScenario"),
+                Map.entry("label", "Assumed Attack Scenario:"),
+                Map.entry("type", "select"),
+                Map.entry("options", scenarioOptions),
+                Map.entry("default", DEFAULT_SCENARIO),
+                Map.entry("required", false) // Has default
+                // Helper text removed
+        ));
 
-        inputSection2.put("fields", section2Fields);
-        uiInputs.add(inputSection2);
+        inputSection.put("inputs", inputs);
+        sections.add(inputSection);
 
-        uiConfig.put("inputs", uiInputs);
 
-        // --- Define UI Outputs ---
-        List<Map<String, Object>> uiOutputs = new ArrayList<>();
+        // --- Section 2: Strength Overview ---
+        Map<String, Object> overviewSection = new HashMap<>();
+        overviewSection.put("id", "overview");
+        overviewSection.put("label", "Strength Assessment");
+        // Condition: Show only when analysis has run successfully and score is available
+        overviewSection.put("condition", "success === true && typeof score !== 'undefined'");
 
-        // Output Section 1: Strength Summary
-        Map<String, Object> outputSection1 = new HashMap<>();
-        outputSection1.put("header", "Password Strength");
-        outputSection1.put("condition", "success");
-        List<Map<String, Object>> section1OutputFields = new ArrayList<>();
+        List<Map<String, Object>> overviewOutputs = new ArrayList<>();
 
-        // Score display
-        Map<String, Object> scoreOutput = new HashMap<>();
-        scoreOutput.put("title", "Score");
-        scoreOutput.put("name", "scoreDisplay");
-        scoreOutput.put("type", "progressBar");
-        scoreOutput.put("value", "score");
-        scoreOutput.put("max", 100);
-        scoreOutput.put("color", "score >= 90 ? 'success' : (score >= 70 ? 'info' : (score >= 50 ? 'warning' : 'error'))");
-        section1OutputFields.add(scoreOutput);
+        // Score (Represented as text, frontend can use hints for progress bar)
+        overviewOutputs.add(Map.ofEntries(
+                Map.entry("id", "score"), // ID matches result key
+                Map.entry("label", "Overall Score"),
+                Map.entry("type", "text"), // Keep as text
+                // Hints for frontend ProgressBar component
+                Map.entry("min", 0),
+                Map.entry("max", 100),
+                Map.entry("suffix", " / 100") // Hint for display
+                // Frontend would apply color based on the score value
+        ));
 
-        // Strength assessment
-        Map<String, Object> strengthOutput = new HashMap<>();
-        strengthOutput.put("title", "Assessment");
-        strengthOutput.put("name", "strength");
-        strengthOutput.put("type", "text");
-        strengthOutput.put("style", "score >= 70 ? 'success' : (score >= 50 ? 'warning' : 'error')");
-        strengthOutput.put("variant", "bold");
-        section1OutputFields.add(strengthOutput);
+        // Strength Label
+        overviewOutputs.add(createOutputField("strengthLabel", "Assessment", "text", null));
 
-        // Password display (masked)
-        Map<String, Object> passwordOutput = new HashMap<>();
-        passwordOutput.put("title", "Password");
-        passwordOutput.put("name", "password");
-        passwordOutput.put("type", "text");
-        section1OutputFields.add(passwordOutput);
+        overviewSection.put("outputs", overviewOutputs);
+        sections.add(overviewSection);
 
-        outputSection1.put("fields", section1OutputFields);
-        uiOutputs.add(outputSection1);
+        // --- Section 3: Detailed Analysis ---
+        Map<String, Object> detailSection = new HashMap<>();
+        detailSection.put("id", "details");
+        detailSection.put("label", "Detailed Analysis");
+        detailSection.put("condition", "success === true && typeof length !== 'undefined' && length > 0"); // Show on success and non-empty password
 
-        // Output Section 2: Detailed Analysis
-        Map<String, Object> outputSection2 = new HashMap<>();
-        outputSection2.put("header", "Detailed Analysis");
-        outputSection2.put("condition", "success");
-        List<Map<String, Object>> section2OutputFields = new ArrayList<>();
+        List<Map<String, Object>> detailOutputs = new ArrayList<>();
 
-        // Length
-        Map<String, Object> lengthOutput = new HashMap<>();
-        lengthOutput.put("title", "Length");
-        lengthOutput.put("name", "length");
-        lengthOutput.put("type", "text");
-        lengthOutput.put("variant", "bold");
-        lengthOutput.put("style", "length >= 12 ? 'success' : (length >= 8 ? 'warning' : 'error')");
-        section2OutputFields.add(lengthOutput);
+        detailOutputs.add(createOutputField("length", "Length", "text", null));
+        detailOutputs.add(createOutputField("entropy", "Entropy (bits)", "text", null));
+        detailOutputs.add(createOutputField("crackTimeFormatted", "Est. Time to Crack", "text", null));
+        detailOutputs.add(createOutputField("charSetSize", "Character Set Size", "text", null));
 
-        // Entropy
-        Map<String, Object> entropyOutput = new HashMap<>();
-        entropyOutput.put("title", "Entropy");
-        entropyOutput.put("name", "entropyDisplay");
-        entropyOutput.put("type", "text");
-        entropyOutput.put("formula", "entropy + ' bits'");
-        entropyOutput.put("style", "entropy >= 70 ? 'success' : (entropy >= 50 ? 'warning' : 'error')");
-        section2OutputFields.add(entropyOutput);
+        detailSection.put("outputs", detailOutputs);
+        sections.add(detailSection);
 
-        // Cracking time
-        Map<String, Object> crackingTimeOutput = new HashMap<>();
-        crackingTimeOutput.put("title", "Est. Cracking Time");
-        crackingTimeOutput.put("name", "crackingTime.formatted");
-        crackingTimeOutput.put("type", "text");
-        crackingTimeOutput.put("style", "crackingTime.seconds >= 31536000 ? 'success' : (crackingTime.seconds >= 86400 ? 'warning' : 'error')");
-        section2OutputFields.add(crackingTimeOutput);
+        // --- Section 4: Character Sets Used ---
+        Map<String, Object> charsetSection = new HashMap<>();
+        charsetSection.put("id", "charsets");
+        charsetSection.put("label", "Character Sets Used");
+        charsetSection.put("condition", "success === true && typeof charSetDetails !== 'undefined'"); // Show on success
 
-        // Character set size
-        Map<String, Object> charSetOutput = new HashMap<>();
-        charSetOutput.put("title", "Character Set Size");
-        charSetOutput.put("name", "characterSetSize");
-        charSetOutput.put("type", "text");
-        section2OutputFields.add(charSetOutput);
+        List<Map<String, Object>> charsetOutputs = new ArrayList<>();
 
-        outputSection2.put("fields", section2OutputFields);
-        uiOutputs.add(outputSection2);
+        // Use type 'boolean'. Frontend needs to render check/cross icon based on value.
+        charsetOutputs.add(createOutputField("charSetDetails.lowercase", "Lowercase (a-z)", "boolean", null));
+        charsetOutputs.add(createOutputField("charSetDetails.uppercase", "Uppercase (A-Z)", "boolean", null));
+        charsetOutputs.add(createOutputField("charSetDetails.digits", "Digits (0-9)", "boolean", null));
+        charsetOutputs.add(createOutputField("charSetDetails.special", "Special Chars", "boolean", null));
 
-        // Output Section 3: Character Sets
-        Map<String, Object> outputSection3 = new HashMap<>();
-        outputSection3.put("header", "Character Sets Used");
-        outputSection3.put("condition", "success");
-        List<Map<String, Object>> section3OutputFields = new ArrayList<>();
+        charsetSection.put("outputs", charsetOutputs);
+        sections.add(charsetSection);
 
-        // Lowercase
-        Map<String, Object> lowercaseOutput = new HashMap<>();
-        lowercaseOutput.put("title", "Lowercase (a-z)");
-        lowercaseOutput.put("name", "lowercaseUsed");
-        lowercaseOutput.put("type", "checkmark");
-        lowercaseOutput.put("formula", "characterSets.lowercase");
-        section3OutputFields.add(lowercaseOutput);
+        // --- Section 5: Recommendations ---
+        Map<String, Object> recommendationsSection = new HashMap<>();
+        recommendationsSection.put("id", "recommendations");
+        recommendationsSection.put("label", "Recommendations");
+        // Show only if success and recommendations array exists and is not empty
+        recommendationsSection.put("condition", "success === true && typeof recommendations !== 'undefined' && recommendations.length > 0");
 
-        // Uppercase
-        Map<String, Object> uppercaseOutput = new HashMap<>();
-        uppercaseOutput.put("title", "Uppercase (A-Z)");
-        uppercaseOutput.put("name", "uppercaseUsed");
-        uppercaseOutput.put("type", "checkmark");
-        uppercaseOutput.put("formula", "characterSets.uppercase");
-        section3OutputFields.add(uppercaseOutput);
+        List<Map<String, Object>> recommendationOutputs = new ArrayList<>();
 
-        // Digits
-        Map<String, Object> digitsOutput = new HashMap<>();
-        digitsOutput.put("title", "Digits (0-9)");
-        digitsOutput.put("name", "digitsUsed");
-        digitsOutput.put("type", "checkmark");
-        digitsOutput.put("formula", "characterSets.digits");
-        section3OutputFields.add(digitsOutput);
+        // Use type 'list'. Frontend needs to render the array as a list (e.g., bullet points).
+        Map<String, Object> recList = createOutputField("recommendations", "", "list", null); // Label handled by section header
+        recList.put("style", "warning"); // Style hint for recommendations
+        recommendationOutputs.add(recList);
 
-        // Special chars
-        Map<String, Object> specialOutput = new HashMap<>();
-        specialOutput.put("title", "Special (!@#$...)");
-        specialOutput.put("name", "specialUsed");
-        specialOutput.put("type", "checkmark");
-        specialOutput.put("formula", "characterSets.special");
-        section3OutputFields.add(specialOutput);
+        recommendationsSection.put("outputs", recommendationOutputs);
+        sections.add(recommendationsSection);
 
-        outputSection3.put("fields", section3OutputFields);
-        uiOutputs.add(outputSection3);
 
-        // Output Section 4: Recommendations
-        Map<String, Object> outputSection4 = new HashMap<>();
-        outputSection4.put("header", "Recommendations");
-        outputSection4.put("condition", "recommendations");
-        List<Map<String, Object>> section4OutputFields = new ArrayList<>();
+        // --- Section 6: Error Display ---
+        Map<String, Object> errorSection = new HashMap<>();
+        errorSection.put("id", "errorDisplay");
+        errorSection.put("label", "Error");
+        errorSection.put("condition", "success === false"); // Show only on failure
 
-        // Recommendations list
-        Map<String, Object> recommendationsOutput = new HashMap<>();
-        recommendationsOutput.put("name", "recommendations");
-        recommendationsOutput.put("type", "list");
-        recommendationsOutput.put("style", "error");
-        section4OutputFields.add(recommendationsOutput);
+        List<Map<String, Object>> errorOutputs = new ArrayList<>();
+        errorOutputs.add(createOutputField("errorMessage", "Details", "text", null)); // style handled by helper
+        errorSection.put("outputs", errorOutputs);
+        sections.add(errorSection);
 
-        outputSection4.put("fields", section4OutputFields);
-        uiOutputs.add(outputSection4);
 
-        // Output Section 5: Error Display
-        Map<String, Object> outputSection5 = new HashMap<>();
-        outputSection5.put("header", "Error Information");
-        outputSection5.put("condition", "error");
-        List<Map<String, Object>> section5OutputFields = new ArrayList<>();
-
-        // Error message
-        Map<String, Object> errorOutput = new HashMap<>();
-        errorOutput.put("title", "Error Message");
-        errorOutput.put("name", "error");
-        errorOutput.put("type", "text");
-        errorOutput.put("style", "error");
-        section5OutputFields.add(errorOutput);
-
-        outputSection5.put("fields", section5OutputFields);
-        uiOutputs.add(outputSection5);
-
-        uiConfig.put("outputs", uiOutputs);
-
-        // Add the structured uiConfig to the main metadata map
-        metadata.put("uiConfig", uiConfig);
-
+        metadata.put("sections", sections);
         return metadata;
     }
 
-    @Override
-    public Map<String, Object> process(Map<String, Object> input) {
-        Map<String, Object> result = new HashMap<>();
-
-        try {
-            String operation = (String) input.getOrDefault("operation", "analyze");
-
-            if ("analyze".equalsIgnoreCase(operation)) {
-                String password = (String) input.get("password");
-
-                if (password == null || password.isEmpty()) {
-                    result.put("error", "Password cannot be empty");
-                    return result;
-                }
-
-                // Get attack scenario if provided
-                String scenario = (String) input.getOrDefault("scenario", "offline-fast-hash");
-
-                // Perform analysis
-                return analyzePasswordStrength(password, scenario);
-            } else {
-                result.put("error", "Unsupported operation: " + operation);
-            }
-
-        } catch (Exception e) {
-            result.put("error", "Error processing request: " + e.getMessage());
-            e.printStackTrace();
+    // Helper to create output field definitions
+    private Map<String, Object> createOutputField(String id, String label, String type, String condition) {
+        Map<String, Object> field = new HashMap<>();
+        field.put("id", id); // Use ID
+        if (label != null && !label.isEmpty()) {
+            field.put("label", label);
         }
-
-        return result;
+        field.put("type", type); // Use specified type
+        if (condition != null && !condition.isEmpty()) {
+            field.put("condition", condition);
+        }
+        if (id.toLowerCase().contains("error")) {
+            field.put("style", "error"); // Style hint for error field
+        }
+        // Add monospace hint for relevant text fields
+        if ("text".equals(type) && (id.toLowerCase().contains("entropy") || id.toLowerCase().contains("time") || id.toLowerCase().contains("size") || id.toLowerCase().contains("length") || id.toLowerCase().contains("score") )) {
+            field.put("monospace", true);
+        }
+        // Note: Frontend needs to implement rendering for 'boolean' and 'list' types
+        return field;
     }
 
+    /**
+     * Processes the input password (using IDs from the new format)
+     * to analyze its strength.
+     */
+    @Override
+    public Map<String, Object> process(Map<String, Object> input) {
+        String errorOutputId = "errorMessage"; // Matches the error output field ID
+
+        try {
+            // Get parameters using NEW IDs
+            String password = getStringParam(input, "passwordInput", ""); // Allow empty for initial state
+            String scenario = getStringParam(input, "attackScenario", DEFAULT_SCENARIO); // Use default
+
+            // Analyze (handle empty password case inside)
+            return analyzePasswordStrength(password, scenario);
+
+        } catch (IllegalArgumentException e) { // Catch validation errors from helpers
+            return Map.of("success", false, errorOutputId, e.getMessage());
+        } catch (Exception e) { // Catch unexpected errors
+            System.err.println("Error processing password analysis request: " + e.getMessage());
+            e.printStackTrace();
+            return Map.of("success", false, errorOutputId, "Unexpected error during analysis.");
+        }
+    }
+
+    // ========================================================================
+    // Private Analysis Methods
+    // ========================================================================
+
     private Map<String, Object> analyzePasswordStrength(String password, String scenario) {
-        Map<String, Object> result = new HashMap<>();
+        Map<String, Object> result = new LinkedHashMap<>(); // Preserve result order
+        String errorOutputId = "errorMessage"; // Ensure consistency
 
-        // Basic metrics
-        int length = password.length();
-        boolean hasLowercase = LOWERCASE.matcher(password).find();
-        boolean hasUppercase = UPPERCASE.matcher(password).find();
-        boolean hasDigits = DIGITS.matcher(password).find();
-        boolean hasSpecial = SPECIAL.matcher(password).find();
-
-        // Calculate character set size
-        int charSetSize = calculateCharacterSetSize(hasLowercase, hasUppercase, hasDigits, hasSpecial);
-
-        // Calculate entropy (bits)
-        double entropy = calculateEntropy(length, charSetSize);
-
-        // Calculate time to crack based on scenario
-        long crackingSpeed = getCrackingSpeed(scenario);
-        Map<String, Object> crackingTime = calculateCrackingTime(length, charSetSize, crackingSpeed);
-
-        // Calculate score (0-100)
-        int score = calculateScore(length, charSetSize, hasLowercase, hasUppercase, hasDigits, hasSpecial);
-
-        // Build the response
-        result.put("password", maskPassword(password));
-        result.put("length", length);
-        result.put("entropy", roundToTwoDecimalPlaces(entropy));
-        result.put("characterSetSize", charSetSize);
-        result.put("crackingTime", crackingTime);
-        result.put("score", score);
-
-        // Add character set details
-        Map<String, Boolean> charSets = new HashMap<>();
-        charSets.put("lowercase", hasLowercase);
-        charSets.put("uppercase", hasUppercase);
-        charSets.put("digits", hasDigits);
-        charSets.put("special", hasSpecial);
-        result.put("characterSets", charSets);
-
-        // Provide strength assessment
-        result.put("strength", getStrengthLabel(score));
-
-        // Add recommendations for weak passwords
-        if (score < 60) {
-            result.put("recommendations", generateRecommendations(password, hasLowercase, hasUppercase, hasDigits, hasSpecial));
+        // Handle empty password input gracefully
+        if (password == null || password.isEmpty()) {
+            result.put("success", true); // Process ran, returning empty state
+            result.put("isEmpty", true); // Flag for frontend
+            result.put("strengthLabel", "Enter a password to analyze"); // Matches output ID
+            result.put("score", 0); // Matches output ID
+            result.put("length", 0); // Matches output ID
+            result.put("entropy", 0.0); // Matches output ID
+            result.put("crackTimeFormatted", "N/A"); // Matches output ID
+            result.put("charSetSize", 0); // Matches output ID
+            // Matches base ID for boolean outputs
+            result.put("charSetDetails", Map.of("lowercase", false, "uppercase", false, "digits", false, "special", false));
+            // Matches output ID, provide initial prompt
+            result.put("recommendations", Collections.emptyList()); // Empty list, no recommendations needed yet
+            return result;
         }
 
-        result.put("success", true);
+        try {
+            // --- Calculations ---
+            int length = password.length();
+            boolean hasLowercase = LOWERCASE.matcher(password).find();
+            boolean hasUppercase = UPPERCASE.matcher(password).find();
+            boolean hasDigits = DIGITS.matcher(password).find();
+            boolean hasSpecial = SPECIAL.matcher(password).find();
+
+            int charSetSize = calculateCharacterSetSize(hasLowercase, hasUppercase, hasDigits, hasSpecial);
+            double entropy = calculateEntropy(length, charSetSize);
+            long crackingSpeed = getCrackingSpeed(scenario);
+            Map<String, Object> crackingTime = calculateCrackingTime(length, charSetSize, crackingSpeed);
+            int score = calculateScore(length, entropy); // Use simplified entropy score
+
+            // --- Build Result Map (matching NEW output IDs) ---
+            result.put("success", true);
+            result.put("isEmpty", false);
+            result.put("length", length);
+            result.put("entropy", roundToTwoDecimalPlaces(entropy));
+            result.put("charSetSize", charSetSize);
+            result.put("crackTimeFormatted", crackingTime.get("formatted"));
+            result.put("score", score);
+            result.put("strengthLabel", getStrengthLabel(score));
+
+            // Character Set Details (structured map for boolean outputs)
+            Map<String, Boolean> charSetsUsed = Map.of(
+                    "lowercase", hasLowercase,
+                    "uppercase", hasUppercase,
+                    "digits", hasDigits,
+                    "special", hasSpecial
+            );
+            result.put("charSetDetails", charSetsUsed);
+
+            // Recommendations (List<String>)
+            List<String> recommendations = generateRecommendations(length, hasLowercase, hasUppercase, hasDigits, hasSpecial);
+            result.put("recommendations", recommendations); // Always include list, might be empty
+
+        } catch (Exception e) {
+            System.err.println("Error during password analysis calculation: " + e.getMessage());
+            e.printStackTrace();
+            result.clear();
+            result.put("success", false);
+            result.put(errorOutputId, "Failed to analyze password due to an internal error.");
+        }
         return result;
     }
 
@@ -384,125 +352,85 @@ public class PasswordAnalyzer implements ExtendedPluginInterface {
         if (hasUppercase) size += UPPERCASE_SIZE;
         if (hasDigits) size += DIGITS_SIZE;
         if (hasSpecial) size += SPECIAL_SIZE;
-        return Math.max(size, 1); // Ensure we don't return 0
+        return Math.max(size, 1);
     }
 
     private double calculateEntropy(int length, int charSetSize) {
+        if (charSetSize <= 1 || length <= 0) return 0.0;
         return length * (Math.log(charSetSize) / Math.log(2));
     }
 
     private long getCrackingSpeed(String scenario) {
-        return switch (scenario.toLowerCase()) {
-            case "online-throttled" -> ONLINE_THROTTLED;
-            case "online-unthrottled" -> ONLINE_UNTHROTTLED;
-            case "offline-slow-hash" -> OFFLINE_SLOW_HASH;
-            case "offline-gpu-cluster" -> OFFLINE_GPU_CLUSTER;
-            default -> OFFLINE_FAST_HASH;
-        };
+        return CRACKING_SPEEDS.getOrDefault(scenario.toLowerCase(), CRACKING_SPEEDS.get(DEFAULT_SCENARIO));
     }
 
     private Map<String, Object> calculateCrackingTime(int length, int charSetSize, long crackingSpeed) {
         Map<String, Object> result = new HashMap<>();
-
-        // Calculate the number of possible combinations
-        BigDecimal combinations = BigDecimal.valueOf(charSetSize).pow(length);
-
-        // Calculate average time to crack (in seconds)
-        // Average case is trying half of all possibilities
-        BigDecimal averageAttempts = combinations.divide(BigDecimal.valueOf(2), RoundingMode.HALF_UP);
-        BigDecimal secondsToCrack = averageAttempts.divide(BigDecimal.valueOf(crackingSpeed), RoundingMode.HALF_UP);
-
-        // Convert to appropriate time unit
-        Map<String, Object> formattedTime = formatTimeUnit(secondsToCrack);
-        result.put("formatted", formattedTime.get("formatted"));
-        result.put("value", formattedTime.get("value"));
-        result.put("unit", formattedTime.get("unit"));
-        result.put("seconds", secondsToCrack.doubleValue());
-
+        if (crackingSpeed <= 0) {
+            result.put("formatted", "N/A (Invalid speed)");
+            result.put("seconds", Double.POSITIVE_INFINITY); return result;
+        }
+        if (charSetSize <= 0 || length <= 0) {
+            result.put("formatted", "N/A"); result.put("seconds", 0.0); return result;
+        }
+        try {
+            BigDecimal combinations = BigDecimal.valueOf(charSetSize).pow(length);
+            BigDecimal avgSecondsToCrack = combinations.divide(BigDecimal.valueOf(2), RoundingMode.HALF_UP)
+                    .divide(BigDecimal.valueOf(crackingSpeed), 2, RoundingMode.HALF_UP);
+            result.put("formatted", formatTimeInterval(avgSecondsToCrack));
+            result.put("seconds", avgSecondsToCrack.doubleValue());
+        } catch (ArithmeticException e) {
+            result.put("formatted", "Effectively Infinite"); result.put("seconds", Double.POSITIVE_INFINITY);
+        }
         return result;
     }
 
-    private Map<String, Object> formatTimeUnit(BigDecimal seconds) {
-        Map<String, Object> result = new HashMap<>();
-        double value;
-        String unit;
-        String formatted;
-
+    private String formatTimeInterval(BigDecimal seconds) {
+        // Reusing the robust formatting from previous example
+        if (seconds.compareTo(BigDecimal.valueOf(CENTURY).multiply(BigDecimal.valueOf(1000))) > 0) return "centuries (effectively infinite)";
         if (seconds.compareTo(BigDecimal.valueOf(CENTURY)) >= 0) {
-            BigDecimal centuries = seconds.divide(BigDecimal.valueOf(CENTURY), 1, RoundingMode.HALF_UP);
-            if (centuries.compareTo(BigDecimal.valueOf(1000)) > 0) {
-                result.put("value", "many");
-                result.put("unit", "centuries");
-                result.put("formatted", "many centuries");
-                return result;
-            }
-            value = centuries.doubleValue();
-            unit = value == 1.0 ? "century" : "centuries";
-        } else if (seconds.compareTo(BigDecimal.valueOf(YEAR)) >= 0) {
-            value = seconds.divide(BigDecimal.valueOf(YEAR), 1, RoundingMode.HALF_UP).doubleValue();
-            unit = value == 1.0 ? "year" : "years";
-        } else if (seconds.compareTo(BigDecimal.valueOf(MONTH)) >= 0) {
-            value = seconds.divide(BigDecimal.valueOf(MONTH), 1, RoundingMode.HALF_UP).doubleValue();
-            unit = value == 1.0 ? "month" : "months";
-        } else if (seconds.compareTo(BigDecimal.valueOf(DAY)) >= 0) {
-            value = seconds.divide(BigDecimal.valueOf(DAY), 1, RoundingMode.HALF_UP).doubleValue();
-            unit = value == 1.0 ? "day" : "days";
-        } else if (seconds.compareTo(BigDecimal.valueOf(HOUR)) >= 0) {
-            value = seconds.divide(BigDecimal.valueOf(HOUR), 1, RoundingMode.HALF_UP).doubleValue();
-            unit = value == 1.0 ? "hour" : "hours";
-        } else if (seconds.compareTo(BigDecimal.valueOf(MINUTE)) >= 0) {
-            value = seconds.divide(BigDecimal.valueOf(MINUTE), 1, RoundingMode.HALF_UP).doubleValue();
-            unit = value == 1.0 ? "minute" : "minutes";
-        } else {
-            value = seconds.doubleValue();
-            unit = value == 1.0 ? "second" : "seconds";
+            BigDecimal val = seconds.divide(BigDecimal.valueOf(CENTURY), 1, RoundingMode.HALF_UP);
+            return String.format(Locale.US, "%.1f %s", val, val.compareTo(BigDecimal.ONE) == 0 ? "century" : "centuries");
         }
-
-        // Round to one decimal place for readable format
-        if (value == Math.floor(value)) {
-            formatted = String.format("%.0f %s", value, unit);
-        } else {
-            formatted = String.format("%.1f %s", value, unit);
+        if (seconds.compareTo(BigDecimal.valueOf(YEAR)) >= 0) {
+            BigDecimal val = seconds.divide(BigDecimal.valueOf(YEAR), 1, RoundingMode.HALF_UP);
+            return String.format(Locale.US, "%.1f %s", val, val.compareTo(BigDecimal.ONE) == 0 ? "year" : "years");
         }
-
-        result.put("value", value);
-        result.put("unit", unit);
-        result.put("formatted", formatted);
-
-        return result;
+        if (seconds.compareTo(BigDecimal.valueOf(MONTH)) >= 0) {
+            BigDecimal val = seconds.divide(BigDecimal.valueOf(MONTH), 1, RoundingMode.HALF_UP);
+            return String.format(Locale.US, "%.1f %s", val, val.compareTo(BigDecimal.ONE) == 0 ? "month" : "months");
+        }
+        if (seconds.compareTo(BigDecimal.valueOf(DAY)) >= 0) {
+            BigDecimal val = seconds.divide(BigDecimal.valueOf(DAY), 1, RoundingMode.HALF_UP);
+            return String.format(Locale.US, "%.1f %s", val, val.compareTo(BigDecimal.ONE) == 0 ? "day" : "days");
+        }
+        if (seconds.compareTo(BigDecimal.valueOf(HOUR)) >= 0) {
+            BigDecimal val = seconds.divide(BigDecimal.valueOf(HOUR), 1, RoundingMode.HALF_UP);
+            return String.format(Locale.US, "%.1f %s", val, val.compareTo(BigDecimal.ONE) == 0 ? "hour" : "hours");
+        }
+        if (seconds.compareTo(BigDecimal.valueOf(MINUTE)) >= 0) {
+            BigDecimal val = seconds.divide(BigDecimal.valueOf(MINUTE), 1, RoundingMode.HALF_UP);
+            return String.format(Locale.US, "%.1f %s", val, val.compareTo(BigDecimal.ONE) == 0 ? "minute" : "minutes");
+        }
+        if (seconds.compareTo(BigDecimal.ONE) < 0) {
+            if (seconds.compareTo(BigDecimal.valueOf(0.001)) < 0) return "instantaneous";
+            return String.format(Locale.US, "%.3f seconds", seconds);
+        }
+        return String.format(Locale.US, "%.1f %s", seconds, seconds.compareTo(BigDecimal.ONE) == 0 ? "second" : "seconds");
     }
 
-    private int calculateScore(int length, int charSetSize, boolean hasLowercase, boolean hasUppercase,
-                               boolean hasDigits, boolean hasSpecial) {
-        // Base score calculation
-        int score = 0;
 
-        // Length score (up to 50 points)
-        score += Math.min(length * 4, 50);
-
-        // Character set diversity score (up to 25 points)
-        int diversityCount = 0;
-        if (hasLowercase) diversityCount++;
-        if (hasUppercase) diversityCount++;
-        if (hasDigits) diversityCount++;
-        if (hasSpecial) diversityCount++;
-
-        score += diversityCount * 6;
-
-        // Bonus for mixing character types (up to 15 points)
-        if (diversityCount >= 3) score += 10;
-        if (diversityCount == 4) score += 5;
-
-        // Entropy bonus (up to 10 points)
-        double entropy = calculateEntropy(length, charSetSize);
-        if (entropy > 100) score += 10;
-        else if (entropy > 80) score += 8;
-        else if (entropy > 60) score += 6;
-        else if (entropy > 40) score += 4;
-        else if (entropy > 28) score += 2;
-
-        // Capping score at 100
-        return score;
+    // Simplified score based primarily on entropy
+    private int calculateScore(int length, double entropy) {
+        if (length == 0) return 0;
+        // Simple scale based on entropy benchmarks
+        double weak = 35.0, moderate = 60.0, strong = 85.0, veryStrong = 110.0;
+        int score;
+        if (entropy < weak) score = (int) Math.max(0, (entropy / weak) * 29.0); // 0-29
+        else if (entropy < moderate) score = 30 + (int) Math.max(0, ((entropy - weak) / (moderate - weak)) * 29.0); // 30-59
+        else if (entropy < strong) score = 60 + (int) Math.max(0, ((entropy - moderate) / (strong - moderate)) * 29.0); // 60-89
+        else score = 90 + (int) Math.min(10.0, ((entropy - strong) / (veryStrong - strong)) * 10.0); // 90-100
+        return Math.max(0, Math.min(100, score));
     }
 
     private String getStrengthLabel(int score) {
@@ -513,97 +441,46 @@ public class PasswordAnalyzer implements ExtendedPluginInterface {
         return "Very Weak";
     }
 
-    private String[] generateRecommendations(String password, boolean hasLowercase, boolean hasUppercase,
-                                             boolean hasDigits, boolean hasSpecial) {
-
-        int length = password.length();
-        int recommendations = 0;
-        String[] tips = new String[5]; // Max 5 recommendations
-
-        // Length recommendation
-        if (length < 12) {
-            tips[recommendations++] = "Increase password length to at least 12 characters";
-        }
-
-        // Character types recommendations
-        if (!hasLowercase) {
-            tips[recommendations++] = "Add lowercase letters (a-z)";
-        }
-
-        if (!hasUppercase) {
-            tips[recommendations++] = "Add uppercase letters (A-Z)";
-        }
-
-        if (!hasDigits) {
-            tips[recommendations++] = "Add numbers (0-9)";
-        }
-
-        if (!hasSpecial) {
-            tips[recommendations++] = "Add special characters (!@#$%^&*...)";
-        }
-
-        // Pattern recommendations (if we have space)
-        if (recommendations < 5 && detectCommonPatterns(password)) {
-            tips[recommendations++] = "Avoid common patterns and dictionary words";
-        }
-
-        // Remove null entries
-        String[] finalTips = new String[recommendations];
-        System.arraycopy(tips, 0, finalTips, 0, recommendations);
-
-        return finalTips;
+    private List<String> generateRecommendations(int length, boolean hasLowercase, boolean hasUppercase, boolean hasDigits, boolean hasSpecial) {
+        List<String> tips = new ArrayList<>();
+        if (length < 12) tips.add("Increase length (12+ recommended).");
+        if (!hasLowercase) tips.add("Include lowercase letters (a-z).");
+        if (!hasUppercase) tips.add("Include uppercase letters (A-Z).");
+        if (!hasDigits) tips.add("Include numbers (0-9).");
+        if (!hasSpecial) tips.add("Include symbols (e.g., !@#$%).");
+        if (tips.size() < 2 && length >= 8 && length < 16) tips.add("Add more character variety or increase length further.");
+        return tips;
     }
 
-    private boolean detectCommonPatterns(String password) {
-        // Very simplified pattern detection
-        String lower = password.toLowerCase();
-
-        // Check for sequential characters
-        String[] sequences = {"qwerty", "asdfgh", "zxcvbn", "1234", "abcd"};
-        for (String seq : sequences) {
-            if (lower.contains(seq)) return true;
-        }
-
-        // Check for repeated characters
-        for (int i = 0; i < lower.length() - 2; i++) {
-            if (lower.charAt(i) == lower.charAt(i + 1) && lower.charAt(i) == lower.charAt(i + 2)) {
-                return true;
-            }
-        }
-
-        // Very common replacements
-        if (lower.contains("@")) {
-            String withA = lower.replace("@", "a");
-            if (isCommonDictionaryWord(withA)) return true;
-        }
-
-        if (lower.contains("0")) {
-            String withO = lower.replace("0", "o");
-            return isCommonDictionaryWord(withO);
-        }
-
-        return false;
-    }
-
-    private boolean isCommonDictionaryWord(String word) {
-        // Very simplified check for common words
-        // In a real implementation, this would use a dictionary lookup
-        String[] commonWords = {"password", "admin", "welcome", "secret", "123456", "qwerty"};
-        for (String common : commonWords) {
-            if (word.contains(common)) return true;
-        }
-        return false;
-    }
-
-    private String maskPassword(String password) {
-        // Show first and last character, mask the rest
-        if (password.length() <= 2) {
-            return "*".repeat(password.length());
-        }
-        return password.charAt(0) + "*".repeat(password.length() - 2) + password.charAt(password.length() - 1);
-    }
+    // --- Parameter Parsing Helpers ---
 
     private double roundToTwoDecimalPlaces(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) return value; // Avoid errors on NaN/Infinity
         return Math.round(value * 100.0) / 100.0;
+    }
+
+    private String getStringParam(Map<String, Object> input, String key, String defaultValue) throws IllegalArgumentException {
+        Object value = input.get(key);
+        if (value == null) {
+            if (defaultValue == null) throw new IllegalArgumentException("Missing required parameter: " + key);
+            return defaultValue;
+        }
+        String strValue = value.toString();
+        // Allow empty password, but throw if other required fields are empty
+        if (strValue.isEmpty() && defaultValue == null && !key.equals("passwordInput")) {
+            throw new IllegalArgumentException("Missing required parameter: " + key);
+        }
+        return strValue;
+    }
+
+    private boolean getBooleanParam(Map<String, Object> input, String key, boolean defaultValue) {
+        Object value = input.get(key);
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        if (value != null) {
+            return "true".equalsIgnoreCase(value.toString());
+        }
+        return defaultValue;
     }
 }

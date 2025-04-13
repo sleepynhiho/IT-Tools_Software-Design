@@ -16,8 +16,9 @@ dependencies {
     // Image processing libraries
     implementation 'org.imgscalr:imgscalr-lib:4.2'
 
-    // Optional: Uncomment for video processing capabilities
-    // implementation 'org.bytedeco:javacv-platform:1.5.7'
+    implementation 'com.fasterxml.jackson.core:jackson-core:2.15.3' // Use the same version as your jackson-databind
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.15.3' // Use the same version as your jackson-databind
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.3' // Ensure you also have databind
 }
 
 tasks.named('jar') {
@@ -43,8 +44,8 @@ tasks.named('jar') {
     manifest {
         attributes(
                 'Manifest-Version': '1.0',
-                'Plugin-Class': 'kostovite.MediaToolsPlugin',
-                'Plugin-Id': 'media-tools',
+                'Plugin-Class': 'kostovite.TokenGeneratorPlugin',
+                'Plugin-Id': 'TokenGenerator',
                 'Plugin-Version': project.version,
                 'Plugin-Provider': 'kostovite',
                 'Plugin-Description': 'Media processing plugin for IT-Tools'

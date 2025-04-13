@@ -1,302 +1,235 @@
 package kostovite;
 
 import java.security.SecureRandom;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-public class TokenGenerator implements ExtendedPluginInterface {
+// Assuming ExtendedPluginInterface or just PluginInterface based on your framework needs
+public class TokenGenerator implements PluginInterface { // Using standard PluginInterface
     private static final String UPPERCASE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private static final String LOWERCASE_CHARS = "abcdefghijklmnopqrstuvwxyz";
     private static final String NUMBER_CHARS = "0123456789";
-    private static final String SPECIAL_CHARS = "!@#$%^&*()-_=+[]{}|;:,.<>?";
+    // Reduced special chars for better readability in simple cases, adjust if needed
+    private static final String SPECIAL_CHARS = "!@#$%&*-+=?";
 
     private final SecureRandom random = new SecureRandom();
 
+    /**
+     * Internal name for the plugin backend. The 'name' in metadata is user-facing.
+     * @return The backend name.
+     */
     @Override
     public String getName() {
         return "TokenGenerator";
     }
 
+    /**
+     * Executes a standalone test run of the plugin.
+     */
     @Override
     public void execute() {
-        System.out.println("TokenGenerator Plugin executed");
-        // Generate a sample token with default settings
+        System.out.println("TokenGenerator Plugin executed (standalone test)");
+        // Generate a sample token with default settings matching the new metadata defaults
         Map<String, Object> defaultInput = new HashMap<>();
         defaultInput.put("useUppercase", true);
         defaultInput.put("useLowercase", true);
         defaultInput.put("useNumbers", true);
         defaultInput.put("useSpecial", false);
-        defaultInput.put("length", 16);
+        defaultInput.put("length", 16); // Default length from new metadata
 
-        Map<String, Object> result = process(defaultInput);
-        System.out.println("Sample token: " + result.get("token"));
+        try {
+            Map<String, Object> result = process(defaultInput);
+            System.out.println("Sample Token Generation Result: " + result);
+        } catch(Exception e) {
+            System.err.println("Standalone test failed: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
+    /**
+     * Generates the metadata describing the plugin's UI and capabilities
+     * in the new specified format.
+     *
+     * @return A map representing the plugin metadata JSON.
+     */
     @Override
     public Map<String, Object> getMetadata() {
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", getName()); // Corresponds to ToolMetadata.name
-        metadata.put("version", "1.0.0");
-        metadata.put("description", "Generates secure random tokens with configurable character sets"); // Corresponds to ToolMetadata.description
 
-        // Define available backend operations (for informational purposes or direct API calls)
-        Map<String, Object> operations = new HashMap<>();
+        // --- Top Level Attributes ---
+        metadata.put("id", "TokenGenerator"); // Matches the new format
+        metadata.put("name", "Token Generator"); // User-facing name
+        metadata.put("description", "Generate random string with the chars you want, uppercase or lowercase letters, numbers and/or symbols.");
+        metadata.put("icon", "Key");
+        metadata.put("category", "Crypto");
+        metadata.put("customUI", false); // As per the example
 
-        // Generate operation
-        Map<String, Object> generateOperation = new HashMap<>();
-        generateOperation.put("description", "Generate a random token");
-        Map<String, Object> inputs = new HashMap<>();
-        inputs.put("useUppercase", Map.of("type", "boolean", "description", "Include uppercase letters", "required", false));
-        inputs.put("useLowercase", Map.of("type", "boolean", "description", "Include lowercase letters", "required", false));
-        inputs.put("useNumbers", Map.of("type", "boolean", "description", "Include numbers", "required", false));
-        inputs.put("useSpecial", Map.of("type", "boolean", "description", "Include special characters", "required", false));
-        inputs.put("length", Map.of("type", "integer", "description", "Token length", "required", false));
-        generateOperation.put("inputs", inputs);
-        operations.put("generate", generateOperation);
+        // --- Sections ---
+        List<Map<String, Object>> sections = new ArrayList<>();
 
-        metadata.put("operations", operations); // Keep this for backend/API reference
+        // --- Generate Section ---
+        Map<String, Object> generateSection = new HashMap<>();
+        generateSection.put("id", "generate");
+        generateSection.put("label", "Generate Token");
 
-        // --- Define UI Configuration ---
-        Map<String, Object> uiConfig = new HashMap<>();
-        uiConfig.put("id", "TokenGenerator"); // Corresponds to ToolMetadata.id
-        uiConfig.put("icon", "Key"); // Corresponds to ToolMetadata.icon (Material Icon name)
-        uiConfig.put("category", "Security"); // Corresponds to ToolMetadata.category
+        // --- Inputs for Generate Section ---
+        List<Map<String, Object>> inputs = new ArrayList<>();
 
-        // --- Define UI Inputs ---
-        List<Map<String, Object>> uiInputs = new ArrayList<>();
+        // useUppercase Input
+        Map<String, Object> uppercaseInput = new HashMap<>();
+        uppercaseInput.put("id", "useUppercase"); // Matches new format ID
+        uppercaseInput.put("label", "Uppercase (ABC...)");
+        uppercaseInput.put("type", "switch");
+        uppercaseInput.put("default", true);
+        uppercaseInput.put("containerId", "main"); // As per the example
+        inputs.add(uppercaseInput);
 
-        // Input Section 1: Token Settings
-        Map<String, Object> inputSection1 = new HashMap<>();
-        inputSection1.put("header", "Token Settings");
-        List<Map<String, Object>> section1Fields = new ArrayList<>();
+        // useLowercase Input
+        Map<String, Object> lowercaseInput = new HashMap<>();
+        lowercaseInput.put("id", "useLowercase"); // Matches new format ID
+        lowercaseInput.put("label", "Lowercase (abc...)");
+        lowercaseInput.put("type", "switch");
+        lowercaseInput.put("default", true);
+        lowercaseInput.put("containerId", "main");
+        inputs.add(lowercaseInput);
 
-        // Token length
-        Map<String, Object> lengthField = new HashMap<>();
-        lengthField.put("name", "length");
-        lengthField.put("label", "Length:");
-        lengthField.put("type", "slider");
-        lengthField.put("min", 4);
-        lengthField.put("max", 64);
-        lengthField.put("step", 1);
-        lengthField.put("default", 16);
-        lengthField.put("required", true);
-        section1Fields.add(lengthField);
+        // useNumbers Input
+        Map<String, Object> numbersInput = new HashMap<>();
+        numbersInput.put("id", "useNumbers"); // Matches new format ID
+        numbersInput.put("label", "Numbers (123...)");
+        numbersInput.put("type", "switch");
+        numbersInput.put("default", true);
+        numbersInput.put("containerId", "main");
+        inputs.add(numbersInput);
 
-        inputSection1.put("fields", section1Fields);
-        uiInputs.add(inputSection1);
+        // useSpecial Input
+        Map<String, Object> specialInput = new HashMap<>();
+        specialInput.put("id", "useSpecial"); // Matches new format ID
+        specialInput.put("label", "Symbols (!-;...)"); // Label from example
+        specialInput.put("type", "switch");
+        specialInput.put("default", false);
+        specialInput.put("containerId", "main");
+        inputs.add(specialInput);
 
-        // Input Section 2: Character Sets
-        Map<String, Object> inputSection2 = new HashMap<>();
-        inputSection2.put("header", "Character Sets");
-        List<Map<String, Object>> section2Fields = new ArrayList<>();
+        // length Input
+        Map<String, Object> lengthInput = new HashMap<>();
+        lengthInput.put("id", "length"); // Matches new format ID
+        // The label in the example includes the default value, which is unusual.
+        // We'll stick to a static label and let the UI handle showing the current value.
+        lengthInput.put("label", "Length:");
+        lengthInput.put("type", "slider");
+        lengthInput.put("default", 16); // Default from example
+        lengthInput.put("min", 1);    // Min from example
+        lengthInput.put("max", 100);  // Max from example
+        // step is not in the example, assume default of 1
+        lengthInput.put("containerId", "main");
+        inputs.add(lengthInput);
 
-        // Uppercase letters
-        Map<String, Object> uppercaseField = new HashMap<>();
-        uppercaseField.put("name", "useUppercase");
-        uppercaseField.put("label", "Uppercase Letters (A-Z)");
-        uppercaseField.put("type", "switch");
-        uppercaseField.put("default", true);
-        section2Fields.add(uppercaseField);
+        generateSection.put("inputs", inputs);
 
-        // Lowercase letters
-        Map<String, Object> lowercaseField = new HashMap<>();
-        lowercaseField.put("name", "useLowercase");
-        lowercaseField.put("label", "Lowercase Letters (a-z)");
-        lowercaseField.put("type", "switch");
-        lowercaseField.put("default", true);
-        section2Fields.add(lowercaseField);
+        // --- Outputs for Generate Section ---
+        List<Map<String, Object>> outputs = new ArrayList<>();
 
-        // Numbers
-        Map<String, Object> numbersField = new HashMap<>();
-        numbersField.put("name", "useNumbers");
-        numbersField.put("label", "Numbers (0-9)");
-        numbersField.put("type", "switch");
-        numbersField.put("default", true);
-        section2Fields.add(numbersField);
-
-        // Special characters
-        Map<String, Object> specialField = new HashMap<>();
-        specialField.put("name", "useSpecial");
-        specialField.put("label", "Special Characters (!@#$%^&*...)");
-        specialField.put("type", "switch");
-        specialField.put("default", false);
-        section2Fields.add(specialField);
-
-        // Preview of character set
-        Map<String, Object> previewField = new HashMap<>();
-        previewField.put("name", "characterPreview");
-        previewField.put("label", "Character Set:");
-        previewField.put("type", "text");
-        previewField.put("disabled", true);
-        previewField.put("formula", "((useUppercase ? 'A-Z ' : '') + (useLowercase ? 'a-z ' : '') + (useNumbers ? '0-9 ' : '') + (useSpecial ? '!@#$...' : '')).trim() || 'Please select at least one character set'");
-        section2Fields.add(previewField);
-
-        inputSection2.put("fields", section2Fields);
-        uiInputs.add(inputSection2);
-
-        uiConfig.put("inputs", uiInputs);
-
-        // --- Define UI Outputs ---
-        List<Map<String, Object>> uiOutputs = new ArrayList<>();
-
-        // Output Section 1: Generated Token
-        Map<String, Object> outputSection1 = new HashMap<>();
-        outputSection1.put("header", "Generated Token");
-        outputSection1.put("condition", "success");
-        List<Map<String, Object>> section1OutputFields = new ArrayList<>();
-
-        // Token display
+        // token Output
         Map<String, Object> tokenOutput = new HashMap<>();
-        tokenOutput.put("title", "Token");
-        tokenOutput.put("name", "token");
-        tokenOutput.put("type", "text");
-        tokenOutput.put("monospace", true);
-        tokenOutput.put("buttons", List.of("copy"));
-        tokenOutput.put("variant", "bold");
-        section1OutputFields.add(tokenOutput);
+        tokenOutput.put("id", "TokenGenerator"); // Matches new format ID
+        tokenOutput.put("label", "Generated Token");
+        tokenOutput.put("type", "text"); // Simple text output
+        tokenOutput.put("width", 400); // As per example
+        tokenOutput.put("height", 80); // As per example
+        tokenOutput.put("buttons", List.of("copy", "refresh")); // As per example
+        // Nested map for button placement
+        Map<String, String> buttonPlacement = new HashMap<>();
+        buttonPlacement.put("copy", "outside");
+        buttonPlacement.put("refresh", "outside");
+        tokenOutput.put("buttonPlacement", buttonPlacement); // As per example
+        tokenOutput.put("containerId", "main");
+        outputs.add(tokenOutput);
 
-        // Length confirmation
-        Map<String, Object> lengthOutput = new HashMap<>();
-        lengthOutput.put("title", "Length");
-        lengthOutput.put("name", "length");
-        lengthOutput.put("type", "text");
-        lengthOutput.put("formula", "length + ' characters'");
-        section1OutputFields.add(lengthOutput);
+        // --- REMOVED other outputs like length, timestamp, entropy, usedSets ---
+        // --- as they are not in the target metadata format provided.     ---
 
-        // Generation timestamp
-        Map<String, Object> timestampOutput = new HashMap<>();
-        timestampOutput.put("title", "Generated On");
-        timestampOutput.put("name", "timestamp");
-        timestampOutput.put("type", "text");
-        timestampOutput.put("formula", "new Date().toISOString()");
-        section1OutputFields.add(timestampOutput);
+        generateSection.put("outputs", outputs);
 
-        outputSection1.put("fields", section1OutputFields);
-        uiOutputs.add(outputSection1);
+        // Add the generate section to the list of sections
+        sections.add(generateSection);
 
-        // Output Section 2: Token Analysis
-        Map<String, Object> outputSection2 = new HashMap<>();
-        outputSection2.put("header", "Token Analysis");
-        outputSection2.put("condition", "success");
-        List<Map<String, Object>> section2OutputFields = new ArrayList<>();
-
-        // Character sets used
-        Map<String, Object> usedSetsOutput = new HashMap<>();
-        usedSetsOutput.put("title", "Character Sets Used");
-        usedSetsOutput.put("name", "usedSets");
-        usedSetsOutput.put("type", "chips");
-        usedSetsOutput.put("items", "[" +
-                "settings.useUppercase ? 'Uppercase' : null, " +
-                "settings.useLowercase ? 'Lowercase' : null, " +
-                "settings.useNumbers ? 'Numbers' : null, " +
-                "settings.useSpecial ? 'Special' : null" +
-                "].filter(Boolean)");
-        section2OutputFields.add(usedSetsOutput);
-
-        // Entropy calculation (simplified)
-        Map<String, Object> entropyOutput = new HashMap<>();
-        entropyOutput.put("title", "Estimated Entropy");
-        entropyOutput.put("name", "entropy");
-        entropyOutput.put("type", "text");
-        entropyOutput.put("formula",
-                "Math.log2(" +
-                        "(settings.useUppercase ? 26 : 0) + " +
-                        "(settings.useLowercase ? 26 : 0) + " +
-                        "(settings.useNumbers ? 10 : 0) + " +
-                        "(settings.useSpecial ? 33 : 0)" +
-                        ") * length + ' bits'");
-        section2OutputFields.add(entropyOutput);
-
-        outputSection2.put("fields", section2OutputFields);
-        uiOutputs.add(outputSection2);
-
-        // Output Section 3: Error Display
-        Map<String, Object> outputSection3 = new HashMap<>();
-        outputSection3.put("header", "Error Information");
-        outputSection3.put("condition", "error");
-        List<Map<String, Object>> section3OutputFields = new ArrayList<>();
-
-        // Error message
-        Map<String, Object> errorOutput = new HashMap<>();
-        errorOutput.put("title", "Error Message");
-        errorOutput.put("name", "error");
-        errorOutput.put("type", "text");
-        errorOutput.put("style", "error");
-        section3OutputFields.add(errorOutput);
-
-        outputSection3.put("fields", section3OutputFields);
-        uiOutputs.add(outputSection3);
-
-        uiConfig.put("outputs", uiOutputs);
-
-        // Add the structured uiConfig to the main metadata map
-        metadata.put("uiConfig", uiConfig);
+        // Add sections list to the main metadata map
+        metadata.put("sections", sections);
 
         return metadata;
     }
 
+    /**
+     * Processes the input parameters to generate a token.
+     *
+     * @param input A map containing input parameters based on metadata IDs.
+     * @return A map containing the result ('success', 'token' or 'error').
+     */
     @Override
     public Map<String, Object> process(Map<String, Object> input) {
         Map<String, Object> result = new HashMap<>();
 
         try {
-            // Extract operation (default to "generate")
-            String operation = (String) input.getOrDefault("operation", "generate");
+            // No operation selection needed as per the new metadata (only generate)
+            // Get parameters using the NEW IDs, with defaults from metadata
+            boolean useUppercase = getBooleanParam(input, "useUppercase", true);
+            boolean useLowercase = getBooleanParam(input, "useLowercase", true);
+            boolean useNumbers = getBooleanParam(input, "useNumbers", true);
+            boolean useSpecial = getBooleanParam(input, "useSpecial", false);
+            int length = getIntParam(input); // Use new ID and default
 
-            if ("generate".equalsIgnoreCase(operation)) {
-                // Get parameters with defaults
-                boolean useUppercase = getBooleanParam(input, "useUppercase", true);
-                boolean useLowercase = getBooleanParam(input, "useLowercase", true);
-                boolean useNumbers = getBooleanParam(input, "useNumbers", true);
-                boolean useSpecial = getBooleanParam(input, "useSpecial", false);
-                int length = getIntParam(input);
-
-                // Validation
-                if (length <= 0) {
-                    result.put("error", "Token length must be greater than zero");
-                    return result;
-                }
-
-                if (!useUppercase && !useLowercase && !useNumbers && !useSpecial) {
-                    result.put("error", "At least one character set must be selected");
-                    return result;
-                }
-
-                // Generate the token
-                String token = generateToken(useUppercase, useLowercase, useNumbers, useSpecial, length);
-
-                // Return results
-                result.put("token", token);
-                result.put("length", token.length());
-
-                // Include information about what was used
-                Map<String, Object> settings = new HashMap<>();
-                settings.put("useUppercase", useUppercase);
-                settings.put("useLowercase", useLowercase);
-                settings.put("useNumbers", useNumbers);
-                settings.put("useSpecial", useSpecial);
-                settings.put("requestedLength", length);
-                result.put("settings", settings);
-
-                result.put("success", true);
-            } else {
-                result.put("error", "Unsupported operation: " + operation);
+            // Validation
+            if (length <= 0) {
+                // Use standard error structure
+                result.put("success", false);
+                result.put("error", "Token length must be greater than zero");
                 return result;
             }
-        } catch (Exception e) {
-            result.put("error", "Error generating token: " + e.getMessage());
+
+            if (!useUppercase && !useLowercase && !useNumbers && !useSpecial) {
+                // Use standard error structure
+                result.put("success", false);
+                result.put("error", "At least one character set must be selected");
+                return result;
+            }
+
+            // Generate the token
+            String token = generateToken(useUppercase, useLowercase, useNumbers, useSpecial, length);
+
+            // Return results - ONLY include fields defined in the new metadata output section
+            result.put("success", true);
+            result.put("token", token); // Matches the output field ID 'token'
+
+            // --- REMOVED other result fields like length, settings etc. ---
+
+        } catch (IllegalArgumentException e) { // Catch specific validation errors
+            result.put("success", false);
+            result.put("error", e.getMessage());
+        } catch (Exception e) { // Catch unexpected errors
+            System.err.println("Error processing token generation request: " + e.getMessage());
+            e.printStackTrace();
+            result.put("success", false);
+            result.put("error", "An unexpected error occurred during token generation.");
         }
 
         return result;
     }
 
+    /**
+     * Generates a random token string based on the specified parameters.
+     *
+     * @param useUppercase Include uppercase letters.
+     * @param useLowercase Include lowercase letters.
+     * @param useNumbers Include numbers.
+     * @param useSpecial Include special characters.
+     * @param length The desired length of the token.
+     * @return The generated random token string.
+     * @throws IllegalArgumentException if no character sets are selected or length is non-positive.
+     */
     private String generateToken(boolean useUppercase, boolean useLowercase,
                                  boolean useNumbers, boolean useSpecial, int length) {
         // Build the character set based on selected options
         StringBuilder charSetBuilder = new StringBuilder();
-
         if (useUppercase) charSetBuilder.append(UPPERCASE_CHARS);
         if (useLowercase) charSetBuilder.append(LOWERCASE_CHARS);
         if (useNumbers) charSetBuilder.append(NUMBER_CHARS);
@@ -304,11 +237,15 @@ public class TokenGenerator implements ExtendedPluginInterface {
 
         String charSet = charSetBuilder.toString();
 
+        // This validation is done in process(), but kept here as defense
         if (charSet.isEmpty()) {
-            throw new IllegalArgumentException("No character sets selected");
+            throw new IllegalArgumentException("Internal Error: No character sets available for token generation.");
+        }
+        if (length <= 0) {
+            throw new IllegalArgumentException("Internal Error: Token length must be positive.");
         }
 
-        // Generate the token
+        // Generate the token using SecureRandom
         StringBuilder tokenBuilder = new StringBuilder(length);
         for (int i = 0; i < length; i++) {
             int randomIndex = random.nextInt(charSet.length());
@@ -318,32 +255,46 @@ public class TokenGenerator implements ExtendedPluginInterface {
         return tokenBuilder.toString();
     }
 
-    // Helper methods for parameter extraction
+    /**
+     * Helper method to safely extract a boolean parameter from the input map.
+     *
+     * @param input The input map.
+     * @param key The parameter key (ID).
+     * @param defaultValue The default value if the key is missing or has an invalid type.
+     * @return The extracted boolean value or the default.
+     */
     private boolean getBooleanParam(Map<String, Object> input, String key, boolean defaultValue) {
         Object value = input.get(key);
         if (value instanceof Boolean) {
             return (Boolean) value;
-        } else if (value instanceof String) {
-            return Boolean.parseBoolean((String) value);
         }
-        return defaultValue;
+        // Optionally handle string "true"/"false" if the frontend might send them
+        return defaultValue; // Return default if key missing or wrong type
     }
 
+    /**
+     * Helper method to safely extract an integer parameter from the input map.
+     *
+     * @param input The input map.
+     * @return The extracted integer value or the default, ensuring it's at least 1.
+     */
     private int getIntParam(Map<String, Object> input) {
         Object value = input.get("length");
+        int intVal = 16; // Start with default
+
         if (value instanceof Integer) {
-            return (Integer) value;
-        } else if (value instanceof String) {
-            try {
-                return Integer.parseInt((String) value);
-            } catch (NumberFormatException e) {
-                return 16;
-            }
-        } else if (value instanceof Long) {
-            return ((Long) value).intValue();
-        } else if (value instanceof Double) {
-            return ((Double) value).intValue();
+            intVal = (Integer) value;
+        } else if (value instanceof Number) { // Handle Double, Long etc. from JSON
+            intVal = ((Number) value).intValue();
         }
-        return 16;
+        // Optionally handle String representation if needed
+        // else if (value instanceof String) {
+        //    try {
+        //        intVal = Integer.parseInt((String) value);
+        //    } catch (NumberFormatException e) { /* Use default */ }
+        //}
+
+        // Basic validation - ensure at least 1 for length
+        return Math.max(1, intVal);
     }
 }

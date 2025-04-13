@@ -1,678 +1,433 @@
 package kostovite;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+// For stream operations
 
-import net.sf.uadetector.ReadableUserAgent;
-import net.sf.uadetector.UserAgentStringParser;
-import net.sf.uadetector.VersionNumber;
-import net.sf.uadetector.service.UADetectorServiceFactory;
+import net.sf.uadetector.*; // Import base package
+import net.sf.uadetector.service.UADetectorServiceFactory; // Import factory
 
+// Assuming PluginInterface is standard
 public class UserAgentParser implements PluginInterface {
 
+    // UADetector parser instance
     private final UserAgentStringParser parser;
 
-    // Common browser rendering engines mapping
-    private static final Map<String, String> BROWSER_TO_ENGINE = new HashMap<>();
-    static {
-        BROWSER_TO_ENGINE.put("CHROME", "Blink");
-        BROWSER_TO_ENGINE.put("CHROME_MOBILE", "Blink");
-        BROWSER_TO_ENGINE.put("EDGE", "Blink");  // Modern Edge
-        BROWSER_TO_ENGINE.put("EDGE_MOBILE", "Blink");
-        BROWSER_TO_ENGINE.put("OPERA", "Blink");
-        BROWSER_TO_ENGINE.put("OPERA_MINI", "Blink");
-        BROWSER_TO_ENGINE.put("OPERA_MOBILE", "Blink");
-        BROWSER_TO_ENGINE.put("FIREFOX", "Gecko");
-        BROWSER_TO_ENGINE.put("FIREFOX_MOBILE", "Gecko");
-        BROWSER_TO_ENGINE.put("SAFARI", "WebKit");
-        BROWSER_TO_ENGINE.put("MOBILE_SAFARI", "WebKit");
-        BROWSER_TO_ENGINE.put("INTERNET_EXPLORER", "Trident");
-        BROWSER_TO_ENGINE.put("INTERNET_EXPLORER_MOBILE", "Trident");
-        BROWSER_TO_ENGINE.put("SAMSUNG_BROWSER", "Blink");
-    }
+    // Regular expressions for more specific browser/engine version details
+    private static final Pattern CHROME_VERSION_PATTERN = Pattern.compile("(?:Chrome|CriOS)/([\\d.]+)");
+    private static final Pattern EDGE_VERSION_PATTERN = Pattern.compile("Edg(?:e|A|iOS)?/([\\d.]+)");
+    private static final Pattern SAFARI_VERSION_PATTERN = Pattern.compile("Version/([\\d.]+)");
+    private static final Pattern FIREFOX_VERSION_PATTERN = Pattern.compile("(?:Firefox|FxiOS)/([\\d.]+)");
+    private static final Pattern OPERA_VERSION_PATTERN = Pattern.compile("(?:OPR|Opera|OPT)/([\\d.]+)");
+    private static final Pattern SAMSUNG_VERSION_PATTERN = Pattern.compile("SamsungBrowser/([\\d.]+)");
+    private static final Pattern WEBKIT_VERSION_PATTERN = Pattern.compile("AppleWebKit/([\\d.]+)");
+    private static final Pattern GECKO_VERSION_PATTERN = Pattern.compile("Gecko/(\\d{8,})");
+    private static final Pattern TRIDENT_VERSION_PATTERN = Pattern.compile("Trident/([\\d.]+)");
+    private static final Pattern IE_VERSION_PATTERN = Pattern.compile("(?:MSIE |rv:)([\\d.]+)");
 
-    // Regular expressions for specific browser details
-    private static final Pattern CHROME_VERSION = Pattern.compile("Chrome/([0-9.]+)");
-    private static final Pattern EDGE_VERSION = Pattern.compile("Edg(?:e|)/([0-9.]+)");
-    private static final Pattern SAFARI_VERSION = Pattern.compile("Safari/([0-9.]+)");
-    private static final Pattern FIREFOX_VERSION = Pattern.compile("Firefox/([0-9.]+)");
-    private static final Pattern IE_VERSION = Pattern.compile("MSIE ([0-9.]+)|rv:([0-9.]+)");
-    private static final Pattern WEBKIT_VERSION = Pattern.compile("AppleWebKit/([0-9.]+)");
-    private static final Pattern GECKO_VERSION = Pattern.compile("Gecko/([0-9.]+)");
 
     public UserAgentParser() {
-        // Initialize with cached user agent data
-        this.parser = UADetectorServiceFactory.getCachingAndUpdatingParser();
+        // Initialize with the standard resource module parser
+        this.parser = UADetectorServiceFactory.getResourceModuleParser();
+        System.out.println("UserAgentParser initialized with UADetector version: " + parser.getDataVersion());
     }
 
+    /**
+     * Internal name, should match the class for routing.
+     */
     @Override
     public String getName() {
         return "UserAgentParser";
     }
 
+    /**
+     * Standalone execution for testing.
+     */
     @Override
     public void execute() {
-        System.out.println("User Agent Parser Plugin executed");
-
-        // Demonstrate basic usage
+        System.out.println("User Agent Parser Plugin executed (standalone test)");
         try {
-            String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0";
-
+            String userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
             Map<String, Object> params = new HashMap<>();
-            params.put("userAgent", userAgent);
+            params.put("userAgentInput", userAgent); // Use new ID
 
             Map<String, Object> result = process(params);
-            System.out.println("User agent parsed successfully: " + result.get("success"));
-            System.out.println("Browser: " + result.get("browserName") + " " + result.get("browserVersion"));
-            System.out.println("OS: " + result.get("osName") + " " + result.get("osVersion"));
+            System.out.println("Test Parse Result: " + result);
+
+            userAgent = "Mozilla/5.0 (Linux; Android 13; SM-S908E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36";
+            params.put("userAgentInput", userAgent);
+            result = process(params);
+            System.out.println("Test Parse Result 2: " + result);
+
 
         } catch (Exception e) {
+            System.err.println("Standalone test failed: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
+    /**
+     * Generates metadata in the NEW format (sections, id, etc.).
+     */
     @Override
     public Map<String, Object> getMetadata() {
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", getName()); // Corresponds to ToolMetadata.name
-        metadata.put("version", "1.0.0");
-        metadata.put("description", "Parse and analyze user agent strings"); // Corresponds to ToolMetadata.description
 
-        // Define available backend operations (for informational purposes or direct API calls)
-        Map<String, Object> operations = new HashMap<>();
+        // --- Top Level Attributes (New Format) ---
+        metadata.put("id", "UserAgentParser");
+        metadata.put("name", "User Agent Parser");
+        metadata.put("description", "Analyze User Agent strings to identify browser, OS, engine, and device type.");
+        metadata.put("icon", "Language"); // Alternate icon suggestion
+        metadata.put("category", "Web Tools");
+        metadata.put("customUI", false);
+        metadata.put("triggerUpdateOnChange", true); // Analyze dynamically
 
-        // Parse operation
-        Map<String, Object> parseOperation = new HashMap<>();
-        parseOperation.put("description", "Parse a user agent string and extract browser, OS, and device information");
-        Map<String, Object> parseInputs = new HashMap<>();
-        parseInputs.put("userAgent", Map.of("type", "string", "description", "User agent string to parse", "required", true));
-        parseOperation.put("inputs", parseInputs);
-        operations.put("parse", parseOperation);
+        // --- Sections ---
+        List<Map<String, Object>> sections = new ArrayList<>();
 
-        metadata.put("operations", operations); // Keep this for backend/API reference
+        // --- Section 1: Input ---
+        Map<String, Object> inputSection = new HashMap<>();
+        inputSection.put("id", "input");
+        inputSection.put("label", "User Agent Input");
 
-        // --- Define UI Configuration ---
-        Map<String, Object> uiConfig = new HashMap<>();
-        uiConfig.put("id", "UserAgentParser"); // Corresponds to ToolMetadata.id
-        uiConfig.put("icon", "DeviceHub"); // Corresponds to ToolMetadata.icon (Material Icon name)
-        uiConfig.put("category", "Web Tools"); // Corresponds to ToolMetadata.category
+        List<Map<String, Object>> inputs = new ArrayList<>();
+        inputs.add(Map.ofEntries(
+                Map.entry("id", "userAgentInput"), // Use ID
+                Map.entry("label", "Paste User Agent String:"),
+                Map.entry("type", "text"),
+                Map.entry("multiline", true),
+                Map.entry("rows", 4),
+                Map.entry("placeholder", "e.g., Mozilla/5.0 (Windows NT 10.0...)"),
+                Map.entry("required", false), // Allow empty string for initial state
+                Map.entry("monospace", true),
+                Map.entry("helperText", "Results update automatically as you type.")
+        ));
+        // Omit "Use Current UA" button and Examples select - requires frontend implementation
+        inputSection.put("inputs", inputs);
+        sections.add(inputSection);
 
-        // --- Define UI Inputs ---
-        List<Map<String, Object>> uiInputs = new ArrayList<>();
 
-        // Input Section 1: User Agent Input
-        Map<String, Object> inputSection1 = new HashMap<>();
-        inputSection1.put("header", "User Agent String");
-        List<Map<String, Object>> section1Fields = new ArrayList<>();
+        // --- Section 2: Parsed Results ---
+        Map<String, Object> resultsSection = new HashMap<>();
+        resultsSection.put("id", "results");
+        resultsSection.put("label", "Parsed Information");
+        resultsSection.put("condition", "success === true && !isEmpty"); // Show only on success and non-empty input
 
-        // User agent input field
-        Map<String, Object> userAgentField = new HashMap<>();
-        userAgentField.put("name", "userAgent");
-        userAgentField.put("label", "User Agent:");
-        userAgentField.put("type", "text");
-        userAgentField.put("multiline", true);
-        userAgentField.put("rows", 3);
-        userAgentField.put("placeholder", "Enter or paste a user agent string...");
-        userAgentField.put("required", true);
-        userAgentField.put("helperText", "The browser's user agent string to analyze");
-        section1Fields.add(userAgentField);
+        List<Map<String, Object>> resultOutputs = new ArrayList<>();
 
-        // Current user agent button
-        Map<String, Object> currentUaButton = new HashMap<>();
-        currentUaButton.put("name", "useCurrentUA");
-        currentUaButton.put("label", "Use My User Agent");
-        currentUaButton.put("type", "button");
-        currentUaButton.put("action", "navigator.userAgent && setFieldValue('userAgent', navigator.userAgent)");
-        currentUaButton.put("variant", "outlined");
-        section1Fields.add(currentUaButton);
+        // Browser Info
+        resultOutputs.add(createOutputField("browserName", "Browser Name", "text", null));
+        resultOutputs.add(createOutputField("browserVersion", "Browser Version", "text", null));
+        resultOutputs.add(createOutputField("browserType", "Browser Type", "text", null));
+        resultOutputs.add(createOutputField("browserFamily", "Browser Family", "text", null));
+        resultOutputs.add(createOutputField("browserProducer", "Browser Vendor", "text", null));
 
-        // Example user agents
-        Map<String, Object> examplesField = new HashMap<>();
-        examplesField.put("name", "examples");
-        examplesField.put("label", "Common Examples:");
-        examplesField.put("type", "select");
-        examplesField.put("helperText", "Select an example user agent to analyze");
-        examplesField.put("onChange", "setFieldValue('userAgent', value)");
-        List<Map<String, String>> exampleOptions = new ArrayList<>();
-        exampleOptions.add(Map.of("value", "", "label", "-- Select an example --"));
-        exampleOptions.add(Map.of("value", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", "label", "Chrome on Windows"));
-        exampleOptions.add(Map.of("value", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15", "label", "Safari on macOS"));
-        exampleOptions.add(Map.of("value", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1", "label", "Safari on iPhone"));
-        exampleOptions.add(Map.of("value", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0", "label", "Firefox on Windows"));
-        exampleOptions.add(Map.of("value", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0", "label", "Edge on Windows"));
-        exampleOptions.add(Map.of("value", "Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.162 Mobile Safari/537.36", "label", "Chrome on Android"));
-        exampleOptions.add(Map.of("value", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)", "label", "Googlebot"));
-        examplesField.put("options", exampleOptions);
-        examplesField.put("required", false);
-        section1Fields.add(examplesField);
+        // Engine Info
+        resultOutputs.add(createOutputField("engineName", "Rendering Engine", "text", null));
+        resultOutputs.add(createOutputField("engineVersion", "Engine Version", "text", null));
 
-        inputSection1.put("fields", section1Fields);
-        uiInputs.add(inputSection1);
+        // OS Info
+        resultOutputs.add(createOutputField("osName", "Operating System", "text", null));
+        resultOutputs.add(createOutputField("osVersion", "OS Version", "text", null));
+        resultOutputs.add(createOutputField("osFamily", "OS Family", "text", null));
+        resultOutputs.add(createOutputField("osProducer", "OS Vendor", "text", null));
 
-        uiConfig.put("inputs", uiInputs);
+        // Device Info
+        resultOutputs.add(createOutputField("deviceType", "Device Type", "text", null));
+        resultOutputs.add(createOutputField("deviceCategory", "Device Category", "text", null));
+        // Device Model/Vendor less reliable from this library, omit specific fields
+        resultOutputs.add(createOutputField("cpuArchitecture", "CPU Architecture", "text", null));
 
-        // --- Define UI Outputs ---
-        List<Map<String, Object>> uiOutputs = new ArrayList<>();
+        // Capabilities (Boolean flags for frontend checkmark rendering)
+        resultOutputs.add(createOutputField("isMobile", "Mobile?", "boolean", null));
+        resultOutputs.add(createOutputField("isTablet", "Tablet?", "boolean", null));
+        resultOutputs.add(createOutputField("isDesktop", "Desktop?", "boolean", null));
+        resultOutputs.add(createOutputField("isBot", "Bot/Crawler?", "boolean", null));
 
-        // Output Section 1: Browser Information
-        Map<String, Object> outputSection1 = new HashMap<>();
-        outputSection1.put("header", "Browser Information");
-        outputSection1.put("condition", "success");
-        List<Map<String, Object>> section1OutputFields = new ArrayList<>();
-
-        // Browser name and version
-        Map<String, Object> browserOutput = new HashMap<>();
-        browserOutput.put("title", "Browser");
-        browserOutput.put("name", "browserInfo");
-        browserOutput.put("type", "text");
-        browserOutput.put("formula", "browserName + ' ' + browserVersion");
-        browserOutput.put("variant", "bold");
-        section1OutputFields.add(browserOutput);
-
-        // Browser type
-        Map<String, Object> typeOutput = new HashMap<>();
-        typeOutput.put("title", "Type");
-        typeOutput.put("name", "browserType");
-        typeOutput.put("type", "text");
-        section1OutputFields.add(typeOutput);
-
-        // Browser family
-        Map<String, Object> familyOutput = new HashMap<>();
-        familyOutput.put("title", "Family");
-        familyOutput.put("name", "browserFamily");
-        familyOutput.put("type", "text");
-        section1OutputFields.add(familyOutput);
-
-        // Browser producer
-        Map<String, Object> producerOutput = new HashMap<>();
-        producerOutput.put("title", "Producer");
-        producerOutput.put("name", "browserProducer");
-        producerOutput.put("type", "text");
-        section1OutputFields.add(producerOutput);
-
-        outputSection1.put("fields", section1OutputFields);
-        uiOutputs.add(outputSection1);
-
-        // Output Section 2: Engine Information
-        Map<String, Object> outputSection2 = new HashMap<>();
-        outputSection2.put("header", "Rendering Engine");
-        outputSection2.put("condition", "success");
-        List<Map<String, Object>> section2OutputFields = new ArrayList<>();
-
-        // Engine name and version
-        Map<String, Object> engineOutput = new HashMap<>();
-        engineOutput.put("title", "Engine");
-        engineOutput.put("name", "engineInfo");
-        engineOutput.put("type", "text");
-        engineOutput.put("formula", "engineName + ' ' + engineVersion");
-        section2OutputFields.add(engineOutput);
-
-        // Engine description
-        Map<String, Object> engineDescOutput = new HashMap<>();
-        engineDescOutput.put("title", "Description");
-        engineDescOutput.put("name", "engineDescription");
-        engineDescOutput.put("type", "text");
-        engineDescOutput.put("formula",
-                "engineName === 'Blink' ? 'Chrome-based rendering engine by Google' : " +
-                        "engineName === 'WebKit' ? 'Safari rendering engine by Apple' : " +
-                        "engineName === 'Gecko' ? 'Firefox rendering engine by Mozilla' : " +
-                        "engineName === 'Trident' ? 'Internet Explorer rendering engine by Microsoft' : " +
-                        "'Unknown rendering engine'");
-        section2OutputFields.add(engineDescOutput);
-
-        outputSection2.put("fields", section2OutputFields);
-        uiOutputs.add(outputSection2);
-
-        // Output Section 3: OS and Device Information
-        Map<String, Object> outputSection3 = new HashMap<>();
-        outputSection3.put("header", "Operating System & Device");
-        outputSection3.put("condition", "success");
-        List<Map<String, Object>> section3OutputFields = new ArrayList<>();
-
-        // OS information
-        Map<String, Object> osOutput = new HashMap<>();
-        osOutput.put("title", "Operating System");
-        osOutput.put("name", "osInfo");
-        osOutput.put("type", "text");
-        osOutput.put("formula", "osName + ' ' + osVersion");
-        osOutput.put("variant", "bold");
-        section3OutputFields.add(osOutput);
-
-        // OS family
-        Map<String, Object> osFamilyOutput = new HashMap<>();
-        osFamilyOutput.put("title", "OS Family");
-        osFamilyOutput.put("name", "osFamily");
-        osFamilyOutput.put("type", "text");
-        section3OutputFields.add(osFamilyOutput);
-
-        // Device type
-        Map<String, Object> deviceOutput = new HashMap<>();
-        deviceOutput.put("title", "Device Type");
-        deviceOutput.put("name", "deviceType");
-        deviceOutput.put("type", "text");
-        section3OutputFields.add(deviceOutput);
-
-        // Device model (only if available)
-        Map<String, Object> deviceModelOutput = new HashMap<>();
-        deviceModelOutput.put("title", "Device Model");
-        deviceModelOutput.put("name", "deviceModel");
-        deviceModelOutput.put("type", "text");
-        deviceModelOutput.put("condition", "deviceModel !== 'No device model available'");
-        section3OutputFields.add(deviceModelOutput);
-
-        // Device vendor (only if available)
-        Map<String, Object> deviceVendorOutput = new HashMap<>();
-        deviceVendorOutput.put("title", "Device Vendor");
-        deviceVendorOutput.put("name", "deviceVendor");
-        deviceVendorOutput.put("type", "text");
-        deviceVendorOutput.put("condition", "deviceVendor !== 'No device vendor available'");
-        section3OutputFields.add(deviceVendorOutput);
-
-        // CPU architecture
-        Map<String, Object> cpuOutput = new HashMap<>();
-        cpuOutput.put("title", "CPU Architecture");
-        cpuOutput.put("name", "cpuArchitecture");
-        cpuOutput.put("type", "text");
-        section3OutputFields.add(cpuOutput);
-
-        outputSection3.put("fields", section3OutputFields);
-        uiOutputs.add(outputSection3);
-
-        // Output Section 4: Device Capabilities
-        Map<String, Object> outputSection4 = new HashMap<>();
-        outputSection4.put("header", "Device Capabilities");
-        outputSection4.put("condition", "success");
-        List<Map<String, Object>> section4OutputFields = new ArrayList<>();
-
-        // Device type indicators
-        Map<String, Object> deviceTypesOutput = new HashMap<>();
-        deviceTypesOutput.put("title", "Device Classification");
-        deviceTypesOutput.put("name", "deviceTypes");
-        deviceTypesOutput.put("type", "chips");
-        deviceTypesOutput.put("items", "[" +
-                "isMobile ? 'Mobile' : null, " +
-                "isTablet ? 'Tablet' : null, " +
-                "isDesktop ? 'Desktop' : null, " +
-                "isBot ? 'Bot/Crawler' : null" +
-                "].filter(Boolean)");
-        deviceTypesOutput.put("colors", "[" +
-                "isMobile ? 'primary' : null, " +
-                "isTablet ? 'primary' : null, " +
-                "isDesktop ? 'primary' : null, " +
-                "isBot ? 'warning' : null" +
-                "].filter(Boolean)");
-        section4OutputFields.add(deviceTypesOutput);
-
-        // Device category
-        Map<String, Object> deviceCategoryOutput = new HashMap<>();
-        deviceCategoryOutput.put("title", "Device Category");
-        deviceCategoryOutput.put("name", "deviceCategory");
-        deviceCategoryOutput.put("type", "text");
-        section4OutputFields.add(deviceCategoryOutput);
-
-        outputSection4.put("fields", section4OutputFields);
-        uiOutputs.add(outputSection4);
-
-        // Output Section 5: Raw User Agent
-        Map<String, Object> outputSection5 = new HashMap<>();
-        outputSection5.put("header", "Raw User Agent String");
-        outputSection5.put("condition", "success");
-        List<Map<String, Object>> section5OutputFields = new ArrayList<>();
-
-        // Raw user agent
-        Map<String, Object> rawUaOutput = new HashMap<>();
-        rawUaOutput.put("name", "userAgent");
-        rawUaOutput.put("type", "text");
+        // Raw UA Echo
+        Map<String, Object> rawUaOutput = createOutputField("rawUserAgent", "Full User Agent", "text", null);
         rawUaOutput.put("multiline", true);
-        rawUaOutput.put("monospace", true);
+        rawUaOutput.put("rows", 2);
         rawUaOutput.put("buttons", List.of("copy"));
-        section5OutputFields.add(rawUaOutput);
+        resultOutputs.add(rawUaOutput);
 
-        outputSection5.put("fields", section5OutputFields);
-        uiOutputs.add(outputSection5);
 
-        // Output Section 6: Error Display
-        Map<String, Object> outputSection6 = new HashMap<>();
-        outputSection6.put("header", "Error Information");
-        outputSection6.put("condition", "error");
-        List<Map<String, Object>> section6OutputFields = new ArrayList<>();
+        resultsSection.put("outputs", resultOutputs);
+        sections.add(resultsSection);
 
-        // Error message
-        Map<String, Object> errorOutput = new HashMap<>();
-        errorOutput.put("title", "Error Message");
-        errorOutput.put("name", "error");
-        errorOutput.put("type", "text");
-        errorOutput.put("style", "error");
-        section6OutputFields.add(errorOutput);
 
-        outputSection6.put("fields", section6OutputFields);
-        uiOutputs.add(outputSection6);
+        // --- Section 3: Error Display ---
+        Map<String, Object> errorSection = new HashMap<>();
+        errorSection.put("id", "errorDisplay");
+        errorSection.put("label", "Error");
+        errorSection.put("condition", "success === false"); // Show only on failure
 
-        uiConfig.put("outputs", uiOutputs);
+        List<Map<String, Object>> errorOutputs = new ArrayList<>();
+        errorOutputs.add(createOutputField("errorMessage", "Details", "text", null)); // style handled by helper
+        errorSection.put("outputs", errorOutputs);
+        sections.add(errorSection);
 
-        // Add the structured uiConfig to the main metadata map
-        metadata.put("uiConfig", uiConfig);
 
+        metadata.put("sections", sections);
         return metadata;
     }
 
-    @Override
-    public Map<String, Object> process(Map<String, Object> input) {
-        Map<String, Object> result = new HashMap<>();
-
-        try {
-            String operation = (String) input.getOrDefault("operation", "parse");
-
-            if ("parse".equalsIgnoreCase(operation)) {
-                String userAgent = (String) input.get("userAgent");
-
-                if (userAgent == null || userAgent.trim().isEmpty()) {
-                    result.put("error", "User agent string cannot be empty");
-                    return result;
-                }
-
-                return parseUserAgent(userAgent);
-            } else {
-                result.put("error", "Unsupported operation: " + operation);
-                return result;
-            }
-        } catch (Exception e) {
-            result.put("error", "Error processing request: " + e.getMessage());
-            e.printStackTrace();
+    // Helper to create output field definitions
+    private Map<String, Object> createOutputField(String id, String label, String type, String condition) {
+        Map<String, Object> field = new HashMap<>();
+        field.put("id", id);
+        if (label != null && !label.isEmpty()) {
+            field.put("label", label);
         }
-
-        return result;
+        field.put("type", type);
+        if (condition != null && !condition.isEmpty()) {
+            field.put("condition", condition);
+        }
+        if (id.toLowerCase().contains("error")) {
+            field.put("style", "error");
+        }
+        if ("text".equals(type) && (id.toLowerCase().contains("version") || id.toLowerCase().contains("agent"))) {
+            field.put("monospace", true);
+        }
+        return field;
     }
 
     /**
-     * Parse a user agent string and extract detailed information
-     *
-     * @param userAgentString The user agent string to parse
-     * @return Parsed user agent data
+     * Processes the input User Agent string (using IDs from the new format).
+     */
+    @Override
+    public Map<String, Object> process(Map<String, Object> input) {
+        String errorOutputId = "errorMessage";
+        try {
+            String userAgentInput = getStringParam(input); // Use new ID
+
+            // Perform analysis (handle empty string inside)
+            return parseUserAgent(userAgentInput);
+
+        } catch (IllegalArgumentException e) {
+            return Map.of("success", false, errorOutputId, e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Error processing UA parse request: " + e.getMessage());
+            e.printStackTrace();
+            return Map.of("success", false, errorOutputId, "Unexpected error during parsing.");
+        }
+    }
+
+    // ========================================================================
+    // Private Parsing Methods
+    // ========================================================================
+
+    /**
+     * Parse a user agent string and extract detailed information.
+     * Returns results keyed by the NEW output field IDs.
      */
     private Map<String, Object> parseUserAgent(String userAgentString) {
-        Map<String, Object> result = new HashMap<>();
+        Map<String, Object> result = new LinkedHashMap<>(); // Preserve order
+        String errorOutputId = "errorMessage";
+
+        if (userAgentString == null || userAgentString.trim().isEmpty()) {
+            result.put("success", true);
+            result.put("isEmpty", true);
+            // Provide default/empty values for output fields
+            result.put("browserName", "N/A");
+            result.put("browserVersion", "");
+            result.put("browserType", "N/A");
+            result.put("browserFamily", "N/A");
+            result.put("browserProducer", "N/A");
+            result.put("engineName", "N/A");
+            result.put("engineVersion", "");
+            result.put("osName", "N/A");
+            result.put("osVersion", "");
+            result.put("osFamily", "N/A");
+            result.put("osProducer", "N/A");
+            result.put("deviceType", "N/A");
+            result.put("deviceCategory", "N/A");
+            result.put("cpuArchitecture", "N/A");
+            result.put("isMobile", false);
+            result.put("isTablet", false);
+            result.put("isDesktop", false);
+            result.put("isBot", false);
+            result.put("rawUserAgent", "");
+            return result;
+        }
 
         try {
-            // First use the UADetector library to get basic information
-            ReadableUserAgent userAgent = parser.parse(userAgentString);
+            // --- Parse using UADetector ---
+            ReadableUserAgent ua = parser.parse(userAgentString);
 
-            // Get browser information
-            String browserName = userAgent.getName();
-            String browserType = userAgent.getType().getName();
-            VersionNumber browserVersion = userAgent.getVersionNumber();
-            String browserVersionStr = formatVersion(browserVersion);
+            // --- Basic Info from Library ---
+            String libBrowserName = ua.getName();
+            String libBrowserType = ua.getTypeName(); // Use descriptive name
+            String libBrowserFamily = ua.getFamily().getName();
+            String libBrowserProducer = ua.getProducer();
+            OperatingSystem os = ua.getOperatingSystem(); // Get OS object
+            String libOsName = os.getName();
+            String libOsFamily = os.getFamilyName();
+            String libOsProducer = os.getProducer();
+            DeviceCategory deviceCat = (DeviceCategory) ua.getDeviceCategory(); // Get DeviceCategory object
+            String libDeviceCategory = deviceCat.getName();
 
-            // Enhanced browser detection using regular expressions for specific browser details
-            // This gives more accurate results for modern browsers
-            String detectedBrowserName = null;
-            String detectedBrowserVersion = null;
+            // --- Refine Browser Info with Regex ---
+            String refinedBrowserName = libBrowserName;
+            String refinedBrowserVersion = formatVersion(ua.getVersionNumber());
 
-            // Check if it's Edge
-            Matcher edgeMatcher = EDGE_VERSION.matcher(userAgentString);
-            if (edgeMatcher.find()) {
-                detectedBrowserName = "Edge";
-                detectedBrowserVersion = edgeMatcher.group(1);
+            Matcher edgeMatcher = EDGE_VERSION_PATTERN.matcher(userAgentString);
+            Matcher chromeMatcher = CHROME_VERSION_PATTERN.matcher(userAgentString);
+            Matcher firefoxMatcher = FIREFOX_VERSION_PATTERN.matcher(userAgentString);
+            Matcher safariMatcher = SAFARI_VERSION_PATTERN.matcher(userAgentString);
+            Matcher operaMatcher = OPERA_VERSION_PATTERN.matcher(userAgentString);
+            Matcher samsungMatcher = SAMSUNG_VERSION_PATTERN.matcher(userAgentString);
+            Matcher ieMatcher = IE_VERSION_PATTERN.matcher(userAgentString);
+
+            if (edgeMatcher.find()) { refinedBrowserName = "Edge"; refinedBrowserVersion = edgeMatcher.group(1); }
+            else if (chromeMatcher.find()) { refinedBrowserName = "Chrome"; refinedBrowserVersion = chromeMatcher.group(1); }
+            else if (firefoxMatcher.find()) { refinedBrowserName = "Firefox"; refinedBrowserVersion = firefoxMatcher.group(1); }
+            else if (safariMatcher.find() && userAgentString.contains("Safari/") && !userAgentString.contains("Chrome/") && !userAgentString.contains("CriOS/") && !userAgentString.contains("Edg")) {
+                refinedBrowserName = "Safari"; refinedBrowserVersion = safariMatcher.group(1);
             }
-            // Chrome (but not Edge which also includes Chrome in UA)
-            else if (userAgentString.contains("Chrome/") && !userAgentString.contains("Edg")) {
-                Matcher chromeMatcher = CHROME_VERSION.matcher(userAgentString);
-                if (chromeMatcher.find()) {
-                    detectedBrowserName = "Chrome";
-                    detectedBrowserVersion = chromeMatcher.group(1);
-                }
+            else if (operaMatcher.find()) { refinedBrowserName = "Opera"; refinedBrowserVersion = operaMatcher.group(1); }
+            else if (samsungMatcher.find()) { refinedBrowserName = "Samsung Browser"; refinedBrowserVersion = samsungMatcher.group(1); }
+            else if (ieMatcher.find()) { refinedBrowserName = "Internet Explorer"; refinedBrowserVersion = ieMatcher.group(1) != null ? ieMatcher.group(1) : ieMatcher.group(2); }
+
+            // --- Refine OS Version ---
+            String refinedOsVersion = formatVersion(os.getVersionNumber()); // Use formatted version from library
+            // Add specific OS overrides if needed, like for Windows
+            if (libOsName.startsWith("Windows")) {
+                if (userAgentString.contains("Windows NT 10.0")) refinedOsVersion = "10 / 11";
+                else if (userAgentString.contains("Windows NT 6.3")) refinedOsVersion = "8.1";
+                else if (userAgentString.contains("Windows NT 6.2")) refinedOsVersion = "8";
+                else if (userAgentString.contains("Windows NT 6.1")) refinedOsVersion = "7";
+                else if (userAgentString.contains("Windows NT 6.0")) refinedOsVersion = "Vista";
+                else if (userAgentString.contains("Windows NT 5.1")) refinedOsVersion = "XP";
+                // Add others as necessary
             }
-            // Firefox
-            else if (userAgentString.contains("Firefox/")) {
-                Matcher firefoxMatcher = FIREFOX_VERSION.matcher(userAgentString);
-                if (firefoxMatcher.find()) {
-                    detectedBrowserName = "Firefox";
-                    detectedBrowserVersion = firefoxMatcher.group(1);
-                }
-            }
-            // Safari (but not Chrome or Edge which also include Safari in UA)
-            else if (userAgentString.contains("Safari/") &&
-                    !userAgentString.contains("Chrome/") &&
-                    !userAgentString.contains("Edg")) {
-                detectedBrowserName = "Safari";
-                Matcher safariMatcher = SAFARI_VERSION.matcher(userAgentString);
-                if (safariMatcher.find()) {
-                    // Safari's version in the UA string isn't its actual version
-                    // We would need additional parsing for accurate Safari versions
-                    detectedBrowserVersion = safariMatcher.group(1);
-                }
-            }
-            // IE
-            else if (userAgentString.contains("MSIE") || userAgentString.contains("Trident/")) {
-                detectedBrowserName = "Internet Explorer";
-                Matcher ieMatcher = IE_VERSION.matcher(userAgentString);
-                if (ieMatcher.find()) {
-                    detectedBrowserVersion = ieMatcher.group(1) != null ? ieMatcher.group(1) : ieMatcher.group(2);
-                }
-            }
+            // Add refinements for macOS, Android, iOS if libphonenumber version is too generic
 
-            // If we detected a browser manually, use that info
-            if (detectedBrowserName != null) {
-                browserName = detectedBrowserName;
-                browserVersionStr = detectedBrowserVersion;
-            }
-
-            // Get operating system information
-            String osName = userAgent.getOperatingSystem().getName();
-            String osVersion = userAgent.getOperatingSystem().getVersionNumber().toVersionString();
-
-            // Get device information (if available)
-            String deviceCategory = userAgent.getDeviceCategory().getName();
-            String deviceType = "No device type available";
-            String deviceModel = "No device model available";
-            String deviceVendor = "No device vendor available";
-
-            // Determine if mobile
-            boolean isMobile = browserType.contains("MOBILE") || deviceCategory.contains("SMARTPHONE") ||
-                    deviceCategory.contains("TABLET") || userAgentString.contains("Mobile");
-
-            // Determine if tablet
-            boolean isTablet = deviceCategory.contains("TABLET");
-
-            // Infer more device details from user agent if possible
-            if (userAgentString.contains("iPhone")) {
-                deviceType = "Smartphone";
-                deviceModel = "iPhone";
-                deviceVendor = "Apple";
-            } else if (userAgentString.contains("iPad")) {
-                deviceType = "Tablet";
-                deviceModel = "iPad";
-                deviceVendor = "Apple";
-            } else if (userAgentString.contains("Android")) {
-                deviceVendor = "Unknown Android";
-
-                if (isTablet) {
-                    deviceType = "Tablet";
-                } else if (isMobile) {
-                    deviceType = "Smartphone";
-                } else {
-                    deviceType = "Device";
-                }
-
-                // Try to extract Android device model
-                Pattern androidModel = Pattern.compile("; ([^;]+) Build/");
-                Matcher androidModelMatcher = androidModel.matcher(userAgentString);
-                if (androidModelMatcher.find()) {
-                    deviceModel = androidModelMatcher.group(1);
-                }
-            } else if (!isMobile) {
-                deviceType = "Desktop/Laptop";
-            }
-
-            // Determine browser engine and version
-            String engineName = determineEngine(browserName, userAgentString);
+            // --- Determine Engine ---
+            String engineName = determineEngine(refinedBrowserName, libBrowserFamily, userAgentString);
             String engineVersion = determineEngineVersion(engineName, userAgentString);
 
-            // Get CPU architecture information
-            String cpuArchitecture = "Unknown";
-            if (userAgentString.contains("x64") || userAgentString.contains("x86_64") ||
-                    userAgentString.contains("Win64") || userAgentString.contains("amd64")) {
-                cpuArchitecture = "amd64";
-            } else if (userAgentString.contains("x86") || userAgentString.contains("i686") ||
-                    userAgentString.contains("i586") || userAgentString.contains("i386")) {
-                cpuArchitecture = "x86";
-            } else if (userAgentString.contains("arm") || userAgentString.contains("ARM")) {
-                if (userAgentString.contains("arm64") || userAgentString.contains("aarch64")) {
-                    cpuArchitecture = "arm64";
-                } else {
-                    cpuArchitecture = "arm";
-                }
-            }
+            // --- Device Info ---
+            String deviceType = formatDeviceCategoryName(libDeviceCategory); // Format the category name
 
-            // Build the result
+            boolean isMobile = deviceType.equals("Smartphone") || deviceType.equals("Tablet") || ua.getType() == UserAgentType.MOBILE_BROWSER;
+            boolean isTablet = deviceType.equals("Tablet");
+            boolean isDesktop = !isMobile && ua.getType() != UserAgentType.ROBOT;
+            boolean isBot = ua.getType() == UserAgentType.ROBOT;
+
+            // --- CPU Architecture ---
+            String cpuArchitecture = "Unknown"; // Determine based on common UA string patterns
+            String uaLower = userAgentString.toLowerCase();
+            if (uaLower.contains("x64") || uaLower.contains("win64") || uaLower.contains("amd64") || uaLower.contains("x86_64")) cpuArchitecture = "x86-64";
+            else if (uaLower.contains("x86") || uaLower.contains("i686") || uaLower.contains("wow64")) cpuArchitecture = "x86 (32-bit)";
+            else if (uaLower.contains("arm64") || uaLower.contains("aarch64")) cpuArchitecture = "ARM64";
+            else if (uaLower.contains("arm")) cpuArchitecture = "ARM (32-bit)";
+
+
+            // --- Build Result Map (matching NEW output IDs) ---
             result.put("success", true);
-            result.put("userAgent", userAgentString);
+            result.put("isEmpty", false);
 
-            // Browser information
-            result.put("browserName", browserName);
-            result.put("browserVersion", browserVersionStr);
-            result.put("browserType", browserType);
-            result.put("browserFamily", userAgent.getFamily().getName());
-            result.put("browserProducer", userAgent.getProducer());
+            result.put("browserName", refinedBrowserName);
+            result.put("browserVersion", refinedBrowserVersion);
+            result.put("browserType", libBrowserType);
+            result.put("browserFamily", libBrowserFamily);
+            result.put("browserProducer", libBrowserProducer);
 
-            // OS information
-            result.put("osName", osName);
-            result.put("osVersion", osVersion);
-            result.put("osFamily", userAgent.getOperatingSystem().getFamily());
-            result.put("osProducer", userAgent.getOperatingSystem().getProducer());
-
-            // Engine information
             result.put("engineName", engineName);
             result.put("engineVersion", engineVersion);
 
-            // Device information
-            result.put("deviceType", deviceType);
-            result.put("deviceModel", deviceModel);
-            result.put("deviceVendor", deviceVendor);
-            result.put("deviceCategory", deviceCategory);
+            result.put("osName", libOsName);
+            result.put("osVersion", refinedOsVersion);
+            result.put("osFamily", libOsFamily);
+            result.put("osProducer", libOsProducer);
 
-            // CPU information
+            result.put("deviceType", deviceType);
+            result.put("deviceCategory", libDeviceCategory); // Raw category name might be useful too
+            // Removed less reliable deviceModel/Vendor fields from output map
             result.put("cpuArchitecture", cpuArchitecture);
 
-            // Other flags
+            // Boolean capabilities matching output IDs
             result.put("isMobile", isMobile);
             result.put("isTablet", isTablet);
-            result.put("isDesktop", !isMobile && !isTablet);
-            result.put("isBot", userAgent.getType().getName().equals("ROBOT"));
+            result.put("isDesktop", isDesktop);
+            result.put("isBot", isBot);
+
+            result.put("rawUserAgent", userAgentString);
 
         } catch (Exception e) {
-            result.put("error", "Error parsing user agent: " + e.getMessage());
-            result.put("success", false);
+            System.err.println("Error parsing user agent string: '" + userAgentString + "' - " + e.getMessage());
             e.printStackTrace();
+            result.put("success", false);
+            result.put(errorOutputId, "Failed to parse User Agent: " + e.getMessage());
         }
-
         return result;
     }
 
-    /**
-     * Format a version number to a string
-     *
-     * @param version VersionNumber object
-     * @return Formatted version string
-     */
+    // --- Helper Methods ---
+
+    /** Formats UADetector VersionNumber */
     private String formatVersion(VersionNumber version) {
-        if (version == null) {
-            return "Unknown";
-        }
+        // Use the library's recommended formatting method
+        return version == null ? "" : version.toVersionString();
+    }
 
+    /** Determines rendering engine */
+    private String determineEngine(String browserName, String browserFamily, String userAgentString) {
+        // This logic remains largely the same, prioritizing known families/names
+        if (browserFamily.contains("Chrome") || browserFamily.contains("Chromium") ||
+                browserName.equals("Edge") || browserName.equals("Opera") || browserName.equals("Samsung Browser") || browserName.contains("Vivaldi") ) {
+            // Check specifically for older Opera Presto engine
+            if (userAgentString.contains("Presto/")) return "Presto";
+            return "Blink";
+        }
+        if (browserFamily.contains("Firefox")) return "Gecko";
+        if (browserFamily.contains("Safari") || browserName.equals("Safari") || browserName.equals("Mobile Safari")) return "WebKit";
+        if (browserFamily.contains("IE") || browserName.contains("Internet Explorer")) return "Trident";
+        // Fallbacks based on string patterns
+        if (userAgentString.contains("AppleWebKit/")) return "WebKit";
+        if (userAgentString.contains("Gecko/")) return "Gecko";
+        if (userAgentString.contains("Trident/")) return "Trident";
+        if (userAgentString.contains("Presto/")) return "Presto";
+        return "Unknown";
+    }
+
+    /** Determines engine version using regex */
+    private String determineEngineVersion(String engineName, String userAgentString) {
+        Matcher matcher = switch (engineName) {
+            case "Blink" -> WEBKIT_VERSION_PATTERN.matcher(userAgentString); // Blink version often tracks WebKit closely
+            case "WebKit" -> WEBKIT_VERSION_PATTERN.matcher(userAgentString);
+            case "Gecko" -> GECKO_VERSION_PATTERN.matcher(userAgentString);
+            case "Trident" -> TRIDENT_VERSION_PATTERN.matcher(userAgentString);
+            // Add Presto version regex if needed: Pattern.compile("Presto/([\\d.]+)");
+            default -> null;
+        };
+        return (matcher != null && matcher.find()) ? matcher.group(1) : ""; // Return empty string if unknown
+    }
+
+    /** Formats device category string for better display */
+    private String formatDeviceCategoryName(String category) {
+        if (category == null || category.isEmpty() || category.equalsIgnoreCase("Unknown")) return "Unknown";
+        // Use Matcher to capitalize first letter of each word correctly
+        Pattern wordStartPattern = Pattern.compile("\\b\\w");
+        Matcher matcher = wordStartPattern.matcher(category.replace('_', ' ').toLowerCase()); // Replace underscore, lowercase first
         StringBuilder sb = new StringBuilder();
-
-        version.getMajor();
-        sb.append(version.getMajor());
-
-        version.getMinor();
-        sb.append(".").append(version.getMinor());
-
-        version.getBugfix();
-        sb.append(".").append(version.getBugfix());
-
-        if (!version.getExtension().isEmpty()) {
-            sb.append(".").append(version.getExtension());
+        while (matcher.find()) {
+            matcher.appendReplacement(sb, matcher.group().toUpperCase());
         }
-
+        matcher.appendTail(sb);
         return sb.toString();
     }
 
-    /**
-     * Determine the rendering engine based on browser name and user agent string
-     *
-     * @param browserName Browser name
-     * @param userAgentString User agent string
-     * @return Browser engine name
-     */
-    private String determineEngine(String browserName, String userAgentString) {
-        // Use the mapping first
-        String engineFromMapping = BROWSER_TO_ENGINE.get(browserName.toUpperCase());
-        if (engineFromMapping != null) {
-            return engineFromMapping;
+    // Null default indicates required (or empty string allowed if defaultValue="")
+    private String getStringParam(Map<String, Object> input) throws IllegalArgumentException {
+        Object value = input.get("userAgentInput");
+        if (value == null) {
+            return "";
         }
-
-        // Fallback to parsing the user agent string
-        if (userAgentString.contains("Gecko/") && userAgentString.contains("Firefox/")) {
-            return "Gecko";
-        } else if (userAgentString.contains("AppleWebKit/") && userAgentString.contains("Chrome/")) {
-            return "Blink";
-        } else if (userAgentString.contains("AppleWebKit/")) {
-            return "WebKit";
-        } else if (userAgentString.contains("Trident/") || userAgentString.contains("MSIE")) {
-            return "Trident";
-        } else if (userAgentString.contains("Presto/")) {
-            return "Presto";
-        }
-
-        return "Unknown";
-    }
-
-    /**
-     * Determine the engine version based on engine name and user agent string
-     *
-     * @param engineName Engine name
-     * @param userAgentString User agent string
-     * @return Engine version
-     */
-    private String determineEngineVersion(String engineName, String userAgentString) {
-        switch (engineName) {
-            case "Blink":
-                // Blink uses the same version as Chrome
-                Matcher chromeMatcher = CHROME_VERSION.matcher(userAgentString);
-                if (chromeMatcher.find()) {
-                    return chromeMatcher.group(1);
-                }
-                break;
-            case "WebKit":
-                Matcher webkitMatcher = WEBKIT_VERSION.matcher(userAgentString);
-                if (webkitMatcher.find()) {
-                    return webkitMatcher.group(1);
-                }
-                break;
-            case "Gecko":
-                Matcher geckoMatcher = GECKO_VERSION.matcher(userAgentString);
-                if (geckoMatcher.find()) {
-                    return geckoMatcher.group(1);
-                }
-                // Modern Firefox doesn't include meaningful Gecko version numbers
-                Matcher firefoxMatcher = FIREFOX_VERSION.matcher(userAgentString);
-                if (firefoxMatcher.find()) {
-                    return firefoxMatcher.group(1);
-                }
-                break;
-            case "Trident":
-                Matcher ieMatcher = Pattern.compile("Trident/([0-9.]+)").matcher(userAgentString);
-                if (ieMatcher.find()) {
-                    return ieMatcher.group(1);
-                }
-                break;
-        }
-
-        return "Unknown";
+        // Don't trim UA string
+        // Only throw if required and empty, except for userAgentInput which can be empty initially
+        return value.toString();
     }
 }
