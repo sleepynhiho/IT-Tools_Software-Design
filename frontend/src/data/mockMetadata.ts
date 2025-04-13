@@ -12,7 +12,7 @@ const fetchFromBackend = async (
 ): Promise<any> => {
   try {
     const response = await fetch(
-      `http://localhost:8081/api/debug/${toolId}/process`,
+      `http://192.168.192.2:8081/api/debug/${toolId}/process`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

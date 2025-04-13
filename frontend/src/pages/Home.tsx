@@ -1,10 +1,13 @@
-import { Box, Container, Grid, Typography } from "@mui/material";
-import { mockMetadata } from "../data/mockMetadata";
+import { Box, Container, Grid, Typography } from "@mui/material"; 
 import ToolCard from "../components/ToolCard";
 import { useFavoriteTools } from "../context/FavoriteToolsContext";
+import { useAllPluginMetadata } from "../data/pluginList"; 
 
 const Home = () => {
   const { favoriteTools, toggleFavorite } = useFavoriteTools();
+  const { metadataList = [], loading } = useAllPluginMetadata(); 
+
+  console.log("Home", { favoriteTools, metadataList, loading });
 
   return (
     <Box
@@ -26,19 +29,20 @@ const Home = () => {
             justifyContent: "center",
           }}
         >
+          {/* Favorite Tools Section */}
           {favoriteTools.length > 0 && (
-            <Typography sx={{ mb: 1 }} variant="h4" component="h1">
-              <span
-                style={{
-                  fontSize: "1rem",
-                  fontWeight: "bold",
-                  color: "#a3a3a3",
-                }}
-              >
-                Your favorite tools
-              </span>
-            </Typography>
-          )}
+            <>
+              <Typography sx={{ mb: 1 }} variant="h4" component="h1">
+                <span
+                  style={{
+                    fontSize: "1rem",
+                    fontWeight: "bold",
+                    color: "#a3a3a3",
+                  }}
+                >
+                  Your favorite tools
+                </span>
+              </Typography>
 
           {/* Display the favorite tools */}
           <Grid container spacing={3} justifyContent="flex-start">
@@ -48,8 +52,11 @@ const Home = () => {
               </Grid>
             ))}
           </Grid>
+            </>
+          )}
 
-          <Typography sx={{ mb: 1, mt: 1 }} variant="h4" component="h1">
+          {/* All Tools Section */}
+          <Typography sx={{ mb: 1, mt: 3 }} variant="h4" component="h1">
             <span
               style={{ fontSize: "1rem", fontWeight: "bold", color: "#a3a3a3" }}
             >
@@ -57,14 +64,17 @@ const Home = () => {
             </span>
           </Typography>
 
-          {/* Display all tools */}
-          <Grid container spacing={3} justifyContent="flex-start">
-            {mockMetadata.map((tool) => (
-              <Grid item xs={12} sm={6} md={4} lg={2.4} key={tool.id}>
-                <ToolCard tool={tool} onFavoriteToggle={toggleFavorite} />
-              </Grid>
-            ))}
-          </Grid>
+          {loading ? (
+            <Typography>Loading tools...</Typography>
+          ) : (
+            <Grid container spacing={3} justifyContent="flex-start">
+              {metadataList.map((tool) => (
+                <Grid item xs={12} sm={6} md={4} lg={2.4} key={tool.id}>
+                  <ToolCard tool={tool} onFavoriteToggle={toggleFavorite} />
+                </Grid>
+              ))}
+            </Grid>
+          )}
         </Box>
       </Container>
     </Box>
