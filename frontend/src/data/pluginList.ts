@@ -4,9 +4,9 @@ import { fallbackMetadata } from "./fallbackMetadata"; // Import the fallback da
 // Configuration constants
 const USE_FALLBACK_METADATA = false; // Set to true to always use fallback data
 const BATCH_SIZE = 4; // Number of plugins to load in parallel
-const BATCH_DELAY = 200; // Delay between batches in milliseconds
-const MAX_RETRIES = 2; // Maximum number of retries for failed requests
-const RETRY_DELAY = 50; // Delay between retries in milliseconds
+const BATCH_DELAY = 100; // Delay between batches in milliseconds
+const MAX_RETRIES = 3; // Maximum number of retries for failed requests
+const RETRY_DELAY = 300; // Delay between retries in milliseconds
 
 // --- Interfaces (with proper exports) ---
 export interface PluginMetadata {

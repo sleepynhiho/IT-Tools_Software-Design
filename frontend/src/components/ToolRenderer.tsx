@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import debounce from 'lodash.debounce'; // Ensure installed: npm install lodash.debounce @types/lodash.debounce
+import CustomPluginUIs, { CustomPluginUIProps } from './plugins/CustomPluginUIs';
 
 // MUI Imports
 import {
@@ -306,6 +307,32 @@ const ToolRenderer: React.FC = () => {
         }
     }, [formData, metadata, processRequest]);
 
+    // Function to render custom UI components for plugins with customUI=true
+    const renderCustomUI = useCallback(() => {
+        if (!metadata?.customUI || !metadata.id) return null;
+        
+        const CustomUIComponent = CustomPluginUIs[metadata.id];
+        
+        if (CustomUIComponent) {
+            return (
+                <CustomUIComponent 
+                    plugin={metadata}
+                    inputValues={formData}
+                    setInputValues={setFormData}
+                    onSubmit={handleExecute}
+                    outputValues={resultData || {}}
+                    loading={isProcessing}
+                />
+            );
+        }
+        
+        // If customUI is true but component not found
+        return (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+                This tool requires a custom UI component that is not available.
+            </Alert>
+        );
+    }, [metadata, formData, setFormData, handleExecute, resultData, isProcessing]);
 
     // --- Render Logic ---
 
@@ -346,72 +373,78 @@ const ToolRenderer: React.FC = () => {
                 </Alert>
             )}
 
-            <Grid container spacing={3}>
-                {/* Render Sections */}
-                {metadata.sections?.filter(section => evaluateCondition(section.condition)).map((section: Section, index: number) => (
-                    <Grid item xs={12} key={`${metadata.id}-${section.id}-${index}`}> {/* More specific key */}
+            {/* Render either custom UI or standard UI based on metadata */}
+            {metadata.customUI ? (
+                renderCustomUI()
+            ) : (
+                <>
+                    <Grid container spacing={3}>
+                        {/* Render Sections */}
+                        {metadata.sections?.filter(section => evaluateCondition(section.condition)).map((section: Section, index: number) => (
+                            <Grid item xs={12} key={`${metadata.id}-${section.id}-${index}`}> {/* More specific key */}
 
-                        {/* Render Inputs for this section */}
-                        {section.inputs && section.inputs.filter(field => evaluateCondition(field.condition, formData, resultData)).length > 0 && (
-                             <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }} elevation={2}>
-                                 {section.label && ( <Typography variant="h6" sx={{ mb: 2.5, borderBottom: 1, borderColor: 'divider', pb: 1 }}>{section.label}</Typography> )}
-                                 <Grid container spacing={2.5}>
-                                      {section.inputs.filter(field => evaluateCondition(field.condition, formData, resultData)).map((field: InputField) => (
-                                           // Use MUI Grid v2 props directly on Grid component
-                                           <Grid xs={12} sm={(field.type === 'switch' || field.type === 'color' || field.type === 'slider') ? 6 : 12} md={(field.type === 'color' || field.type === 'switch') ? 4 : (field.type === 'slider' ? 8 : 12)} key={field.id}>
-                                               <RenderInput
-                                                    field={field}
-                                                    value={formData[field.id]}
-                                                    onChange={(value) => handleInputChange(field.id, value)}
-                                                    disabled={isProcessing}
-                                                    error={formErrors[field.id]}
-                                                />
-                                           </Grid>
-                                      ))}
-                                 </Grid>
-                             </Paper>
-                         )}
+                                {/* Render Inputs for this section */}
+                                {section.inputs && section.inputs.filter(field => evaluateCondition(field.condition, formData, resultData)).length > 0 && (
+                                     <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }} elevation={2}>
+                                         {section.label && ( <Typography variant="h6" sx={{ mb: 2.5, borderBottom: 1, borderColor: 'divider', pb: 1 }}>{section.label}</Typography> )}
+                                         <Grid container spacing={2.5}>
+                                              {section.inputs.filter(field => evaluateCondition(field.condition, formData, resultData)).map((field: InputField) => (
+                                                   // Use MUI Grid v2 props directly on Grid component
+                                                   <Grid xs={12} sm={(field.type === 'switch' || field.type === 'color' || field.type === 'slider') ? 6 : 12} md={(field.type === 'color' || field.type === 'switch') ? 4 : (field.type === 'slider' ? 8 : 12)} key={field.id}>
+                                                       <RenderInput
+                                                            field={field}
+                                                            value={formData[field.id]}
+                                                            onChange={(value) => handleInputChange(field.id, value)}
+                                                            disabled={isProcessing}
+                                                            error={formErrors[field.id]}
+                                                        />
+                                                   </Grid>
+                                              ))}
+                                         </Grid>
+                                     </Paper>
+                                 )}
 
-                        {/* Render Outputs for this section */}
-                        {section.outputs && section.outputs.filter(field => evaluateCondition(field.condition, formData, resultData)).length > 0 && evaluateCondition(section.condition, formData, resultData) && (
-                            // Render Paper only if there are results, or if processing, or if it's the designated error section
-                            (resultData || isProcessing || section.id === 'errorDisplay') && (
-                                <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }} elevation={2}>
-                                    {section.label && ( <Typography variant="h6" sx={{ mb: 2.5, borderBottom: 1, borderColor: 'divider', pb: 1 }}>{section.label}</Typography> )}
-                                    {/* Map through outputs only if processing is NOT happening OR if it IS error section */}
-                                    {(resultData || section.id === 'errorDisplay') && section.outputs.filter(field => evaluateCondition(field.condition, formData, resultData)).map((output: OutputField) => {
-                                        const outputValue = resultData?.[output.id];
-                                        const isErrorField = output.id === errorOutputFieldId;
-                                        // Determine if this specific output should be rendered
-                                        const shouldRender =
-                                            (resultData?.success === false && isErrorField && outputValue !== undefined && outputValue !== null) || // Show error field if error state and value exists
-                                            (resultData?.success === true && outputValue !== undefined && outputValue !== null); // Show normal field if success state and value exists
+                                {/* Render Outputs for this section */}
+                                {section.outputs && section.outputs.filter(field => evaluateCondition(field.condition, formData, resultData)).length > 0 && evaluateCondition(section.condition, formData, resultData) && (
+                                    // Render Paper only if there are results, or if processing, or if it's the designated error section
+                                    (resultData || isProcessing || section.id === 'errorDisplay') && (
+                                        <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }} elevation={2}>
+                                            {section.label && ( <Typography variant="h6" sx={{ mb: 2.5, borderBottom: 1, borderColor: 'divider', pb: 1 }}>{section.label}</Typography> )}
+                                            {/* Map through outputs only if processing is NOT happening OR if it IS error section */}
+                                            {(resultData || section.id === 'errorDisplay') && section.outputs.filter(field => evaluateCondition(field.condition, formData, resultData)).map((output: OutputField) => {
+                                                const outputValue = resultData?.[output.id];
+                                                const isErrorField = output.id === errorOutputFieldId;
+                                                // Determine if this specific output should be rendered
+                                                const shouldRender =
+                                                    (resultData?.success === false && isErrorField && outputValue !== undefined && outputValue !== null) || // Show error field if error state and value exists
+                                                    (resultData?.success === true && outputValue !== undefined && outputValue !== null); // Show normal field if success state and value exists
 
-                                        if (shouldRender) {
-                                            return ( <Box key={output.id} sx={{ mb: 2 }}> {RenderOutput({ output: output, value: outputValue, resultData: resultData, onRefresh: handleExecute, disabled: isProcessing })} </Box> );
-                                        }
-                                        return null; // Don't render output if condition not met or value missing
-                                    })}
-                                    {/* Show loading indicator within the output section (but not in error section) */}
-                                    {isProcessing && section.id !== 'errorDisplay' && (
-                                        <Box sx={{ display: 'flex', alignItems: 'center', pt: 1 }}>
-                                            <CircularProgress size={20} /> <Typography variant="body2" sx={{ ml: 1 }}>Processing...</Typography>
-                                        </Box>
-                                    )}
-                                </Paper>
-                            )
-                        )}
+                                                if (shouldRender) {
+                                                    return ( <Box key={output.id} sx={{ mb: 2 }}> {RenderOutput({ output: output, value: outputValue, resultData: resultData, onRefresh: handleExecute, disabled: isProcessing })} </Box> );
+                                                }
+                                                return null; // Don't render output if condition not met or value missing
+                                            })}
+                                            {/* Show loading indicator within the output section (but not in error section) */}
+                                            {isProcessing && section.id !== 'errorDisplay' && (
+                                                <Box sx={{ display: 'flex', alignItems: 'center', pt: 1 }}>
+                                                    <CircularProgress size={20} /> <Typography variant="body2" sx={{ ml: 1 }}>Processing...</Typography>
+                                                </Box>
+                                            )}
+                                        </Paper>
+                                    )
+                                )}
+                            </Grid>
+                        ))}
                     </Grid>
-                ))}
-            </Grid>
-
-           {/* Manual Process Button */}
-           <Button
-               variant="contained" color="primary" onClick={handleExecute} disabled={isProcessing || loadingMetadata} sx={{ mt: 1 }}
-               startIcon={isProcessing ? <CircularProgress size={20} color="inherit"/> : <RefreshIcon />} >
-               {isProcessing ? 'Processing...' : (metadata.triggerUpdateOnChange ? 'Regenerate Manually' : 'Process')}
-           </Button>
-
+                    
+                    {/* Manual Process Button - Only shown for standard UI */}
+                    <Button
+                        variant="contained" color="primary" onClick={handleExecute} disabled={isProcessing || loadingMetadata} sx={{ mt: 1 }}
+                        startIcon={isProcessing ? <CircularProgress size={20} color="inherit"/> : <RefreshIcon />} >
+                        {isProcessing ? 'Processing...' : (metadata.triggerUpdateOnChange ? 'Regenerate Manually' : 'Process')}
+                    </Button>
+                </>
+            )}
         </CommonLayout>
     );
 };
@@ -528,7 +561,24 @@ const RenderInput: React.FC<RenderInputProps> = ({ field, value, onChange, disab
                     </Box>
                 );
          case 'button':
-              return ( <Button variant="contained" size="small" onClick={() => alert(`Action '${field.action}' clicked (needs specific frontend logic)`)} disabled={disabled}>{field.label}</Button> );
+              return ( 
+                <Button 
+                    id={`button-${field.id}`} // Important ID for webcam actions
+                    variant="contained" 
+                    size="small" 
+                    color={field.color as "primary" | "secondary" | "error" | "info" | "success" | "warning" | undefined || "primary"}
+                    onClick={() => {
+                        if (field.action) {
+                            console.log(`Button clicked: ${field.action}`);
+                        } else {
+                            alert(`Action '${field.action}' clicked (needs specific frontend logic)`);
+                        }
+                    }}
+                    disabled={disabled}
+                >
+                    {field.label}
+                </Button> 
+              );
          case 'hidden': return null;
          case 'webcamPreview':
               return ( <Box sx={{ border: '1px dashed grey', minHeight: 200, display: 'flex', alignItems:'center', justifyContent:'center', bgcolor:'black'}}><Typography sx={{color: 'grey'}}>Webcam Preview Area (Requires Frontend JS)</Typography></Box> );
