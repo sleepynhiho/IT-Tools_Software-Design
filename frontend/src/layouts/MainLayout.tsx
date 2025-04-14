@@ -22,6 +22,7 @@ import { SearchIcon } from "lucide-react";
 import * as MuiIcons from "@mui/icons-material";
 import { useFavoriteTools } from "../context/FavoriteToolsContext";
 import { fetchPluginMetadata } from "../data/pluginMetadata";
+import { fallbackMetadata } from "../data/fallbackMetadata";
 
 const MainLayout = ({ children }: { children: React.ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -54,10 +55,10 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
             uiConfig: {
               // Map backend sections to your UI config format based on your needs
               inputs: plugin.sections
-                ?.filter(section => section.inputs && section.inputs.length > 0)
-                .map(section => ({
+                ?.filter((section: { inputs: string | any[]; }) => section.inputs && section.inputs.length > 0)
+                .map((section: { label: any; inputs: any[]; }) => ({
                   header: section.label,
-                  fields: section.inputs.map(input => ({
+                  fields: section.inputs.map((input: { id: any; label: any; type: string; default: any; options: any[]; }) => ({
                     name: input.id,
                     label: input.label,
                     type: mapInputType(input.type),
@@ -65,13 +66,13 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
                     options: input.options ? 
                       Array.isArray(input.options) ? 
                         input.options : 
-                        input.options.map(opt => opt.label || opt.value) : 
+                        input.options.map((opt: { label: any; value: any; }) => opt.label || opt.value) : 
                       undefined,
                   }))
                 })) || [],
               outputs: plugin.sections
-                ?.flatMap(section => section.outputs || [])
-                .map(output => ({
+                ?.flatMap((section: { outputs: any; }) => section.outputs || [])
+                .map((output: { label: any; id: any; type: any; buttons: any; }) => ({
                   title: output.label || output.id,
                   name: output.id,
                   type: output.type,
@@ -79,7 +80,7 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
                 })) || []
             },
             // Add a process function
-            processFunction: async (input) => {
+            processFunction: async (input: any) => {
               try {
                 const response = await fetch(
                   `/api/plugins/universal/${plugin.id}/process`,

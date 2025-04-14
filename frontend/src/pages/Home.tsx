@@ -5,9 +5,9 @@ import { useAllPluginMetadata } from "../data/pluginList";
 
 const Home = () => {
   const { favoriteTools, toggleFavorite } = useFavoriteTools();
-  const { metadataList = [], loading, error } = useAllPluginMetadata(); 
+  const { metadataList = [], loading, loadingProgress, error } = useAllPluginMetadata(); 
 
-  console.log("Home", { favoriteTools, metadataList, loading });
+  console.log("Home", { favoriteTools, metadataList, loading, loadingProgress });
 
   return (
     <Box
@@ -65,8 +65,27 @@ const Home = () => {
           </Typography>
 
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-              <CircularProgress />
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 4 }}>
+              <CircularProgress 
+                variant="determinate" 
+                value={loadingProgress} 
+                size={60}
+                thickness={4}
+                sx={{ 
+                  color: '#1ea54c',
+                  '& .MuiCircularProgress-circle': {
+                    strokeLinecap: 'round',
+                  }
+                }}
+              />
+              <Typography variant="body2" sx={{ mt: 2, color: '#a3a3a3' }}>
+                Loading plugins ({loadingProgress}%)
+              </Typography>
+              <Typography variant="caption" sx={{ mt: 0.5, color: '#727272', fontSize: '0.75rem', textAlign: 'center', maxWidth: 300 }}>
+                {loadingProgress < 25 ? "Discovering available plugins..." :
+                 loadingProgress < 75 ? "Loading plugin metadata..." :
+                 "Almost there..."}
+              </Typography>
             </Box>
           ) : error ? (
             <Typography color="error">{error}</Typography>

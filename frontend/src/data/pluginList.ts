@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react";
-// import { fallbackMetadata } from "./fallbackMetadata"; // Import the fallback data
+import { useEffect, useRef, useState } from "react";
+import { fallbackMetadata } from "./fallbackMetadata"; // Import the fallback data
+
+// Configuration constants
+const USE_FALLBACK_METADATA = false; // Set to true to always use fallback data
+const BATCH_SIZE = 4; // Number of plugins to load in parallel
+const BATCH_DELAY = 200; // Delay between batches in milliseconds
+const MAX_RETRIES = 2; // Maximum number of retries for failed requests
+const RETRY_DELAY = 50; // Delay between retries in milliseconds
 
 // --- Interfaces (with proper exports) ---
 export interface PluginMetadata {
@@ -95,27 +102,173 @@ const delay = (ms: number): Promise<void> => {
 };
 
 /**
+ * Helper function to fetch a single plugin's metadata with retry
+ */
+const fetchPluginMetadata = async (
+  pluginName: string,
+  maxRetries: number = MAX_RETRIES,
+  retryDelay: number = RETRY_DELAY
+): Promise<PluginMetadata | null> => {
+  let retries = 0;
+  
+  while (retries <= maxRetries) {
+    try {
+      const url = `/api/plugins/universal/${pluginName}/metadata`;
+      const res = await fetch(url);
+      
+      if (!res.ok) {
+        throw new Error(`${res.status} ${res.statusText}`);
+      }
+      
+      const metadata: PluginMetadata = await res.json();
+      
+      // Basic validation
+      if (
+        !metadata ||
+        typeof metadata.id !== "string" ||
+        typeof metadata.name !== "string" ||
+        !Array.isArray(metadata.sections)
+      ) {
+        throw new Error(`Invalid metadata structure received`);
+      }
+
+      // Add a process function to call the backend
+      metadata.processFunction = async (input: any) => {
+        try {
+          const response = await fetch(`/api/plugins/universal/${metadata.id}/process`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(input),
+          });
+          
+          if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+          }
+          
+          return await response.json();
+        } catch (error) {
+          console.error(`Plugin '${metadata.id}' execution failed:`, error);
+          return {
+            success: false,
+            error: "Backend not available or request failed."
+          };
+        }
+      };
+
+      console.log(`Fetched metadata for plugin: ${pluginName}`);
+      return metadata;
+    } catch (err) {
+      retries++;
+      if (retries <= maxRetries) {
+        console.log(`Retrying ${pluginName} (${retries}/${maxRetries})...`);
+        await delay(retryDelay);
+      } else {
+        console.error(`[FAIL] Fetching metadata for ${pluginName}:`, err);
+        return null;
+      }
+    }
+  }
+  
+  return null;
+};
+
+/**
+ * Process plugins in batches with parallelism but controlled load
+ */
+async function processPluginsInBatches(
+  pluginNames: string[], 
+  batchSize: number = BATCH_SIZE,
+  delayBetweenBatches: number = BATCH_DELAY,
+  progressCallback?: (progress: number) => void
+): Promise<PluginMetadata[]> {
+  const validMetadata: PluginMetadata[] = [];
+  const batches = [];
+  
+  // Create batches of plugins
+  for (let i = 0; i < pluginNames.length; i += batchSize) {
+    batches.push(pluginNames.slice(i, i + batchSize));
+  }
+  
+  console.log(`Processing ${pluginNames.length} plugins in ${batches.length} batches of ${batchSize}`);
+  
+  // Process each batch
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+    const batchIndex = i + 1;
+    
+    // If not the first batch, add delay
+    if (i > 0 && delayBetweenBatches > 0) {
+      await delay(delayBetweenBatches);
+    }
+    
+    console.log(`Processing batch ${batchIndex}/${batches.length} with ${batch.length} plugins`);
+    
+    // Process all plugins in the current batch in parallel
+    const batchResults = await Promise.allSettled(
+      batch.map(pluginName => fetchPluginMetadata(pluginName))
+    );
+    
+    // Collect successful results
+    batchResults.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value) {
+        validMetadata.push(result.value);
+      } else {
+        console.error(`Failed to fetch ${batch[index]} in batch ${batchIndex}`);
+      }
+    });
+    
+    console.log(`Batch ${batchIndex} complete: ${validMetadata.length} plugins loaded so far`);
+    
+    // Update progress if a callback is provided
+    if (progressCallback) {
+      const progress = Math.min(10 + Math.floor(((i + 1) / batches.length) * 90), 99);
+      progressCallback(progress);
+    }
+  }
+  
+  return validMetadata;
+}
+
+/**
  * Custom hook to fetch metadata for all available universal plugins.
- * Uses sequential fetching to avoid overwhelming the backend.
+ * Uses batch processing for better performance while maintaining reliability.
  */
 export const useAllPluginMetadata = () => {
-  // State for the list of successfully fetched metadata
   const [metadataList, setMetadataList] = useState<PluginMetadata[]>([]);
-  // State to track if the fetching process is ongoing
   const [loading, setLoading] = useState<boolean>(true);
-  // State to store any error that occurs during the fetching process
+  const [loadingProgress, setLoadingProgress] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
-  // Track if we're using backend or fallback data
   const [dataSource, setDataSource] = useState<'backend' | 'fallback' | null>(null);
+  
+  // Use a ref to track if the fetch has already been initiated
+  const fetchInitiatedRef = useRef<boolean>(false);
 
   useEffect(() => {
+    // Use fallback data directly if configured to do so
+    if (USE_FALLBACK_METADATA) {
+      console.log("Using fallback metadata (configured)");
+      setMetadataList(fallbackMetadata);
+      setDataSource('fallback');
+      setLoading(false);
+      setLoadingProgress(100);
+      return;
+    }
+    
+    // Prevent multiple fetches in development mode with React.StrictMode
+    if (fetchInitiatedRef.current) {
+      console.log('Fetch already initiated, skipping duplicate fetch');
+      return;
+    }
+    
+    fetchInitiatedRef.current = true;
+    
     const fetchAllMetadata = async () => {
       setLoading(true);
+      setLoadingProgress(0);
       setError(null);
       console.log("Starting to fetch all plugin metadata...");
 
       try {
-        // 1. Fetch the list of plugin names using relative URL for Vite proxy
         const pluginListUrl = `/api/plugins/universal/manual-load`;
         console.log("Fetching plugin list from:", pluginListUrl);
         const pluginListRes = await fetch(pluginListUrl);
@@ -129,90 +282,32 @@ export const useAllPluginMetadata = () => {
         // Parse the plugin list response
         const pluginListData: PluginListResponse = await pluginListRes.json();
         const { loadedPlugins } = pluginListData;
-
-        // Validate the received list
+        
         if (!Array.isArray(loadedPlugins)) {
           throw new Error("Invalid plugin list format received from server.");
         }
-        console.log(
-          `Found ${loadedPlugins.length} plugins reported by server:`,
-          loadedPlugins
-        );
+        console.log(`Found ${loadedPlugins.length} plugins reported by server:`, loadedPlugins);
+        
+        setLoadingProgress(10); // 10% progress - plugin list loaded
 
         if (loadedPlugins.length === 0) {
           console.log("No plugins listed by the server. Using fallback data.");
-          setMetadataList(fallbackMetadata); // Use fallback data
+          setMetadataList(fallbackMetadata);
           setDataSource('fallback');
           setLoading(false);
+          setLoadingProgress(100);
           return;
         }
-
-        // 2. Fetch metadata SEQUENTIALLY with delay between requests
-        console.log(`Fetching metadata for ${loadedPlugins.length} plugins sequentially...`);
-        const validMetadata: PluginMetadata[] = [];
         
-        for (const pluginName of loadedPlugins) {
-          try {
-            // Add a small delay between requests
-            if (validMetadata.length > 0) {
-              await delay(300); // 300ms delay between requests
-            }
-            
-            // Fetch the plugin metadata
-            const url = `/api/plugins/universal/${pluginName}/metadata`;
-            const res = await fetch(url);
-            
-            if (!res.ok) {
-              throw new Error(`${res.status} ${res.statusText}`);
-            }
-            
-            // Parse metadata 
-            const metadata: PluginMetadata = await res.json();
-            
-            // Validate
-            if (
-              !metadata ||
-              typeof metadata.id !== "string" ||
-              typeof metadata.name !== "string" ||
-              !Array.isArray(metadata.sections)
-            ) {
-              throw new Error(`Invalid metadata structure received for ${pluginName}`);
-            }
-
-            // Add a process function
-            metadata.processFunction = async (input: any) => {
-              try {
-                const response = await fetch(`/api/plugins/universal/${metadata.id}/process`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(input),
-                });
-                
-                if (!response.ok) {
-                  throw new Error(`API error: ${response.status}`);
-                }
-                
-                return await response.json();
-              } catch (error) {
-                console.error(`Plugin '${metadata.id}' execution failed:`, error);
-                return {
-                  success: false,
-                  error: "Backend not available or request failed."
-                };
-              }
-            };
-
-            console.log(`Fetched metadata for plugin: ${pluginName}`);
-            validMetadata.push(metadata);
-          } catch (err) {
-            // Log the error but continue with next plugin
-            console.error(`[FAIL] Fetching metadata for ${pluginName}:`, err);
-          }
-        }
-
-        console.log(
-          `Successfully loaded metadata for ${validMetadata.length} out of ${loadedPlugins.length} plugins.`
+        // Process plugins in batches - good balance between speed and reliability
+        const validMetadata = await processPluginsInBatches(
+          loadedPlugins, 
+          BATCH_SIZE, 
+          BATCH_DELAY, 
+          setLoadingProgress
         );
+        
+        console.log(`Batch processing complete: ${validMetadata.length} out of ${loadedPlugins.length} plugins loaded`);
         
         if (validMetadata.length > 0) {
           setMetadataList(validMetadata);
@@ -222,15 +317,14 @@ export const useAllPluginMetadata = () => {
           setMetadataList(fallbackMetadata);
           setDataSource('fallback');
         }
+        
+        setLoadingProgress(100); // 100% progress - all done
       } catch (err: any) {
-        // Catch errors from fetching the initial list
         console.error("FATAL: Failed to fetch plugin metadata:", err);
-        setError(
-          err.message || "An unknown error occurred while fetching plugin data"
-        );
-        // Use fallback data as fallback
+        setError(err.message || "An unknown error occurred while fetching plugin data");
         setMetadataList(fallbackMetadata);
         setDataSource('fallback');
+        setLoadingProgress(100); // Error, but still complete
       } finally {
         setLoading(false);
         console.log("Finished metadata fetching process.");
@@ -240,8 +334,7 @@ export const useAllPluginMetadata = () => {
     fetchAllMetadata();
   }, []);
 
-  // Return the state variables for the consuming component
-  return { metadataList, loading, error, dataSource };
+  return { metadataList, loading, loadingProgress, error, dataSource };
 };
 
 /**

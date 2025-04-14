@@ -2,9 +2,6 @@
  * API functions to interact with the plugin backend system
  */
 
-// Use relative URLs with the Vite proxy
-const API_BASE_URL = "http://192.168.192.2:8081"; 
-
 /**
  * Fetch plugin metadata from backend
  */
