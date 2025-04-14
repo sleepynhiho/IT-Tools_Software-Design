@@ -13,11 +13,9 @@ public class PluginConfig {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
-                registry.addMapping("/**")  // Apply CORS to all endpoints
-                        .allowedOrigins("*")  // Your React app's origin
-                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                        .allowedHeaders("*")  // Allow all headers
-                        .allowCredentials(true);  // Allow cookies/credentials
+                registry.addMapping("/api/**")
+                        .allowedOrigins("*")  // In production, limit this to specific domains
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
             }
         };
     }

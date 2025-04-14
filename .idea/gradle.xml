@@ -14,7 +14,7 @@
             <option value="$PROJECT_DIR$/plugins/chronometer" />
             <option value="$PROJECT_DIR$/plugins/cryptotools" />
             <option value="$PROJECT_DIR$/plugins/etacalculator" />
-            <option value="$PROJECT_DIR$/plugins/hashtools" />
+            <option value="$PROJECT_DIR$/plugins/hashtext" />
             <option value="$PROJECT_DIR$/plugins/jwtparser" />
             <option value="$PROJECT_DIR$/plugins/mathevaluator" />
             <option value="$PROJECT_DIR$/plugins/mediatools" />

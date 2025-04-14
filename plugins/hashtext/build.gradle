@@ -37,8 +37,8 @@ tasks.named('jar') {
     manifest {
         attributes(
                 'Manifest-Version': '1.0',
-                'Plugin-Class': 'kostovite.HashToolsPlugin',
-                'Plugin-Id': 'hash-tools',
+                'Plugin-Class': 'kostovite.HashTextPlugin',
+                'Plugin-Id': 'hashtext',
                 'Plugin-Version': project.version,
                 'Plugin-Provider': 'kostovite',
                 'Plugin-Description': 'Hash tools plugin for IT-Tools'

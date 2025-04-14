@@ -131,10 +131,10 @@ public class TokenGenerator implements PluginInterface { // Using standard Plugi
 
         // token Output
         Map<String, Object> tokenOutput = new HashMap<>();
-        tokenOutput.put("id", "TokenGenerator"); // Matches new format ID
+        tokenOutput.put("id", "token");
         tokenOutput.put("label", "Generated Token");
-        tokenOutput.put("type", "text"); // Simple text output
-        tokenOutput.put("width", 400); // As per example
+        tokenOutput.put("type", "text");
+        tokenOutput.put("width", 400);
         tokenOutput.put("height", 80); // As per example
         tokenOutput.put("buttons", List.of("copy", "refresh")); // As per example
         // Nested map for button placement
@@ -144,9 +144,6 @@ public class TokenGenerator implements PluginInterface { // Using standard Plugi
         tokenOutput.put("buttonPlacement", buttonPlacement); // As per example
         tokenOutput.put("containerId", "main");
         outputs.add(tokenOutput);
-
-        // --- REMOVED other outputs like length, timestamp, entropy, usedSets ---
-        // --- as they are not in the target metadata format provided.     ---
 
         generateSection.put("outputs", outputs);
 

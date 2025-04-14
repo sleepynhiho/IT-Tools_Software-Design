@@ -123,17 +123,6 @@ task createPluginsDir {
 // Make processResources depend on createPluginsDir
 processResources.dependsOn createPluginsDir
 
-// Task to copy example plugins for development
-task copyExamplePlugins(type: Copy, dependsOn: ':plugins:hashtools:jar') {
-    from project(':plugins:hashtools').buildDir.toString() + '/libs'
-    into 'plugins-deploy'
-    include '*.jar'
-    println "Copying example plugins from ${project(':plugins:hashtools').buildDir.toString() + '/libs'} to plugins-deploy"
-}
-
-// Hook the copyExamplePlugins task to run before bootRun
-bootRun.dependsOn copyExamplePlugins
-
 // Create logs directory for logging
 task createLogsDir {
     doLast {

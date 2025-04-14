@@ -2,7 +2,7 @@ rootProject.name = 'IT-Tools_Software-Design'
 
 include 'plugin-api'
 include 'server'
-include 'plugins:hashtools'
+include 'plugins:hashtext'
 include 'plugins:mediatools'
 include 'plugins:cryptotools'
 include 'plugins:tokengenerator'

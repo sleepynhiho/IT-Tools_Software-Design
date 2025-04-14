@@ -346,7 +346,7 @@ public class MediaTools implements PluginInterface {
      * Assumes frontend sends Base64 string with key "imageBase64".
      */
     private byte[] getImageDataFromBase64(Map<String, Object> input) {
-        Object data = input.get("imageUploadBase64");
+        Object data = input.get("imageUpload");
         if (data instanceof String base64Data) {
             try {
                 // Remove data URI header if present (e.g., "data:image/png;base64,")
