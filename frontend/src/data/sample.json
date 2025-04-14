@@ -1,0 +1,65 @@
+{
+  "customUI": false,
+  "name": "Token Generator",
+  "icon": "Key",
+  "description": "Generate random string with the chars you want, uppercase or lowercase letters, numbers and/or symbols.",
+  "id": "TokenGenerator",
+  "category": "Crypto",
+  "sections": [
+    {
+      "outputs": [
+        {
+          "buttonPlacement": { "refresh": "outside", "copy": "outside" },
+          "buttons": ["copy", "refresh"],
+          "width": 400,
+          "id": "token",
+          "label": "Generated Token",
+          "type": "text",
+          "containerId": "main",
+          "height": 80
+        }
+      ],
+      "inputs": [
+        {
+          "default": true,
+          "id": "useUppercase",
+          "label": "Uppercase (ABC...)",
+          "type": "switch",
+          "containerId": "main"
+        },
+        {
+          "default": true,
+          "id": "useLowercase",
+          "label": "Lowercase (abc...)",
+          "type": "switch",
+          "containerId": "main"
+        },
+        {
+          "default": true,
+          "id": "useNumbers",
+          "label": "Numbers (123...)",
+          "type": "switch",
+          "containerId": "main"
+        },
+        {
+          "default": false,
+          "id": "useSpecial",
+          "label": "Symbols (!-;...)",
+          "type": "switch",
+          "containerId": "main"
+        },
+        {
+          "default": 16,
+          "min": 1,
+          "max": 100,
+          "id": "length",
+          "label": "Length:",
+          "type": "slider",
+          "containerId": "main"
+        }
+      ],
+      "id": "generate",
+      "label": "Generate Token"
+    }
+  ]
+}
