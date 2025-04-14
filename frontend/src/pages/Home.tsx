@@ -1,11 +1,11 @@
-import { Box, Container, Grid, Typography } from "@mui/material"; 
+import { Box, Container, Grid, Typography, CircularProgress } from "@mui/material"; 
 import ToolCard from "../components/ToolCard";
 import { useFavoriteTools } from "../context/FavoriteToolsContext";
 import { useAllPluginMetadata } from "../data/pluginList"; 
 
 const Home = () => {
   const { favoriteTools, toggleFavorite } = useFavoriteTools();
-  const { metadataList = [], loading } = useAllPluginMetadata(); 
+  const { metadataList = [], loading, error } = useAllPluginMetadata(); 
 
   console.log("Home", { favoriteTools, metadataList, loading });
 
@@ -47,7 +47,7 @@ const Home = () => {
           {/* Display the favorite tools */}
           <Grid container spacing={3} justifyContent="flex-start">
             {favoriteTools.map((tool) => (
-              <Grid item xs={12} sm={6} md={4} lg={2.4} key={tool.id}>
+              <Grid item xs={12} sm={6} md={4} lg={2.4} key={`favorite-${tool.id}`}>
                 <ToolCard tool={tool} onFavoriteToggle={toggleFavorite} />
               </Grid>
             ))}
@@ -65,11 +65,15 @@ const Home = () => {
           </Typography>
 
           {loading ? (
-            <Typography>Loading tools...</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : error ? (
+            <Typography color="error">{error}</Typography>
           ) : (
             <Grid container spacing={3} justifyContent="flex-start">
               {metadataList.map((tool) => (
-                <Grid item xs={12} sm={6} md={4} lg={2.4} key={tool.id}>
+                <Grid item xs={12} sm={6} md={4} lg={2.4} key={`all-${tool.id}`}>
                   <ToolCard tool={tool} onFavoriteToggle={toggleFavorite} />
                 </Grid>
               ))}

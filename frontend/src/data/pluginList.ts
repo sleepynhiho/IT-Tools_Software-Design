@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+// import { fallbackMetadata } from "./fallbackMetadata"; // Import the fallback data
 
-// --- Interfaces (ADD EXPORT HERE) ---
+// --- Interfaces (with proper exports) ---
 export interface PluginMetadata {
-  // <--- ADD EXPORT
+  triggerUpdateOnChange: any;
   id: string;
   name: string;
   description: string;
@@ -11,10 +12,14 @@ export interface PluginMetadata {
   customUI?: boolean;
   sections: Section[]; // Array of sections
   version?: string;
+  // Add frontend-specific fields for processing
+  processFunction?: (input: any) => Promise<any>;
+  
+  // Additional frontend properties for fallback data
+  uiConfig?: any;
 }
 
 export interface Section {
-  // <--- ADD EXPORT
   id: string;
   label: string;
   inputs?: InputField[];
@@ -23,11 +28,10 @@ export interface Section {
 }
 
 export interface InputField {
-  // <--- ADD EXPORT
   id: string;
   label: string;
   type: string;
-  containerId: string;
+  containerId?: string;
   width?: number;
   height?: number;
   buttons?: ("minus" | "plus")[];
@@ -41,6 +45,9 @@ export interface InputField {
   multiline?: boolean;
   rows?: number;
   condition?: string;
+  options?: any;
+  accept?: string;
+  action?: any;
 }
 
 type TableRow = {
@@ -49,11 +56,7 @@ type TableRow = {
   value: string;
 };
 
-
-
-
 export interface OutputField {
-  // <--- ADD EXPORT
   id: string;
   label: string;
   type: string;
@@ -61,37 +64,49 @@ export interface OutputField {
   height?: number;
   buttons?: ("copy" | "refresh" | "download")[];
   buttonPlacement?: Record<string, "inside" | "outside">;
-  containerId: string;
+  containerId?: string;
   condition?: string;
   monospace?: boolean;
   multiline?: boolean;
   rows?: TableRow[];
-  default?: any; // Keep default
-  name?: string; // Keep name for download
-  fontSize?: number; // Keep fontSize for download
+  default?: any;
+  name?: string;
+  fontSize?: number;
+  style?: string;
+  downloadFilenameKey?: string;
+  maxWidth?: number;
+  maxHeight?: number;
+  min?: number;
+  max?: number;
+  suffix?: string;
+  columns?: boolean;
 }
-// --- End Interfaces ---
 
-// --- PluginListResponse Interface --- (Keep as is or export if needed elsewhere)
-interface PluginListResponse {
+// --- PluginListResponse Interface ---
+export interface PluginListResponse {
   loadedPlugins: string[];
 }
 
-// --- API_BASE_URL --- (Keep as is)
-const API_BASE_URL = "http://192.168.192.2:8081";
+/**
+ * Helper function to add a delay between requests
+ */
+const delay = (ms: number): Promise<void> => {
+  return new Promise(resolve => setTimeout(resolve, ms));
+};
 
 /**
  * Custom hook to fetch metadata for all available universal plugins.
- * Fetches a list of plugin names first, then fetches metadata for each.
- * Returns the list of valid metadata objects, loading state, and any overall error.
+ * Uses sequential fetching to avoid overwhelming the backend.
  */
 export const useAllPluginMetadata = () => {
   // State for the list of successfully fetched metadata
   const [metadataList, setMetadataList] = useState<PluginMetadata[]>([]);
   // State to track if the fetching process is ongoing
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   // State to store any error that occurs during the fetching process
   const [error, setError] = useState<string | null>(null);
+  // Track if we're using backend or fallback data
+  const [dataSource, setDataSource] = useState<'backend' | 'fallback' | null>(null);
 
   useEffect(() => {
     const fetchAllMetadata = async () => {
@@ -100,13 +115,12 @@ export const useAllPluginMetadata = () => {
       console.log("Starting to fetch all plugin metadata...");
 
       try {
-        // 1. Fetch the list of plugin names
-        const pluginListUrl = `${API_BASE_URL}/api/plugins/universal/manual-load`;
+        // 1. Fetch the list of plugin names using relative URL for Vite proxy
+        const pluginListUrl = `/api/plugins/universal/manual-load`;
         console.log("Fetching plugin list from:", pluginListUrl);
         const pluginListRes = await fetch(pluginListUrl);
 
         if (!pluginListRes.ok) {
-          // Throw error if the list itself cannot be fetched
           throw new Error(
             `Failed to load plugin list: ${pluginListRes.status} ${pluginListRes.statusText}`
           );
@@ -126,86 +140,170 @@ export const useAllPluginMetadata = () => {
         );
 
         if (loadedPlugins.length === 0) {
-          console.log("No plugins listed by the server.");
-          setMetadataList([]); // Set to empty list
+          console.log("No plugins listed by the server. Using fallback data.");
+          setMetadataList(fallbackMetadata); // Use fallback data
+          setDataSource('fallback');
           setLoading(false);
-          return; // Exit early if no plugins to fetch
+          return;
         }
 
-        // 2. Create promises to fetch metadata for each plugin
-        const metadataPromises = loadedPlugins.map(
-          async (pluginName: string): Promise<PluginMetadata> => {
-            // Construct the URL for fetching individual plugin metadata
-            const url = `${API_BASE_URL}/api/plugins/universal/${pluginName}/metadata`;
-            // Log inside map can be very noisy if many plugins, keep outside for batch start/end
-            const res = await fetch(url);
-            if (!res.ok) {
-              // Throw an error specific to this plugin fetch, will be caught by Promise.allSettled
-              throw new Error(`${res.status} ${res.statusText}`); // Keep error concise for logging below
+        // 2. Fetch metadata SEQUENTIALLY with delay between requests
+        console.log(`Fetching metadata for ${loadedPlugins.length} plugins sequentially...`);
+        const validMetadata: PluginMetadata[] = [];
+        
+        for (const pluginName of loadedPlugins) {
+          try {
+            // Add a small delay between requests
+            if (validMetadata.length > 0) {
+              await delay(300); // 300ms delay between requests
             }
-            // Assume the response is valid PluginMetadata JSON
-            const metadata = await res.json();
-            // Optional but recommended: Basic validation of the received metadata structure
+            
+            // Fetch the plugin metadata
+            const url = `/api/plugins/universal/${pluginName}/metadata`;
+            const res = await fetch(url);
+            
+            if (!res.ok) {
+              throw new Error(`${res.status} ${res.statusText}`);
+            }
+            
+            // Parse metadata 
+            const metadata: PluginMetadata = await res.json();
+            
+            // Validate
             if (
               !metadata ||
               typeof metadata.id !== "string" ||
               typeof metadata.name !== "string" ||
               !Array.isArray(metadata.sections)
             ) {
-              throw new Error(`Invalid metadata structure received`);
+              throw new Error(`Invalid metadata structure received for ${pluginName}`);
             }
 
-            console.log(`Fetched metadata for plugin: ${pluginName}`, metadata); // Log the fetched metadata
-            return metadata as PluginMetadata; // Cast to expected type
-          }
-        );
+            // Add a process function
+            metadata.processFunction = async (input: any) => {
+              try {
+                const response = await fetch(`/api/plugins/universal/${metadata.id}/process`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(input),
+                });
+                
+                if (!response.ok) {
+                  throw new Error(`API error: ${response.status}`);
+                }
+                
+                return await response.json();
+              } catch (error) {
+                console.error(`Plugin '${metadata.id}' execution failed:`, error);
+                return {
+                  success: false,
+                  error: "Backend not available or request failed."
+                };
+              }
+            };
 
-        // 3. Wait for all metadata fetch promises to settle
-        console.log(
-          `Fetching metadata for ${loadedPlugins.length} plugins in parallel...`
-        );
-        const metadataResults = await Promise.allSettled(metadataPromises);
-        console.log("All metadata fetches settled.");
-
-        // 4. Process the results, filtering out failures
-        const validMetadata: PluginMetadata[] = [];
-        metadataResults.forEach((result, index) => {
-          const pluginName = loadedPlugins[index]; // Get corresponding plugin name for logging
-          if (result.status === "fulfilled") {
-            // Successfully fetched and validated metadata
-            validMetadata.push(result.value);
-            // console.log(`[OK] Fetched metadata for ${pluginName}`);
-          } else {
-            // Fetch failed for this specific plugin
-            console.error(
-              `[FAIL] Fetching metadata for ${pluginName}:`,
-              result.reason?.message || result.reason
-            );
-            // Do not add to validMetadata list
-            // Optionally: Collect these errors separately if needed
+            console.log(`Fetched metadata for plugin: ${pluginName}`);
+            validMetadata.push(metadata);
+          } catch (err) {
+            // Log the error but continue with next plugin
+            console.error(`[FAIL] Fetching metadata for ${pluginName}:`, err);
           }
-        });
+        }
 
         console.log(
           `Successfully loaded metadata for ${validMetadata.length} out of ${loadedPlugins.length} plugins.`
         );
-        setMetadataList(validMetadata); // Update state with only the successfully fetched metadata
+        
+        if (validMetadata.length > 0) {
+          setMetadataList(validMetadata);
+          setDataSource('backend');
+        } else {
+          console.log("No plugins fetched successfully, using fallback data");
+          setMetadataList(fallbackMetadata);
+          setDataSource('fallback');
+        }
       } catch (err: any) {
-        // Catch errors from fetching the initial list or other major issues during setup
+        // Catch errors from fetching the initial list
         console.error("FATAL: Failed to fetch plugin metadata:", err);
         setError(
           err.message || "An unknown error occurred while fetching plugin data"
         );
-        setMetadataList([]); // Clear any potentially partial list on major error
+        // Use fallback data as fallback
+        setMetadataList(fallbackMetadata);
+        setDataSource('fallback');
       } finally {
-        setLoading(false); // Ensure loading is always set to false
+        setLoading(false);
         console.log("Finished metadata fetching process.");
       }
     };
 
     fetchAllMetadata();
-  }, []); // Empty dependency array ensures this runs only once when the hook mounts
+  }, []);
 
   // Return the state variables for the consuming component
-  return { metadataList, loading, error };
+  return { metadataList, loading, error, dataSource };
+};
+
+/**
+ * Helper to convert backend plugin metadata format to frontend format if needed
+ * This is used when we need to adapt backend data to match our frontend expectations
+ */
+export const convertBackendMetadataToFrontendFormat = (backendMetadata: PluginMetadata): PluginMetadata => {
+  // If the metadata already has uiConfig, it's probably already in frontend format
+  if (backendMetadata.uiConfig) {
+    return backendMetadata;
+  }
+
+  // Otherwise, convert from backend format (sections) to frontend format (uiConfig)
+  return {
+    ...backendMetadata,
+    uiConfig: {
+      sections: backendMetadata.sections?.map(section => ({
+        header: section.label,
+        fields: section.inputs?.map(input => ({
+          name: input.id,
+          label: input.label,
+          type: mapInputType(input.type),
+          default: input.default,
+          options: input.options ? 
+            Array.isArray(input.options) ? 
+              input.options.map((opt: any) => typeof opt === 'string' ? opt : (opt.label || opt.value)) : 
+              input.options.map((opt: any) => opt.label || opt.value) : 
+            undefined,
+          min: input.min,
+          max: input.max,
+          required: input.required,
+          placeholder: input.placeholder,
+          helperText: input.helperText,
+        })) || [],
+      })) || [],
+      outputs: backendMetadata.sections?.flatMap(section => 
+        section.outputs?.map(output => ({
+          title: output.label || output.id,
+          name: output.id,
+          type: output.type,
+          buttons: output.buttons || [],
+        })) || []
+      ) || []
+    }
+  };
+};
+
+/**
+ * Helper function to map backend input types to frontend types
+ */
+const mapInputType = (backendType: string): string => {
+  const typeMap: Record<string, string> = {
+    'text': 'text',
+    'number': 'number',
+    'select': 'select',
+    'file': 'file',
+    'password': 'password',
+    'checkbox': 'switch',
+    'color': 'color',
+    'button': 'button',
+    // Add more mappings as needed
+  };
+  
+  return typeMap[backendType] || backendType;
 };
