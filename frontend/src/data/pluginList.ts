@@ -8,6 +8,8 @@ const BATCH_DELAY = 100; // Delay between batches in milliseconds
 const MAX_RETRIES = 3; // Maximum number of retries for failed requests
 const RETRY_DELAY = 300; // Delay between retries in milliseconds
 
+const API_BASE_URL = "http://localhost:8081"; // Fallback for safety
+
 // --- Interfaces (with proper exports) ---
 export interface PluginMetadata {
   triggerUpdateOnChange: any;
@@ -113,7 +115,7 @@ const fetchPluginMetadata = async (
   
   while (retries <= maxRetries) {
     try {
-      const url = `/api/plugins/universal/${pluginName}/metadata`;
+      const url = `${API_BASE_URL}/api/plugins/universal/${pluginName}/metadata`;
       const res = await fetch(url);
       
       if (!res.ok) {
@@ -135,7 +137,7 @@ const fetchPluginMetadata = async (
       // Add a process function to call the backend
       metadata.processFunction = async (input: any) => {
         try {
-          const response = await fetch(`/api/plugins/universal/${metadata.id}/process`, {
+          const response = await fetch(`${API_BASE_URL}/api/plugins/universal/${metadata.id}/process`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(input),
@@ -239,6 +241,8 @@ export const useAllPluginMetadata = () => {
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [dataSource, setDataSource] = useState<'backend' | 'fallback' | null>(null);
+
+
   
   // Use a ref to track if the fetch has already been initiated
   const fetchInitiatedRef = useRef<boolean>(false);
@@ -269,7 +273,7 @@ export const useAllPluginMetadata = () => {
       console.log("Starting to fetch all plugin metadata...");
 
       try {
-        const pluginListUrl = `/api/plugins/universal/manual-load`;
+        const pluginListUrl = `${API_BASE_URL}/api/plugins/universal/manual-load`;
         console.log("Fetching plugin list from:", pluginListUrl);
         const pluginListRes = await fetch(pluginListUrl);
 

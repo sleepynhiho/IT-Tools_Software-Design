@@ -25,7 +25,7 @@ import CommonLayout from "../layouts/CommonLayout"; // Adjust path if needed
 import { PluginMetadata, Section, InputField, OutputField, useAllPluginMetadata } from "../data/pluginList"; // Adjust path
 
 // --- Configuration ---
-const API_BASE_URL = "http://192.168.192.2:8081"; // Use your actual backend URL
+const API_BASE_URL = "http://localhost:8081"; // Use your actual backend URL
 // --- End Configuration ---
 
 

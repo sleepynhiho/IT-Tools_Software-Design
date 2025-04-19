@@ -16,15 +16,23 @@ import {
   Collapse,
   CircularProgress,
 } from "@mui/material";
-import { HomeOutlined, Menu as MenuIcon } from "@mui/icons-material";
+import {
+  HomeOutlined,
+  Menu as MenuIcon,
+  Logout as LogoutIcon,
+} from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { SearchIcon } from "lucide-react";
 import * as MuiIcons from "@mui/icons-material";
 import { useFavoriteTools } from "../context/FavoriteToolsContext";
 import { fetchPluginMetadata } from "../data/pluginMetadata";
 import { fallbackMetadata } from "../data/fallbackMetadata";
+import { signOut } from "firebase/auth";
+import { auth } from "../firebaseConfig";
+import { useAuth } from "../context/AuthContext";
 
 const MainLayout = ({ children }: { children: React.ReactNode }) => {
+  const { currentUser, loading: authLoading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const [tools, setTools] = useState<any[]>([]);
@@ -36,48 +44,85 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
 
   const { favoriteTools } = useFavoriteTools();
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      console.log("User signed out successfully");
+      // Optional: Navigate to login or home page after logout
+      navigate("/login");
+    } catch (error) {
+      console.error("Error signing out: ", error);
+      // Optional: Show error message to user
+    }
+  };
+
   // Fetch plugin metadata from backend when component mounts
   useEffect(() => {
     const loadPlugins = async () => {
       setLoading(true);
       try {
         const metadata = await fetchPluginMetadata();
-        
+
         if (metadata && metadata.length > 0) {
           // Convert backend metadata format to your application format
-          const formattedPlugins = metadata.map(plugin => ({
+          const formattedPlugins = metadata.map((plugin) => ({
             id: plugin.id,
             name: plugin.name,
-            icon: plugin.icon || 'Extension', // Default icon
-            category: plugin.category || 'Other',
-            description: plugin.description || '',
+            icon: plugin.icon || "Extension", // Default icon
+            category: plugin.category || "Other",
+            description: plugin.description || "",
             // Keep the rest of your plugin structure as needed
             uiConfig: {
               // Map backend sections to your UI config format based on your needs
-              inputs: plugin.sections
-                ?.filter((section: { inputs: string | any[]; }) => section.inputs && section.inputs.length > 0)
-                .map((section: { label: any; inputs: any[]; }) => ({
-                  header: section.label,
-                  fields: section.inputs.map((input: { id: any; label: any; type: string; default: any; options: any[]; }) => ({
-                    name: input.id,
-                    label: input.label,
-                    type: mapInputType(input.type),
-                    default: input.default,
-                    options: input.options ? 
-                      Array.isArray(input.options) ? 
-                        input.options : 
-                        input.options.map((opt: { label: any; value: any; }) => opt.label || opt.value) : 
-                      undefined,
-                  }))
-                })) || [],
-              outputs: plugin.sections
-                ?.flatMap((section: { outputs: any; }) => section.outputs || [])
-                .map((output: { label: any; id: any; type: any; buttons: any; }) => ({
-                  title: output.label || output.id,
-                  name: output.id,
-                  type: output.type,
-                  buttons: output.buttons || [],
-                })) || []
+              inputs:
+                plugin.sections
+                  ?.filter(
+                    (section: { inputs: string | any[] }) =>
+                      section.inputs && section.inputs.length > 0
+                  )
+                  .map((section: { label: any; inputs: any[] }) => ({
+                    header: section.label,
+                    fields: section.inputs.map(
+                      (input: {
+                        id: any;
+                        label: any;
+                        type: string;
+                        default: any;
+                        options: any[];
+                      }) => ({
+                        name: input.id,
+                        label: input.label,
+                        type: mapInputType(input.type),
+                        default: input.default,
+                        options: input.options
+                          ? Array.isArray(input.options)
+                            ? input.options
+                            : input.options.map(
+                                (opt: { label: any; value: any }) =>
+                                  opt.label || opt.value
+                              )
+                          : undefined,
+                      })
+                    ),
+                  })) || [],
+              outputs:
+                plugin.sections
+                  ?.flatMap(
+                    (section: { outputs: any }) => section.outputs || []
+                  )
+                  .map(
+                    (output: {
+                      label: any;
+                      id: any;
+                      type: any;
+                      buttons: any;
+                    }) => ({
+                      title: output.label || output.id,
+                      name: output.id,
+                      type: output.type,
+                      buttons: output.buttons || [],
+                    })
+                  ) || [],
             },
             // Add a process function
             processFunction: async (input: any) => {
@@ -90,22 +135,22 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
                     body: JSON.stringify(input),
                   }
                 );
-                
+
                 if (!response.ok) {
                   throw new Error(`API error: ${response.status}`);
                 }
-                
+
                 return await response.json();
               } catch (error) {
                 console.error(`Plugin '${plugin.id}' execution failed:`, error);
                 return {
                   success: false,
-                  error: "Backend not available or request failed."
+                  error: "Backend not available or request failed.",
                 };
               }
-            }
+            },
           }));
-          
+
           setTools(formattedPlugins);
         } else {
           // Fallback to mock data if no plugins returned
@@ -145,15 +190,15 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
   // Helper function to map backend input types to frontend types
   const mapInputType = (backendType: string) => {
     const typeMap: Record<string, string> = {
-      'text': 'text',
-      'number': 'number',
-      'select': 'select',
-      'file': 'file',
-      'password': 'password',
-      'checkbox': 'switch',
+      text: "text",
+      number: "number",
+      select: "select",
+      file: "file",
+      password: "password",
+      checkbox: "switch",
       // Add more mappings as needed
     };
-    
+
     return typeMap[backendType] || backendType;
   };
 
@@ -196,7 +241,7 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
 
         {/* Loading indicator when fetching tools */}
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
             <CircularProgress />
           </Box>
         ) : (
@@ -498,7 +543,12 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
             >
               <MenuIcon />
             </IconButton>
-            <IconButton edge="start" color="inherit" sx={{ ml: 1 }}>
+            <IconButton
+              edge="start"
+              color="inherit"
+              sx={{ ml: 1 }}
+              onClick={() => navigate("/")}
+            >
               <HomeOutlined />
             </IconButton>
           </Toolbar>
@@ -542,54 +592,119 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
               alignItems: "center",
             }}
           >
-            <Box sx={{ display: "flex", gap: 1, marginLeft: 2 }}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => navigate("/login")}
-                sx={{
-                  borderRadius: 2,
-                  background:
-                    "linear-gradient(48deg,#25636c 0%,#3b956f 60%,#14a058 100%)",
-                  "&:hover": {
+            {!authLoading && !currentUser && (
+              <>
+                {" "}
+                {/* Use Fragment to group buttons */}
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => navigate("/login")}
+                  sx={{
+                    borderRadius: 2,
                     background:
-                      "linear-gradient(48deg,#1f525a 0%,#337d5e 60%,#108048 100%)",
-                  },
-                }}
-              >
-                Log In
-              </Button>
-            </Box>
+                      "linear-gradient(48deg,#25636c 0%,#3b956f 60%,#14a058 100%)",
+                    "&:hover": {
+                      background:
+                        "linear-gradient(48deg,#1f525a 0%,#337d5e 60%,#108048 100%)",
+                    },
+                    textTransform: "none", // Keep button text case
+                  }}
+                >
+                  Log In
+                </Button>
+                <Button
+                  variant="text"
+                  color="inherit"
+                  onClick={() => navigate("/signup")}
+                  sx={{
+                    borderRadius: 2,
+                    position: "relative",
+                    padding: "6px 16px",
+                    overflow: "hidden",
+                    textTransform: "none",
+                    "&::before": {
+                      content: '""',
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      borderRadius: 2,
+                      padding: "2px",
+                      background:
+                        "linear-gradient(48deg,#25636c 0%,#3b956f 60%,#14a058 100%)",
+                      WebkitMask:
+                        "linear-gradient(white, white) content-box, linear-gradient(white, white)",
+                      WebkitMaskComposite: "destination-out",
+                      maskComposite: "exclude",
+                    },
+                    "&:hover": {
+                      backgroundColor: "rgba(255, 255, 255, 0.08)",
+                    },
+                  }}
+                >
+                  Sign Up
+                </Button>
+              </>
+            )}
 
-            <Button
-              variant="text"
-              color="inherit"
-              onClick={() => navigate("/signup")}
-              sx={{
-                borderRadius: 2,
-                position: "relative",
-                padding: "6px 16px",
-                overflow: "hidden",
-                "&::before": {
-                  content: '""',
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  borderRadius: 2,
-                  padding: "2px",
-                  background:
-                    "linear-gradient(48deg,#25636c 0%,#3b956f 60%,#14a058 100%)",
-                  WebkitMask:
-                    "linear-gradient(white, white) content-box, linear-gradient(white, white)",
-                  WebkitMaskComposite: "destination-out",
-                  maskComposite: "exclude",
-                },
-              }}
-            >
-              Sign Up
-            </Button>
+            {/* Show User Info/Logout only when loading is done and user IS logged in */}
+            {!authLoading && currentUser && (
+              <>
+                {/* <Typography
+                  variant="body2"
+                  sx={{
+                    mr: 2,
+                    display: { xs: "none", sm: "block" },
+                    fontWeight: 500, // Làm cho chữ đậm hơn
+                    color: "#14a058", 
+                    textOverflow: "ellipsis", 
+                    overflow: "hidden",
+                    whiteSpace: "nowrap", 
+                    fontSize: "14px",
+                  }}
+                >
+                  {currentUser.email?.split("@")[0]}
+                </Typography> */}
+
+                <Button
+                  variant="text"
+                  color="inherit"
+                  size="small"
+                  onClick={handleLogout}
+                  startIcon={<LogoutIcon fontSize="small" />} // Optional icon
+                  sx={{
+                    borderRadius: 2,
+                    position: "relative",
+                    padding: "6px 16px",
+                    overflow: "hidden",
+                    "&::before": {
+                      content: '""',
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      borderRadius: 2,
+                      padding: "2px",
+                      background:
+                        "linear-gradient(48deg,#25636c 0%,#3b956f 60%,#14a058 100%)",
+                      WebkitMask:
+                        "linear-gradient(white, white) content-box, linear-gradient(white, white)",
+                      WebkitMaskComposite: "destination-out",
+                      maskComposite: "exclude",
+                    },
+                    "&:hover": {
+                      backgroundColor: "rgba(255, 255, 255, 0.08)",
+                    },
+                    textTransform: "none",
+                  }}
+                >
+                  Log out
+                </Button>     
+              </>
+            )}
           </Box>
         </AppBar>
 
