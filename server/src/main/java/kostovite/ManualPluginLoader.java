@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +61,66 @@ public class ManualPluginLoader {
         }
 
         return loadedPlugins;
+    }
+
+    /**
+     * Deletes a plugin by name
+     * @param pluginName The name of the plugin to delete
+     * @return true if the plugin was deleted, false otherwise
+     */
+    public boolean deletePlugin(String pluginName) {
+        log.info("Attempting to delete plugin: {}", pluginName);
+
+        // First unload the plugin
+        boolean unloaded = unloadPlugin(pluginName);
+        if (!unloaded) {
+            log.warn("Could not unload plugin: {}", pluginName);
+            // Continue anyway, we'll try to delete the file
+        }
+
+        try {
+            // Get plugins directory
+            Path pluginsDirectory = Paths.get(System.getProperty("user.dir"), "plugins-deploy");
+            File[] jarFiles = pluginsDirectory.toFile().listFiles((dir, name) -> name.toLowerCase().endsWith(".jar"));
+
+            if (jarFiles == null) {
+                log.error("No JAR files found in plugins directory");
+                return false;
+            }
+
+            // Try to find and delete the JAR file
+            for (File file : jarFiles) {
+                try {
+                    // Check if this JAR file corresponds to our plugin
+                    // This is a simple approach - we're just checking if the file name contains the plugin name
+                    // A more robust approach would be to load the JAR and verify the plugin name
+                    if (file.getName().toLowerCase().contains(pluginName.toLowerCase())) {
+                        log.info("Found matching JAR file for plugin {}: {}", pluginName, file.getName());
+
+                        // Try to delete the file
+                        if (file.delete()) {
+                            log.info("Successfully deleted plugin file: {}", file.getName());
+                            return true;
+                        } else {
+                            log.warn("Could not delete plugin file: {}", file.getName());
+
+                            // Try force delete on JVM exit
+                            file.deleteOnExit();
+                            log.info("Scheduled plugin file for deletion on JVM exit: {}", file.getName());
+                            return true;
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("Error checking plugin file {}: {}", file.getName(), e.getMessage());
+                }
+            }
+
+            log.warn("Could not find JAR file for plugin: {}", pluginName);
+            return false;
+        } catch (Exception e) {
+            log.error("Error deleting plugin {}: {}", pluginName, e.getMessage(), e);
+            return false;
+        }
     }
 
     public List<PluginInterface> getLoadedPlugins() {

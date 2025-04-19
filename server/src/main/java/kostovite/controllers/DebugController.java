@@ -1,6 +1,5 @@
 package kostovite.controllers;
 
-import kostovite.CustomPluginManager;
 import kostovite.PluginInterface;
 import kostovite.ManualPluginLoader;
 import kostovite.ManualPluginLoader.ExtendedPluginInterface;
@@ -33,11 +32,6 @@ public class DebugController {
     private final ManualPluginLoader pluginLoader;
 
     @Autowired
-    private CustomPluginManager customPluginManager;
-
-    @Autowired
-    private ManualPluginLoader manualPluginLoader;
-
     public DebugController(ManualPluginLoader pluginLoader) {
         this.pluginLoader = pluginLoader;
     }
@@ -164,7 +158,7 @@ public class DebugController {
         Map<String, Object> response = new HashMap<>();
 
         try {
-            List<PluginInterface> plugins = manualPluginLoader.getLoadedPlugins();
+            List<PluginInterface> plugins = pluginLoader.getLoadedPlugins();
 
             List<Map<String, Object>> pluginsInfo = new ArrayList<>();
             for (PluginInterface plugin : plugins) {

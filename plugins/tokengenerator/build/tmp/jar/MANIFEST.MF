@@ -1,0 +1,7 @@
+Manifest-Version: 1.0
+Plugin-Class: kostovite.TokenGeneratorPlugin
+Plugin-Id: TokenGenerator
+Plugin-Version: 1.0.0
+Plugin-Provider: kostovite
+Plugin-Description: Media processing plugin for IT-Tools
+

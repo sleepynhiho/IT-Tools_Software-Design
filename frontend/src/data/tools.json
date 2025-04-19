@@ -1,0 +1,1043 @@
+{
+  "customUI": false,
+  "name": "Hash text",
+  "icon": "Fingerprint",
+  "description": "Calculate cryptographic hashes (MD5, SHA-1, SHA-2 family, etc.).",
+  "id": "HashText",
+  "category": "Crypto",
+  "sections": [
+    {
+      "outputs": [
+        {
+          "buttonPlacement": { "copy": "inside" },
+          "buttons": ["copy"],
+          "monospace": true,
+          "id": "md5",
+          "label": "MD5",
+          "type": "text",
+          "containerId": "main"
+        },
+        {
+          "buttonPlacement": { "copy": "inside" },
+          "buttons": ["copy"],
+          "monospace": true,
+          "id": "sha1",
+          "label": "SHA-1",
+          "type": "text",
+          "containerId": "main"
+        },
+        {
+          "buttonPlacement": { "copy": "inside" },
+          "buttons": ["copy"],
+          "monospace": true,
+          "id": "sha256",
+          "label": "SHA-256",
+          "type": "text",
+          "containerId": "main"
+        },
+        {
+          "buttonPlacement": { "copy": "inside" },
+          "buttons": ["copy"],
+          "monospace": true,
+          "id": "sha224",
+          "label": "SHA-224",
+          "type": "text",
+          "containerId": "main"
+        },
+        {
+          "buttonPlacement": { "copy": "inside" },
+          "buttons": ["copy"],
+          "monospace": true,
+          "id": "sha512",
+          "label": "SHA-512",
+          "type": "text",
+          "containerId": "main"
+        },
+        {
+          "buttonPlacement": { "copy": "inside" },
+          "buttons": ["copy"],
+          "monospace": true,
+          "id": "sha384",
+          "label": "SHA-384",
+          "type": "text",
+          "containerId": "main"
+        },
+        {
+          "buttonPlacement": { "copy": "inside" },
+          "buttons": ["copy"],
+          "monospace": true,
+          "id": "sha3",
+          "label": "SHA-3",
+          "type": "text",
+          "containerId": "main"
+        },
+        {
+          "buttonPlacement": { "copy": "inside" },
+          "buttons": ["copy"],
+          "monospace": true,
+          "id": "ripemd160",
+          "label": "RIPEMD-160",
+          "type": "text",
+          "containerId": "main"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Your text to Hash:",
+          "placeholder": "Your string to hash...",
+          "required": true,
+          "multiline": true,
+          "containerId": "main",
+          "id": "inputText",
+          "type": "text",
+          "rows": 5
+        },
+        {
+          "label": "Digest encoding",
+          "default": "base16",
+          "options": [
+            { "value": "base2", "label": "Binary (base 2)" },
+            { "value": "base16", "label": "Hexadecimal (base 16)" },
+            { "value": "base64", "label": "Base64 (base 64)" },
+            {
+              "value": "base64url",
+              "label": "Base64url (base 64 with url safe chars)"
+            }
+          ],
+          "containerId": "main",
+          "required": false,
+          "type": "select",
+          "id": "digestEncoding"
+        }
+      ],
+      "id": "config",
+      "label": ""
+    }
+  ],
+  "triggerUpdateOnChange": true
+}
+
+{
+  "customUI": false,
+  "name": "Encrypt / decrypt text",
+  "icon": "Lock",
+  "description": "Encrypt clear text and decrypt ciphertext using crypto algorithms like AES, TripleDES, Rabbit or RC4.",
+  "id": "EncryptDecryptText",
+  "category": "Crypto",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "required": true,
+          "label": "Your text:",
+          "id": "encryptText",
+          "type": "texarea",
+          "placeholder": "The string to cypher",
+          "default": "Lorem ipsum dolor sit amet",
+          "containerId": "encrypt",
+          "multiline": true,
+          "width": 217,
+          "height": 97,
+        },
+        {
+          "label": "Your secret key:",
+          "id": "encryptSecretKey",
+          "type": "texarea",
+          "placeholder": "Input text",
+          "default": "my secret key",
+          "containerId": "encrypt",
+          "multiline": false,
+          "width": 234,
+          "height": 35,
+        },
+        {
+          "label": "Encryption algorithm:",
+          "default": "AES",
+          "options": [
+            { "value": "AES", "label": "AES (Recommended)" },
+            { "value": "DES", "label": "DES (Weak - Avoid)" },
+            { "value": "TripleDES", "label": "TripleDES (Legacy - Avoid)" },
+            { "value": "Blowfish", "label": "Blowfish" },
+            { "value": "RC4", "label": "RC4 (Weak - Avoid)" }
+          ],
+          "required": true,
+          "type": "select",
+          "id": "encryptAlgorithm"
+        }
+      ], 
+        "outputs": [
+          {
+            "label": "Your text encrypted:",
+            "monospace": true,
+            "buttons": ["copy"],
+            "multiline": true,
+            "id": "encryptedResult",
+            "type": "text",
+            "width": "464",
+            "height": "77",
+          }
+        ],
+      "id": "encrypt",
+      "label": "Encrypt"
+    },
+    {
+      "inputs": [
+        {
+          "required": true,
+          "label": "Your encrypted text:",
+          "id": "decryptText",
+          "type": "texarea",
+          "placeholder": "The string to cypher",
+          "default": "U2FsdGVkX1/EC3+6P5dbbkZ3e1kQ5o2yzuU0NHTjmrKnLBEwreV489Kr0DIB+uBs",
+          "containerId": "decrypt",
+          "multiline": true,
+          "width": 217,
+          "height": 97,
+        },
+        {
+          "label": "Your secret key:",
+          "id": "decryptSecretKey",
+          "type": "texarea",
+          "placeholder": "Input text",
+          "default": "my secret key",
+          "containerId": "decrypt",
+          "multiline": false,
+          "width": 234,
+          "height": 35,
+        },
+        {
+          "label": "Encryption algorithm:",
+          "default": "AES",
+          "options": [
+            { "value": "AES", "label": "AES (Recommended)" },
+            { "value": "DES", "label": "DES (Weak - Avoid)" },
+            { "value": "TripleDES", "label": "TripleDES (Legacy - Avoid)" },
+            { "value": "Blowfish", "label": "Blowfish" },
+            { "value": "RC4", "label": "RC4 (Weak - Avoid)" }
+          ],
+          "required": true,
+          "type": "select",
+          "id": "decryptAlgorithm"
+        }
+      ], 
+        "outputs": [
+          {
+            "label": "Your decrypted text:",
+            "monospace": true,
+            "buttons": ["copy"],
+            "multiline": true,
+            "id": "decryptedResult",
+            "type": "text",
+            "width": "464",
+            "height": "77",
+          }
+        ],
+      "id": "decrypt",
+      "label": "Decrypt"
+    }
+  ]
+}
+
+{
+  "customUI": false,
+  "name": "Chronometer",
+  "icon": "Timer",
+  "description": "Monitor the duration of a thing. Basically a chronometer with simple chronometer features.",
+  "id": "Chronometer",
+  "category": "Measurement",
+  "sections": [
+    {
+      "outputs": [
+        {
+          "id": "sessionId",
+          "type": "text",
+          "buttons": ["copy", "Reset"],
+          "label": ""
+        },
+      ],
+      "id": "chronometer",
+      "label": ""
+    }
+  ]
+}
+
+{
+  "customUI": false,
+  "name": "ETA Calculator",
+  "icon": "ScheduleSend",
+  "description": "An ETA (Estimated Time of Arrival) calculator to determine the approximate end time of a task, for example, the end time and duration of a file download.
+With a concrete example, if you wash 5 plates in 3 minutes and you have 500 plates to wash, it will take you 5 hours to wash them all.",
+  "id": "ETACalculator",
+  "category": "Math",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "required": true,
+          "default": "186",
+          "label": "Amount of element to consume",
+          "id": "elementToConsume",
+          "type": "number",
+          "placeholder": "e.g., 186",
+          "button": ["minus", "plus"],
+          "width": 241,
+          "height": 34,
+          "containerId": "inputs",
+        },
+        {
+          "required": true,
+          "label": "The consumption started at",
+          "id": "startTime",
+          "type": "datetime",
+          "width": 241,
+          "height": 34,
+          "containerId": "inputs",
+        },
+        {
+          "required": true,
+          "default": "3",
+          "label": "Amount of unit consumed by time span",
+          "id": "unitToConsume",
+          "type": "number",
+          "placeholder": "e.g., 3",
+          "button": ["minus", "plus"],
+          "width": 215,
+          "height": 34,
+          "containerId": "inputs",
+        },
+        {
+          "required": true,
+          "default": "5",
+          "label": "in",
+          "id": "timeSpan",
+          "type": "number",
+          "placeholder": "e.g., 5",
+          "button": ["minus", "plus"],
+          "width": 110,
+          "height": 34,
+          "containerId": "inputs",
+        },
+        {
+          "required": true,
+          "default": "minutes",
+          "label": "",
+          "id": "timeUnit",
+          "options": [
+            {"value": "milliseconds", "label": "milliseconds"},
+            { "value": "seconds", "label": "seconds" },
+            { "value": "minutes", "label": "minutes" },
+            { "value": "hours", "label": "hours" },
+            { "value": "days", "label": "days" },
+          ],
+          "type": "select",
+          "width": 110,
+          "height": 34,
+          "containerId": "inputs",
+        },
+      ],
+      "outputs": [
+        {
+          "label": "Total duration",
+          "monospace": true,
+          "id": "etaTotal",
+          "type": "text",
+          "width": 550,
+          "height": 65,
+          "fontSize": 24,
+          "containerId": "output1",
+        },
+        {
+          "label": "It will end",
+          "monospace": true,
+          "id": "etaEnd",
+          "type": "text",
+          "width": 550,
+          "height": 65,
+          "fontSize": 24,
+          "containerId": "output2",
+        }
+      ],
+      "id": "eta",
+      "label": ""
+    }
+  ],
+}
+
+{
+  "customUI": false,
+  "name": "JWT parser",
+  "icon": "VpnKey",
+  "description": "Parse and decode your JSON Web Token (jwt) and display its content.",
+  "id": "JWTParser",
+  "category": "Web",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "monospace": true,
+          "label": "JWT to decode",
+          "placeholder": "Paste your JWT here (e.g., xxxxx.yyyyy.zzzzz)",
+          "required": true,
+          "multiline": true,
+          "id": "jwtToken",
+          "type": "textarea",
+          "default": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+          "width": 498,
+          "height": 108,
+          "containerId": "main",
+        }
+      ],
+      "outputs": [
+        {
+          "id": "result",
+          "type": "table",
+          "label": "",
+          "rows": [
+            { "id": "header", "__merged": "Header" },
+            { "id": "alg", "description": "alg (Algorithm)", "value": "" },
+            { "id": "typ", "description": "typ (Type)", "value": "" },
+            { "id": "payload", "__merged": "Payload" },
+            { "id": "sub", "description": "sub (Subject)", "value": "" },
+            { "id": "name", "description": "name (Full name)", "value": "" },
+            { "id": "iat", "description": "iat (Issued at)", "value": "" }
+          ]
+        },    
+      ],
+
+      "id": "jwt",
+      "label": ""
+    }
+  ],
+}
+
+{
+  "customUI": false,
+  "name": "Math evaluator",
+  "icon": "Math",
+  "description": "A calculator for evaluating mathematical expressions. You can use functions like sqrt, cos, sin, abs, etc.",
+  "id": "MathEvaluator",
+  "category": "Math",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "required": true,
+          "label": "",
+          "placeholder": "Your math expression(e.g., 2+2)...",
+          "id": "inputExpression",
+          "type": "textarea",
+          "multiline": true,
+          "containerId": "main",
+          "multiline": true,
+        }
+      ],
+      "outputs": [
+        {
+          "label": "Result",
+          "monospace": true,
+          "id": "result",
+          "type": "text",
+          "height": 110,
+          "containerId": "main",
+        }
+      ]
+    }
+  ],
+}
+
+{
+  "customUI": false,
+  "name": "Password strength analyser",
+  "icon": "Password",
+  "description": "Discover the strength of your password with this client-side-only password strength analyser and crack time estimation tool.",
+  "id": "PasswordAnalyzer",
+  "category": "Crypto",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "required": false,
+          "label": "",
+          "placeholder": "Enter your password here...",
+          "type": "password",
+          "id": "passwordInput",
+          "multiline": false,
+          "containerId": "input",
+        }
+      ],
+      "outputs": [
+        {
+          "label": "Duration to crack this password with brute force",
+          "monospace": true,
+          "id": "passwordStrength",
+          "type": "text",
+          "height": 95,
+          "fontSize": 24,
+          "containerId": "output1",
+          "default": "Instantly",
+        },
+        {
+          "label": "Password length:",
+          "monospace": true,
+          "id": "passwordLength",
+          "type": "text",
+          "containerId": "output2",
+          "default": "0",
+
+        },
+        {
+          "label": "Entropy:",
+          "monospace": true,
+          "id": "entropy",
+          "type": "text",
+          "containerId": "output2",
+          "default": "0",
+        },
+        {
+          "label": "Character set size:",
+          "monospace": true,
+          "id": "charsetSize",
+          "type": "text",
+          "containerId": "output2",
+          "default": "0",
+        },
+        {
+          "label": "Score:",
+          "monospace": true,
+          "id": "score",
+          "type": "text",
+          "containerId": "output2",
+          "default": "0/100",
+        },
+      ],
+      "id": "passwordStrength",
+      "label": ""
+    }
+  ],
+}
+
+{
+  "customUI": false,
+  "name": "Percentage calculator",
+  "icon": "Percent",
+  "description": "Easily calculate percentages from a value to another value, or from a percentage to a value.",
+  "id": "PercentageCalculator",
+  "category": "Math",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "required": true,
+          "label": "What is",
+          "type": "number",
+          "id": "percentageValue",
+          "placeholder": "X",
+          "button": ["minus", "plus"],
+          "width": 120,
+          "height": 34,
+          "containerId": "1",
+        },
+        {
+          "required": true,
+          "label": "% of",
+          "type": "number",
+          "id": "percentageTotal",
+          "placeholder": "Y",
+          "button": ["minus", "plus"],
+          "width": 120,
+          "height": 34,
+          "containerId": "1",
+        }
+      ],
+      "outputs": [
+        {
+          "buttonPlacement": { "copy": "inside" },
+          "buttons": ["copy"],
+          "monospace": true,
+          "id": "result1",
+          "label": "",
+          "type": "text",
+          "containerId": "1",
+          "width": 107,
+          "height": 34,
+        },
+      ],
+      "id": "percentage1",
+      "label": ""
+    },
+    {
+      "inputs": [
+        {
+          "required": true,
+          "label": "",
+          "type": "number",
+          "id": "value",
+          "placeholder": "X",
+          "button": ["minus", "plus"],
+          "width": 107,
+          "height": 34,
+          "containerId": "2",
+        },
+        {
+          "required": true,
+          "label": "is what percent of",
+          "type": "number",
+          "id": "percentageTotal2",
+          "placeholder": "Y",
+          "button": ["minus", "plus"],
+          "height": 34,
+          "containerId": "2",
+        }
+      ],
+      "outputs": [
+        {
+          "buttonPlacement": { "copy": "inside" },
+          "buttons": ["copy"],
+          "monospace": true,
+          "id": "result2",
+          "label": "",
+          "type": "text",
+          "containerId": "2",
+          "width": 107,
+          "height": 34,
+        },
+      ],
+      "id": "percentage2",
+      "label": ""
+    },
+    {
+      "inputs": [
+        {
+          "required": true,
+          "label": "",
+          "type": "number",
+          "id": "fromAmount",
+          "placeholder": "From",
+          "button": ["minus", "plus"],
+          "width": 107,
+          "height": 34,
+          "containerId": "3",
+        },
+        {
+          "required": true,
+          "label": "",
+          "type": "number",
+          "id": "toAmount",
+          "placeholder": "To",
+          "button": ["minus", "plus"],
+          "width": 107,
+          "height": 34,
+          "containerId": "3",
+        }
+      ],
+      "outputs": [
+        {
+          "buttonPlacement": { "copy": "inside" },
+          "buttons": ["copy"],
+          "monospace": true,
+          "id": "result3",
+          "label": "",
+          "type": "text",
+          "width": 107,
+          "height": 34,
+          "containerId": "3"
+        },
+      ],
+      "id": "percentage3",
+      "label": "What is the percentage increase/decrease"
+    }
+  ],
+}
+
+{
+  "customUI": false,
+  "name": "Phone parser and formatter",
+  "icon": "Phone",
+  "description": "Parse, validate and format phone numbers. Get information about the phone number, like the country code, type, etc.",
+  "id": "JWTParser",
+  "category": "Data",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "label": "Country code",
+          "default": "+44",
+          "options": [
+            { "value": "+34", "label": "+34 (Spain)" },
+            { "value": "+1", "label": "+1 (USA)" },
+            { "value": "+44", "label": "+44 (UK)" },
+            { "value": "+33", "label": "+33 (France)" },
+            { "value": "+49", "label": "+49 (Germany)" }
+          ],
+          "type": "select",
+          "id": "countryCode",
+          "containerId": "main"
+        },
+        {
+          "required": true,
+          "label": "Phone number",
+          "placeholder": "+44 123 456 789",
+          "id": "phoneNumber",
+          "type": "text",
+          "multiline": false,
+          "containerId": "main",
+        },
+        
+      ],
+      "outputs": [
+        {
+          "id": "result",
+          "type": "table",
+          "label": "",
+          "rows": [
+            { "id": "country", "description": "Country", "value": "" },
+            { "id": "callingCode", "description": "Country calling code", "value": "" },
+            { "id": "isValid", "description": "Is valid?", "value": "" },
+            { "id": "isPossible", "description": "Is possible?", "value": "" },
+            { "id": "type", "description": "Type", "value": "" },
+            { "id": "intlFormat", "description": "International format", "value": "" },
+            { "id": "nationalFormat", "description": "National format", "value": "" },
+            { "id": "e164Format", "description": "E.164 format", "value": "" },
+            { "id": "rfc3966Format", "description": "RFC3966 format", "value": "" }
+          ]
+
+        },    
+      ],
+
+      "id": "phone",
+      "label": ""
+    }
+  ],
+}
+
+{
+  "customUI": false,
+  "name": "QR Code generator",
+  "icon": "QrCode",
+  "description": "Generate and download a QR code for a URL (or just plain text), and customize the background and foreground colors.",
+  "id": "QRCodeGenerator",
+  "category": "Images & Videos",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "label": "Text:",
+          "id": "link",
+          "type": "text",
+          "required": true,
+          "multiline": false,
+          "placeholder": "Your link or text...",
+          "default": "https://it-tools.tech",
+          "containerId": "main",
+          "width": 351,
+          "height": 39,
+        },
+        {
+          "label": "Foreground color:",
+          "id": "foregroundColor",
+          "required": true,
+          "default": "#000000FF",
+          "containerId": "main",
+          "width": 351,
+          "height": 39,
+          "type": "color",
+        },
+        {
+          "label": "Background color:",
+          "id": "backgroundColor",
+          "required": true,
+          "default": "#FFFFFFFF",
+          "containerId": "main",
+          "width": 351,
+          "height": 39,
+          "type": "color",
+        },
+        {
+          "label": "Error resistance:",
+          "id": "errorResistance",
+          "required": true,
+          "default": "medium",
+          "containerId": "main",
+          "width": 351,
+          "height": 39,
+          "type": "select",
+          "options": [
+            { "value": "low", "label": "low" },
+            { "value": "medium", "label": "medium" },
+            { "value": "quartile", "label": "quartile" },
+            { "value": "high", "label": "high" }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "label": "QR Code",
+          "buttons": ["download"],
+          "id": "qrCode",
+          "type": "image",
+          "width": 400,
+          "height": 400,
+          "containerId": "main",
+        }
+      ],
+      "id": "content",
+      "label": ""
+    }
+  ]
+}
+
+{
+  "customUI": false,
+  "name": "Encode/decode URL-formatted strings",
+  "icon": "Link",
+  "description": "Encode text to URL-encoded format (also known as \"percent-encoded\"), or decode from it.",
+  "id": "EncodeDecodeURL",
+  "category": "Web",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "required": true,
+          "label": "Your string: ",
+          "id": "encodeInputText",
+          "type": "texarea",
+          "placeholder": "The string to encode",
+          "default": "Hello world :)",
+          "containerId": "encode",
+          "multiline": true,
+          "width": 470,
+          "height": 56,
+        }
+      ], 
+        "outputs": [
+          {
+            "label": "Your string encoded:",
+            "monospace": true,
+            "buttons": ["copy"],
+            "buttonPlacement": { "copy": "outside" },
+            "multiline": true,
+            "id": "encodedResult",
+            "type": "text",
+            "multiline": true,
+            "width": 470,
+            "height": 56,
+          }
+        ],
+      "id": "encode",
+      "label": "Encode"
+    },
+    {
+      "inputs": [
+        {
+          "required": true,
+          "label": "Your encoded string:",
+          "id": "encodedInputText",
+          "type": "texarea",
+          "placeholder": "The string to decode",
+          "default": "Hello%20world%20%3A)",
+          "containerId": "decode",
+          "multiline": true,
+          "width": 470,
+          "height": 56,
+        }
+      ], 
+        "outputs": [
+          {
+            "label": "Your string decoded:",
+            "monospace": true,
+            "buttons": ["copy"],
+            "buttonPlacement": { "copy": "outside" },
+            "multiline": true,
+            "id": "decodedResult",
+            "type": "text",
+            "multiline": true,
+            "width": 470,
+            "height": 56,
+          }
+        ],
+      "id": "decode",
+      "label": "Decode"
+    },
+  ]
+}
+
+
+{
+  "customUI": false,
+  "name": "WiFi QR Code generator",
+  "icon": "Wifi",
+  "description": "Generate and download QR codes for quick connections to WiFi networks.",
+  "id": "WiFiQRCodeGenerator",
+  "category": "Images & Videos",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "label": "Encryption method",
+          "id": "encryptionMethod",
+          "default": "WPA",
+          "type": "select",
+          "options": [
+            { "value": "WPA", "label": "WPA/WPA2" },
+            { "value": "WEP", "label": "WEP" },
+            { "value": "WPA2", "label": "WPA2-EAP"},
+          ],
+          "required": true,
+          "containerId": "main",
+          "width": 368,
+          "height": 34,
+        },
+        {
+          "label": "SSID:",
+          "id": "SSID",
+          "type": "text",
+          "required": true,
+          "containerId": "main",
+          "width": 271,
+          "height": 34,
+          "placeholder": "Your WiFi SSID",
+        },
+        {
+          "label": "Hidden SSID",
+          "id": "hiddenSSID",
+          "type": "switch",
+          "default": false,
+          "containerId": "main",
+        },
+        {
+          "label": "Password:",
+          "id": "password",
+          "type": "password",
+          "required": true,
+          "containerId": "main",
+          "width": 271,
+          "height": 34,
+          "placeholder": "Your WiFi password",
+        },
+        {
+          "label": "Foreground color:",
+          "id": "foregroundColor",
+          "required": true,
+          "default": "#000000FF",
+          "containerId": "main",
+          "width": 351,
+          "height": 39,
+          "type": "color",
+        },
+        {
+          "label": "Background color:",
+          "id": "backgroundColor",
+          "required": true,
+          "default": "#FFFFFFFF",
+          "containerId": "main",
+          "width": 351,
+          "height": 39,
+          "type": "color",
+        }
+      ],
+      "outputs": [
+        {
+          "label": "",
+          "buttons": ["download"],
+          "id": "wifiQrCode",
+          "type": "image",
+          "width": 400,
+          "height": 400,
+          "containerId": "main",
+        }
+      ],
+      "id": "content",
+      "label": ""
+    }
+  ]
+}
+
+{
+  "customUI": false,
+  "name": "Integer base converter",
+  "icon": "SwapHoriz",
+  "description": "Convert a number between different bases (decimal, hexadecimal, binary, octal, base64, ...)",
+  "id": "IntegerBaseConverter",
+  "category": "Converter",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "label": "Input number",
+          "id": "integerInputNumber",
+          "type": "textarea",
+          "required": true,
+          "default": "42",
+          "containerId": "main",
+          "width": 440,
+          "height": 36,
+        },
+        {
+          "label": "Input base",
+          "id": "integerInputBase",
+          "type": "number",
+          "buttons": ["minus", "plus"],
+          "required": true,
+          "default": "42",
+          "containerId": "main",
+          "width": 440,
+          "height": 36,
+        }
+      ],
+      "outputs": [
+        {
+          "label": "Binary(2)",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "binaryOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "main",
+        },
+        {
+          "label": "Octal(8)",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "octalOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "main",
+        },
+        {
+          "label": "Decimal(10)",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "decimalOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "main",
+        },
+        {
+          "label": "Hexadecimal(16)",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "hexadecimalOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "main",
+        },
+        {
+          "label": "Base64",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "base64Output",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "main",
+        }
+      ],
+      "id": "integerBaseConverter",
+      "label": ""
+    }
+  ]
+}
