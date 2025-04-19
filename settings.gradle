@@ -19,3 +19,6 @@ include 'plugins:percentagecalculator'
 include 'plugins:chronometer'
 include 'plugins:worldclock'
 include 'plugins:phoneparser'
+include 'plugins:integerbaseconverter'
+include 'untitled'
+

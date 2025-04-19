@@ -951,3 +951,93 @@ With a concrete example, if you wash 5 plates in 3 minutes and you have 500 plat
     }
   ]
 }
+
+{
+  "customUI": false,
+  "name": "Integer base converter",
+  "icon": "SwapHoriz",
+  "description": "Convert a number between different bases (decimal, hexadecimal, binary, octal, base64, ...)",
+  "id": "IntegerBaseConverter",
+  "category": "Converter",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "label": "Input number",
+          "id": "integerInputNumber",
+          "type": "textarea",
+          "required": true,
+          "default": "42",
+          "containerId": "main",
+          "width": 440,
+          "height": 36,
+        },
+        {
+          "label": "Input base",
+          "id": "integerInputBase",
+          "type": "number",
+          "buttons": ["minus", "plus"],
+          "required": true,
+          "default": "42",
+          "containerId": "main",
+          "width": 440,
+          "height": 36,
+        }
+      ],
+      "outputs": [
+        {
+          "label": "Binary(2)",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "binaryOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "main",
+        },
+        {
+          "label": "Octal(8)",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "octalOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "main",
+        },
+        {
+          "label": "Decimal(10)",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "decimalOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "main",
+        },
+        {
+          "label": "Hexadecimal(16)",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "hexadecimalOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "main",
+        },
+        {
+          "label": "Base64",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "base64Output",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "main",
+        }
+      ],
+      "id": "integerBaseConverter",
+      "label": ""
+    }
+  ]
+}
