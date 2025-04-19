@@ -5,6 +5,7 @@ plugins {
 }
 
 repositories {
+    google()
     mavenCentral()
 }
 
@@ -39,6 +40,11 @@ dependencies {
     implementation "ch.qos.logback:logback-classic"
     implementation "ch.qos.logback:logback-core"
 
+    //Firebase
+    implementation 'com.google.firebase:firebase-admin:9.2.0'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
     // Exclude conflicting logging implementations
     configurations.all {
         exclude group: 'commons-logging', module: 'commons-logging'
@@ -51,6 +57,7 @@ dependencies {
 
     // For RESTful API documentation (optional)
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.1.0'
+    implementation 'com.google.firebase:firebase-common:21.0.0'
 
     testImplementation('org.springframework.boot:spring-boot-starter-test') {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
