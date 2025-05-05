@@ -5,6 +5,12 @@ import java.util.*;
 public class RomanNumeralConverter implements PluginInterface {
 
     private static final String ERROR_OUTPUT_ID = "errorMessage";
+    private static final int MIN_ROMAN_VALUE = 1;
+    private static final int MAX_ROMAN_VALUE = 3999;
+
+    // Roman numeral mapping arrays
+    private static final String[] ROMAN_SYMBOLS = {"M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"};
+    private static final int[] ROMAN_VALUES = {1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1};
 
     @Override
     public String getName() {
@@ -17,38 +23,39 @@ public class RomanNumeralConverter implements PluginInterface {
         try {
             Map<String, Object> params = new HashMap<>();
 
-            // Test Arabic to Roman conversion
+            // Test with various valid inputs
             params.put("arabicInputNumber", "42");
             Map<String, Object> result1 = process(params);
-            System.out.println("Test 1 (Arabic 42): " + result1);
+            System.out.println("Test 1 (42): " + result1);
 
-            // Test larger number
-            params.put("arabicInputNumber", "1984");
+            params.put("arabicInputNumber", "1994");
             Map<String, Object> result2 = process(params);
-            System.out.println("Test 2 (Arabic 1984): " + result2);
+            System.out.println("Test 2 (1994): " + result2);
 
-            // Test Roman to Arabic conversion
-            params.clear();
-            params.put("romanInputNumber", "XLII");
+            params.put("arabicInputNumber", "3999");
             Map<String, Object> result3 = process(params);
-            System.out.println("Test 3 (Roman XLII): " + result3);
+            System.out.println("Test 3 (3999): " + result3);
 
-            // Test larger Roman numeral
-            params.put("romanInputNumber", "MCMLXXXIV");
+            // Test with invalid inputs
+            params.put("arabicInputNumber", "0"); // Below min
             Map<String, Object> result4 = process(params);
-            System.out.println("Test 4 (Roman MCMLXXXIV): " + result4);
+            System.out.println("Test 4 (0 - below min): " + result4);
 
-            // Test invalid Arabic input
-            params.clear();
-            params.put("arabicInputNumber", "abc");
+            params.put("arabicInputNumber", "4000"); // Above max
             Map<String, Object> result5 = process(params);
-            System.out.println("Test 5 (Invalid Arabic): " + result5);
+            System.out.println("Test 5 (4000 - above max): " + result5);
 
-            // Test invalid Roman input
-            params.clear();
-            params.put("romanInputNumber", "XYZ");
+            params.put("arabicInputNumber", "abc"); // Not a number
             Map<String, Object> result6 = process(params);
-            System.out.println("Test 6 (Invalid Roman): " + result6);
+            System.out.println("Test 6 (abc - not a number): " + result6);
+
+            params.put("arabicInputNumber", "-5"); // Negative number
+            Map<String, Object> result7 = process(params);
+            System.out.println("Test 7 (-5 - negative number): " + result7);
+
+            params.put("arabicInputNumber", "1.5"); // Decimal number
+            Map<String, Object> result8 = process(params);
+            System.out.println("Test 8 (1.5 - decimal number): " + result8);
 
         } catch (Exception e) {
             System.err.println("Standalone test failed: " + e.getMessage());
@@ -61,26 +68,26 @@ public class RomanNumeralConverter implements PluginInterface {
         Map<String, Object> metadata = new HashMap<>();
 
         // --- Top Level Attributes ---
-        metadata.put("customUI", false);
-        metadata.put("name", "Roman numeral converter");
-        metadata.put("icon", "Numbers");
-        metadata.put("description", "Convert Roman numerals to numbers and convert numbers to Roman numerals.");
         metadata.put("id", "RomanNumeralConverter");
+        metadata.put("name", "Roman numeral converter");
+        metadata.put("description", "Convert Roman numerals to numbers and convert numbers to Roman numerals.");
+        metadata.put("icon", "Numbers");
         metadata.put("category", "Converter");
+        metadata.put("customUI", false);
 
         // --- Sections ---
         List<Map<String, Object>> sections = new ArrayList<>();
 
-        // --- Section 1: Arabic to Roman ---
+        // --- Section: Arabic to Roman ---
         Map<String, Object> arabicToRomanSection = new HashMap<>();
         arabicToRomanSection.put("id", "arabicToRoman");
         arabicToRomanSection.put("label", "Arabic to Roman");
 
-        // --- Arabic to Roman Inputs ---
-        List<Map<String, Object>> arabicInputs = new ArrayList<>();
-        arabicInputs.add(Map.ofEntries(
-                Map.entry("label", ""),
+        // --- Inputs ---
+        List<Map<String, Object>> inputs = new ArrayList<>();
+        inputs.add(Map.ofEntries(
                 Map.entry("id", "arabicInputNumber"),
+                Map.entry("label", ""),
                 Map.entry("type", "text"),
                 Map.entry("required", true),
                 Map.entry("default", "42"),
@@ -88,58 +95,23 @@ public class RomanNumeralConverter implements PluginInterface {
                 Map.entry("width", 200),
                 Map.entry("height", 40)
         ));
-        arabicToRomanSection.put("inputs", arabicInputs);
+        arabicToRomanSection.put("inputs", inputs);
 
-        // --- Arabic to Roman Outputs ---
-        List<Map<String, Object>> arabicOutputs = new ArrayList<>();
-        arabicOutputs.add(Map.ofEntries(
+        // --- Outputs ---
+        List<Map<String, Object>> outputs = new ArrayList<>();
+        outputs.add(Map.ofEntries(
+                Map.entry("id", "romanOutput"),
                 Map.entry("label", ""),
+                Map.entry("type", "text"),
                 Map.entry("buttons", List.of("copy")),
                 Map.entry("buttonPlacement", Map.of("copy", "outside")),
-                Map.entry("id", "romanOutput"),
-                Map.entry("type", "text"),
+                Map.entry("containerId", "main"),
                 Map.entry("width", 440),
-                Map.entry("height", 36),
-                Map.entry("containerId", "main")
+                Map.entry("height", 36)
         ));
-        arabicToRomanSection.put("outputs", arabicOutputs);
+        arabicToRomanSection.put("outputs", outputs);
 
         sections.add(arabicToRomanSection);
-
-        // --- Section 2: Roman to Arabic ---
-        Map<String, Object> romanToArabicSection = new HashMap<>();
-        romanToArabicSection.put("id", "romanToArabic");
-        romanToArabicSection.put("label", "Roman to Arabic");
-
-        // --- Roman to Arabic Inputs ---
-        List<Map<String, Object>> romanInputs = new ArrayList<>();
-        romanInputs.add(Map.ofEntries(
-                Map.entry("label", ""),
-                Map.entry("id", "romanInputNumber"),
-                Map.entry("type", "text"),
-                Map.entry("required", true),
-                Map.entry("default", "XLII"),
-                Map.entry("containerId", "main"),
-                Map.entry("width", 200),
-                Map.entry("height", 40)
-        ));
-        romanToArabicSection.put("inputs", romanInputs);
-
-        // --- Roman to Arabic Outputs ---
-        List<Map<String, Object>> romanOutputs = new ArrayList<>();
-        romanOutputs.add(Map.ofEntries(
-                Map.entry("label", ""),
-                Map.entry("buttons", List.of("copy")),
-                Map.entry("buttonPlacement", Map.of("copy", "outside")),
-                Map.entry("id", "arabicOutput"),
-                Map.entry("type", "text"),
-                Map.entry("width", 440),
-                Map.entry("height", 36),
-                Map.entry("containerId", "main")
-        ));
-        romanToArabicSection.put("outputs", romanOutputs);
-
-        sections.add(romanToArabicSection);
 
         // --- Error Section ---
         Map<String, Object> errorSection = new HashMap<>();
@@ -164,16 +136,42 @@ public class RomanNumeralConverter implements PluginInterface {
     @Override
     public Map<String, Object> process(Map<String, Object> input) {
         try {
-            // Check which input is provided (Arabic or Roman)
-            if (input.containsKey("arabicInputNumber")) {
-                // Convert Arabic to Roman
-                return processArabicToRoman(input);
-            } else if (input.containsKey("romanInputNumber")) {
-                // Convert Roman to Arabic
-                return processRomanToArabic(input);
-            } else {
-                return Map.of("success", false, ERROR_OUTPUT_ID, "No input provided.");
+            // Get input parameter
+            String arabicInputStr = getStringParam(input, "arabicInputNumber", null);
+
+            // --- Validation ---
+            if (arabicInputStr == null || arabicInputStr.trim().isEmpty()) {
+                return Map.of("success", false, ERROR_OUTPUT_ID, "Input number is required.");
             }
+
+            // Validate that it's an integer
+            int arabicNumber;
+            try {
+                arabicNumber = Integer.parseInt(arabicInputStr.trim());
+            } catch (NumberFormatException e) {
+                return Map.of("success", false, ERROR_OUTPUT_ID, "Input must be a valid integer.");
+            }
+
+            // Validate that it's within the acceptable range for Roman numerals
+            if (arabicNumber < MIN_ROMAN_VALUE) {
+                return Map.of("success", false, ERROR_OUTPUT_ID,
+                        "Input must be at least " + MIN_ROMAN_VALUE + " (minimum value for Roman numerals).");
+            }
+            if (arabicNumber > MAX_ROMAN_VALUE) {
+                return Map.of("success", false, ERROR_OUTPUT_ID,
+                        "Input must not exceed " + MAX_ROMAN_VALUE + " (maximum value for standard Roman numerals).");
+            }
+
+            // Convert to Roman numeral
+            String romanNumeral = convertToRoman(arabicNumber);
+
+            // Prepare result
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("romanOutput", romanNumeral);
+
+            return result;
+
         } catch (Exception e) {
             System.err.println("Error processing Roman numeral conversion: " + e.getMessage());
             e.printStackTrace();
@@ -181,126 +179,50 @@ public class RomanNumeralConverter implements PluginInterface {
         }
     }
 
-    private Map<String, Object> processArabicToRoman(Map<String, Object> input) {
-        String arabicStr = getStringParam(input, "arabicInputNumber", null);
+    // ========================================================================
+    // Helper Methods
+    // ========================================================================
 
-        // Validation
-        if (arabicStr == null || arabicStr.trim().isEmpty()) {
-            return Map.of("success", false, ERROR_OUTPUT_ID, "Input number is required.");
+    private String getStringParam(Map<String, Object> input, String key, String defaultValue) throws IllegalArgumentException {
+        Object value = input.get(key);
+        if (value == null) {
+            if (defaultValue == null) throw new IllegalArgumentException("Missing required parameter: " + key);
+            return defaultValue;
         }
-
-        arabicStr = arabicStr.trim();
-
-        try {
-            int arabicNumber = Integer.parseInt(arabicStr);
-
-            // Check range (Roman numerals typically 1-3999)
-            if (arabicNumber < 1 || arabicNumber > 3999) {
-                return Map.of("success", false, ERROR_OUTPUT_ID,
-                        "Arabic number must be between 1 and 3999 for standard Roman numeral conversion.");
-            }
-
-            // Convert to Roman numeral
-            String romanNumeral = convertToRoman(arabicNumber);
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("success", true);
-            result.put("romanOutput", romanNumeral);
-
-            return result;
-
-        } catch (NumberFormatException e) {
-            return Map.of("success", false, ERROR_OUTPUT_ID, "Invalid Arabic number format. Please enter a valid integer.");
-        }
+        return value.toString();
     }
 
-    private Map<String, Object> processRomanToArabic(Map<String, Object> input) {
-        String romanStr = getStringParam(input, "romanInputNumber", null);
-
-        // Validation
-        if (romanStr == null || romanStr.trim().isEmpty()) {
-            return Map.of("success", false, ERROR_OUTPUT_ID, "Input Roman numeral is required.");
-        }
-
-        romanStr = romanStr.trim().toUpperCase();
-
-        // Validate Roman numeral format
-        if (!romanStr.matches("^[MDCLXVI]+$")) {
-            return Map.of("success", false, ERROR_OUTPUT_ID,
-                    "Invalid Roman numeral. Only M, D, C, L, X, V, I characters are allowed.");
-        }
-
-        try {
-            // Convert to Arabic number
-            int arabicNumber = convertToArabic(romanStr);
-
-            // Validate if it's a valid Roman numeral structure
-            String backToRoman = convertToRoman(arabicNumber);
-            if (!romanStr.equals(backToRoman)) {
-                return Map.of("success", false, ERROR_OUTPUT_ID,
-                        "Invalid Roman numeral structure. Please check your input.");
-            }
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("success", true);
-            result.put("arabicOutput", String.valueOf(arabicNumber));
-
-            return result;
-
-        } catch (IllegalArgumentException e) {
-            return Map.of("success", false, ERROR_OUTPUT_ID, e.getMessage());
-        }
-    }
-
-    // Convert Arabic number to Roman numeral
+    /**
+     * Convert an integer to Roman numeral representation
+     */
     private String convertToRoman(int number) {
-        TreeMap<Integer, String> romanMap = new TreeMap<>(Collections.reverseOrder());
-        romanMap.put(1000, "M");
-        romanMap.put(900, "CM");
-        romanMap.put(500, "D");
-        romanMap.put(400, "CD");
-        romanMap.put(100, "C");
-        romanMap.put(90, "XC");
-        romanMap.put(50, "L");
-        romanMap.put(40, "XL");
-        romanMap.put(10, "X");
-        romanMap.put(9, "IX");
-        romanMap.put(5, "V");
-        romanMap.put(4, "IV");
-        romanMap.put(1, "I");
-
         StringBuilder result = new StringBuilder();
-        for (Map.Entry<Integer, String> entry : romanMap.entrySet()) {
-            int value = entry.getKey();
-            String symbol = entry.getValue();
-            while (number >= value) {
-                result.append(symbol);
-                number -= value;
+
+        // Process the number using the greedy algorithm approach
+        int remaining = number;
+        for (int i = 0; i < ROMAN_SYMBOLS.length; i++) {
+            while (remaining >= ROMAN_VALUES[i]) {
+                result.append(ROMAN_SYMBOLS[i]);
+                remaining -= ROMAN_VALUES[i];
             }
         }
+
         return result.toString();
     }
 
-    // Convert Roman numeral to Arabic number
-    private int convertToArabic(String roman) {
-        Map<Character, Integer> romanMap = new HashMap<>();
-        romanMap.put('I', 1);
-        romanMap.put('V', 5);
-        romanMap.put('X', 10);
-        romanMap.put('L', 50);
-        romanMap.put('C', 100);
-        romanMap.put('D', 500);
-        romanMap.put('M', 1000);
-
+    /**
+     * Convert a Roman numeral to integer (not used in this version, but included for completeness)
+     */
+    private int convertFromRoman(String roman) {
         int result = 0;
         int prevValue = 0;
 
         // Process from right to left
         for (int i = roman.length() - 1; i >= 0; i--) {
-            int currentValue = romanMap.get(roman.charAt(i));
+            int currentValue = getRomanSymbolValue(roman.charAt(i));
 
-            // If current value is greater than or equal to previous value,
-            // add it; otherwise, subtract it
+            // If current value is greater or equal to previous, add it
+            // Otherwise subtract it (handles cases like IV = 4)
             if (currentValue >= prevValue) {
                 result += currentValue;
             } else {
@@ -313,15 +235,19 @@ public class RomanNumeralConverter implements PluginInterface {
         return result;
     }
 
-    // Helper method to get string parameters
-    private String getStringParam(Map<String, Object> input, String key, String defaultValue) {
-        Object value = input.get(key);
-        if (value == null) {
-            if (defaultValue == null) {
-                return null;
-            }
-            return defaultValue;
+    /**
+     * Get the value of a single Roman numeral symbol
+     */
+    private int getRomanSymbolValue(char symbol) {
+        switch (symbol) {
+            case 'I': return 1;
+            case 'V': return 5;
+            case 'X': return 10;
+            case 'L': return 50;
+            case 'C': return 100;
+            case 'D': return 500;
+            case 'M': return 1000;
+            default: return 0;
         }
-        return value.toString();
     }
 }

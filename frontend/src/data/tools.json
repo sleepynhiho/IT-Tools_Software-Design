@@ -389,21 +389,60 @@ With a concrete example, if you wash 5 plates in 3 minutes and you have 500 plat
       ],
       "outputs": [
         {
-          "id": "result",
-          "type": "table",
-          "label": "",
-          "rows": [
-            { "id": "header", "__merged": "Header" },
-            { "id": "alg", "description": "alg (Algorithm)", "value": "" },
-            { "id": "typ", "description": "typ (Type)", "value": "" },
-            { "id": "payload", "__merged": "Payload" },
-            { "id": "sub", "description": "sub (Subject)", "value": "" },
-            { "id": "name", "description": "name (Full name)", "value": "" },
-            { "id": "iat", "description": "iat (Issued at)", "value": "" }
-          ]
-        },    
+          "label": "alg (Algorithm)",
+          "monospace": true,
+          "id": "alg",
+          "type": "text",
+          "width": 498,
+          "height": 34,
+          "containerId": "main",
+        },
+        {
+          "label": "typ (Type)",
+          "monospace": true,
+          "id": "typ",
+          "type": "text",
+          "width": 498,
+          "height": 34,
+          "containerId": "main",
+        },
+        {
+          "label": "Payload",
+          "monospace": true,
+          "id": "payload",
+          "type": "text",
+          "width": 498,
+          "height": 34,
+          "containerId": "main",
+        },
+        {
+          "label": "sub (Subject)",
+          "monospace": true,
+          "id": "sub",
+          "type": "text",
+          "width": 498,
+          "height": 34,
+          "containerId": "main",
+        },
+        {
+          "label": "name (Full name)",
+          "monospace": true,
+          "id": "name",
+          "type": "text",
+          "width": 498,
+          "height": 34,
+          "containerId": "main",
+        },
+        {
+          "label": "iat (Issued at)",
+          "monospace": true,
+          "id": "iat",
+          "type": "text",
+          "width": 498,
+          "height": 34,
+          "containerId": "main",
+        }
       ],
-
       "id": "jwt",
       "label": ""
     }
@@ -1077,34 +1116,6 @@ With a concrete example, if you wash 5 plates in 3 minutes and you have 500 plat
       ],
       "id": "arabicToRoman",
       "label": "Arabic to Roman"
-    },
-    {
-      "inputs": [
-        {
-          "label": "",
-          "id": "romanInputNumber",
-          "type": "textarea",
-          "required": true,
-          "default": "XLII",
-          "containerId": "main",
-          "width": 200,
-          "height": 40,
-        }
-      ],
-      "outputs": [
-        {
-          "label": "",
-          "buttons": ["copy"],
-          "buttonPlacement": { "copy": "outside" },
-          "id": "arabicOutput",
-          "type": "text",
-          "width": 440,
-          "height": 36,
-          "containerId": "main",
-        }
-      ],
-      "id": "romanToArabic",
-      "label": "Roman to Arabic"
     }
   ]
 }
@@ -1400,21 +1411,61 @@ With a concrete example, if you wash 5 plates in 3 minutes and you have 500 plat
       ],
       "outputs": [
         {
-          "id": "result",
-          "type": "table",
-          "label": "",
-          "rows": [
-            { "id": "start_old", "description": "Start address (Old)", "value": "" },
-            { "id": "start_new", "description": "Start address (New)", "value": "" },
-            { "id": "end_old", "description": "End address (Old)", "value": "" },
-            { "id": "end_new", "description": "End address (New)", "value": "" },
-            { "id": "range_old", "description": "Addresses in range (Old)", "value": "" },
-            { "id": "range_new", "description": "Addresses in range (New)", "value": "" },
-            { "id": "cidr_new", "description": "CIDR", "value": "" }
-          ]
-        },    
+          "id": "start_new",
+          "type": "text",
+          "label": "Start address (New)",
+          "monospace": true,
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "width": 600,
+          "height": 36,
+          "containerId": "output",
+        },
+        {
+          "id": "end_new",
+          "type": "text",
+          "label": "End address (New)",
+          "monospace": true,
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "width": 600,
+          "height": 36,
+          "containerId": "output",
+        },
+        {
+          "id": "range_old",
+          "type": "text",
+          "label": "Addresses in range (Old)",
+          "monospace": true,
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "width": 600,
+          "height": 36,
+          "containerId": "output",
+        },
+        {
+          "id": "range_new",
+          "type": "text",
+          "label": "Addresses in range (New)",
+          "monospace": true,
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "width": 600,
+          "height": 36,
+          "containerId": "output",
+        },
+        {
+          "id": "cidr_new",
+          "type": "text",
+          "label": "CIDR",
+          "monospace": true,
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "width": 600,
+          "height": 36,
+          "containerId": "output",
+        }
       ],
-
       "id": "ipv4RangeExpander",
       "label": ""
     }
@@ -1489,9 +1540,543 @@ With a concrete example, if you wash 5 plates in 3 minutes and you have 500 plat
           "containerId": "output",
         },   
       ],
-
-      "id": "phone",
+      "id": "macAddressGenerator",
       "label": ""
     }
   ],
+}
+
+{
+  "customUI": false,
+  "name": "Lorem ipsum generator",
+  "icon": "TextFields",
+  "description": "Lorem ipsum is a placeholder text commonly used to demonstrate the visual form of a document or a typeface without relying on meaningful content",
+  "id": "LoremIpsumGenerator",
+  "category": "Text",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "label": "Paragraphs",
+          "id": "paragraphs",
+          "default": 1,
+          "type": "slider",
+          "width": 350,
+          "height": 20,
+          "containerId": "main",
+        },
+        {
+          "label": "Sentences per paragraph",
+          "id": "sentences",
+          "default": 5,
+          "type": "slider",
+          "width": 350,
+          "height": 20,
+          "containerId": "main",
+        },
+        {
+          "label": "Words per sentence",
+          "id": "words",
+          "default": 10,
+          "type": "slider",
+          "width": 350,
+          "height": 20,
+          "containerId": "main",
+        },
+        {
+          "default": true,
+          "id": "useLorem",
+          "label": "Start with lorem ipsum ?",
+          "type": "switch",
+          "containerId": "main"
+        },
+        {
+          "default": false,
+          "id": "asHtml",
+          "label": "As html ?",
+          "type": "switch",
+          "containerId": "main"
+        }
+      ],
+      "outputs": [
+        {
+          "buttonPlacement": { "refresh": "outside", "copy": "outside" },
+          "buttons": ["copy", "refresh"],
+          "width": 600,
+          "id": "token",
+          "label": "Generated Token",
+          "type": "text",
+          "containerId": "main",
+          "height": 80,
+          "multiline": true,
+          "monospace": true,
+        }
+      ],
+      
+      "id": "loremIpsum",
+      "label": ""
+    }
+  ]
+}
+
+{
+  "customUI": false,
+  "name": "String obfuscator",
+  "description": "Obfuscate a string (like a secret, an IBAN, or a token) to make it shareable and identifiable without revealing its content.",
+  "icon": "TextFields",
+  "id": "StringObfuscator",
+  "category": "Text",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "label": "String to obfuscate:",
+          "id": "paragraphs",
+          "default": "Lorem ipsum dolor sit amet",
+          "type": "text",
+          "width": 600,
+          "height": 40,
+          "containerId": "input1",
+        },
+        {
+          "required": true,
+          "default": "4",
+          "label": "Keep first:",
+          "id": "keepFirst",
+          "type": "number",
+          "placeholder": "e.g., 4",
+          "button": ["minus", "plus"],
+          "width": 200,
+          "height": 36,
+          "containerId": "input2",
+        },
+        {
+          "label": "Keep last:",
+          "id": "keepLast",
+          "default": 4,
+          "type": "number",
+          "placeholder": "e.g., 4",
+          "button": ["minus", "plus"],
+          "width": 200,
+          "height": 36,
+          "containerId": "input3",
+        },
+        {
+          "label": "Keep spaces:",
+          "id": "keepSpaces",
+          "type": "switch",
+          "default": true,
+          "containerId": "input5",
+        }
+      ],
+      "outputs": [
+        {
+          "buttonPlacement": { "copy": "inside" },
+          "buttons": ["copy"],
+          "width": 600,
+          "id": "obfuscated",
+          "label": "",
+          "type": "text",
+          "containerId": "output",
+          "height": 80,
+          "multiline": true,
+          "monospace": true,
+        }
+      ],
+      
+      "id": "stringObfuscator",
+      "label": ""
+    }
+  ]
+}
+
+{
+  "customUI": false,
+  "name": "Numeronym generator",
+  "icon": "TextFields",
+  "description": "A numeronym is a word where a number is used to form an abbreviation. For example, ""i18n"" is a numeronym of ""internationalization"" where 18 stands for the number of letters between the first i and the last n in the word.",
+  "id": "NumeronymGenerator",
+  "category": "Text",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "label": "",
+          "placeholder": "Enter a word, e.g., internationalization",
+          "required": true,
+          "multiline": false,
+          "containerId": "input",
+          "id": "inputText",
+          "type": "text",
+          "width": 600,
+          "height": 36,
+        }
+      ],
+      "outputs": [
+        {
+          "label": "",
+          "monospace": true,
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "numeronymOutput",
+          "type": "text",
+          "width": 600,
+          "height": 36,
+          "containerId": "output",
+        }
+      ],
+      "id": "numeronym",
+      "label": ""
+    }
+  ]
+}
+
+
+{
+  "customUI": false,
+  "name": "Phone parser and formatter",
+  "icon": "Phone",
+  "description": "Parse, validate and format phone numbers. Get information about the phone number, like the country code, type, etc.",
+  "id": "PhoneParser",
+  "category": "Data",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "label": "Default country code:",
+          "default": "Vietnam (+84)",
+          "options": [
+            { "value": "+84", "label": "Vietnam (+84)" },
+            { "value": "+1", "label": "USA/Canada (+1)" },
+            { "value": "+44", "label": "United Kingdom (+44)" },
+            { "value": "+61", "label": "Australia (+61)" },
+            { "value": "+81", "label": "Japan (+81)" },
+            { "value": "+82", "label": "South Korea (+82)" },
+            { "value": "+86", "label": "China (+86)" },
+            { "value": "+65", "label": "Singapore (+65)" },
+            { "value": "+66", "label": "Thailand (+66)" },
+            { "value": "+91", "label": "India (+91)" },
+            { "value": "+62", "label": "Indonesia (+62)" },
+            { "value": "+60", "label": "Malaysia (+60)" },
+            { "value": "+33", "label": "France (+33)" },
+            { "value": "+34", "label": "Spain (+34)" },
+            { "value": "+39", "label": "Italy (+39)" },
+            { "value": "+49", "label": "Germany (+49)" },
+            { "value": "+7", "label": "Russia (+7)" },
+            { "value": "+55", "label": "Brazil (+55)" },
+            { "value": "+20", "label": "Egypt (+20)" },
+            { "value": "+27", "label": "South Africa (+27)" },
+            { "value": "+90", "label": "Turkey (+90)" },
+            { "value": "+351", "label": "Portugal (+351)" },
+            { "value": "+386", "label": "Slovenia (+386)" },
+            { "value": "+94", "label": "Sri Lanka (+94)" },
+            { "value": "+92", "label": "Pakistan (+92)" },
+            { "value": "+880", "label": "Bangladesh (+880)" },
+            { "value": "+31", "label": "Netherlands (+31)" },
+            { "value": "+32", "label": "Belgium (+32)" },
+            { "value": "+43", "label": "Austria (+43)" },
+            { "value": "+98", "label": "Iran (+98)" },
+            { "value": "+234", "label": "Nigeria (+234)" }
+          ],
+          "type": "select",
+          "containerId": "input1",
+          "width": 600,
+          "height": 36,
+        },        
+        {
+          "label": "Phone number:",
+          "id": "phoneNumber",
+          "type": "text",
+          "placeholder": "Your phone number",
+          "default": "0123456789",
+          "containerId": "input2",
+          "width": 600,
+          "height": 36,
+        },
+      ],
+      "outputs": [
+        {
+          "id": "result",
+          "type": "table",
+          "label": "",
+          "rows": [
+            { "id": "country_code", "description": "Country code", "value": "" },
+            { "id": "country_name", "description": "Country", "value": "" },
+            { "id": "calling_code", "description": "Country calling code", "value": "" },
+            { "id": "is_valid", "description": "Is valid?", "value": "" },
+            { "id": "is_possible", "description": "Is possible?", "value": "" },
+            { "id": "type", "description": "Type", "value": "" },
+            { "id": "format_international", "description": "International format", "value": "" },
+            { "id": "format_national", "description": "National format", "value": "" },
+            { "id": "format_e164", "description": "E.164 format", "value": "" },
+            { "id": "format_rfc3966", "description": "RFC3966 format", "value": "" }
+          ]
+        },  
+      ],
+      "id": "phoneParser",
+      "label": ""
+    }
+  ],
+}
+
+{
+  "customUI": false,
+  "name": "IBAN validator and parser",
+  "icon": "AccountBalance",
+  "description": "Validate and parse IBAN numbers. Check if an IBAN is valid and get the country, BBAN, if it is a QR-IBAN and the IBAN friendly format.",
+  "id": "IBANValidator",
+  "category": "Data",
+  "sections": [
+    {
+      
+      "inputs": [
+        {
+          "label": "",
+          "id": "iban",
+          "type": "text",
+          "placeholder": "Enter your IBAN",
+          "required": true,
+          "default": "FR7630006000011234567890189",
+          "containerId": "input",
+          "width": 600,
+          "height": 36,
+        }
+      ],
+      "outputs": [
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 400,
+          "id": "isValidIBAN",
+          "label": "Is IBAN valid?",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 80
+        },
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 400,
+          "id": "isQRIBAN",
+          "label": "Is IBAN a QR-IBAN?",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 80
+        },
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 400,
+          "id": "country",
+          "label": "Country code",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 80
+        },
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 400,
+          "id": "bban",
+          "label": "BBAN",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 80
+        },
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 400,
+          "id": "ibanFriendlyFormat",
+          "label": "IBAN friendly format",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 80
+        },
+      ],
+      "id": "ibanValidator",
+      "label": ""
+    }
+  ]
+}
+
+
+{
+  "customUI": false,
+  "name": "Case converter",
+  "icon": "TextFields",
+  "description": "Transform the case of a string and choose between different formats",
+  "id": "CaseConverter",
+  "category": "Converter",
+  "sections": [
+    {
+      
+      "inputs": [
+        {
+          "label": "Your string:",
+          "id": "stringInput",
+          "type": "text",
+          "placeholder": "Enter your string",
+          "required": true,
+          "default": "lorem ipsum dolor sit amet",
+          "containerId": "input",
+          "width": 250,
+          "height": 36,
+        }
+      ],
+      "outputs": [
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 250,
+          "id": "lowercaseOutput",
+          "label": "lowercase",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 36,
+          "multiline": false
+        },
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 250,
+          "id": "uppercaseOutput",
+          "label": "UPPERCASE",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 36,
+          "multiline": false
+        },
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 250,
+          "id": "capitalizedOutput",
+          "label": "Capitalized",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 36,
+          "multiline": false
+        },
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 250,
+          "id": "titleOutput",
+          "label": "Title Case",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 36,
+          "multiline": false
+        },
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 250,
+          "id": "sentenceOutput",
+          "label": "Sentence case",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 36,
+          "multiline": false
+        },
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 250,
+          "id": "snakeOutput",
+          "label": "snake_case",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 36,
+          "multiline": false
+        },
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 250,
+          "id": "kebabOutput",
+          "label": "kebab-case",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 36,
+          "multiline": false
+        }
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 250,
+          "id": "pascalOutput",
+          "label": "PascalCase",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 36,
+          "multiline": false
+        },
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 250,
+          "id": "camelOutput",
+          "label": "camelCase",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 36,
+          "multiline": false
+        },
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 250,
+          "id": "constantOutput",
+          "label": "CONSTANT_CASE",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 36,
+          "multiline": false
+        }
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 250,
+          "id": "dotOutput",
+          "label": "dot.case",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 36,
+          "multiline": false
+        }
+        {
+          "buttonPlacement": {"copy": "inside" },
+          "buttons": ["copy"],
+          "width": 250,
+          "id": "pathOutput",
+          "label": "path/case",
+          "monospace": true,
+          "type": "text",
+          "containerId": "output",
+          "height": 36,
+          "multiline": false
+        }
+      ],
+      "id": "ibanValidator",
+      "label": ""
+    }
+  ]
 }

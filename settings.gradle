@@ -33,5 +33,6 @@ include 'plugins:macaddressgenerator'
 include 'plugins:stringobfuscator'
 include 'plugins:numeronymgenerator'
 include 'plugins:ibanvalidator'
-
+include 'plugins:emailnormalizer'
+include 'plugins:caseconverter'
 

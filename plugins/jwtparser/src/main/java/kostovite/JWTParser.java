@@ -1,44 +1,51 @@
 package kostovite;
 
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.regex.Pattern;
+import java.util.Base64;
+import java.nio.charset.StandardCharsets;
 
-import com.fasterxml.jackson.core.JsonProcessingException; // Import if needed for specific exceptions
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature; // For pretty printing
-
-// Assume PluginInterface is standard
 public class JWTParser implements PluginInterface {
 
-    // Relax pattern slightly to allow missing signature for parsing
-    private static final Pattern JWT_PATTERN = Pattern.compile("^[A-Za-z0-9-_=]+\\.[A-Za-z0-9-_=]+(\\.[A-Za-z0-9-_.+/=]*)?$");
-    private final ObjectMapper objectMapper = new ObjectMapper()
-            .enable(SerializationFeature.INDENT_OUTPUT); // Enable pretty printing
+    private static final String ERROR_OUTPUT_ID = "errorMessage";
 
-    /**
-     * Internal name, should match the class for routing.
-     */
     @Override
     public String getName() {
         return "JWTParser";
     }
 
-    /**
-     * Standalone execution for testing.
-     */
     @Override
     public void execute() {
-        System.out.println("JWT Parser Plugin executed (standalone test)");
+        System.out.println("JWTParser Plugin executed (standalone test)");
         try {
-            String jwtToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
             Map<String, Object> params = new HashMap<>();
-            params.put("jwtToken", jwtToken); // Use new ID
 
-            Map<String, Object> result = process(params);
-            System.out.println("Parse Result: " + result);
+            // Test with a valid JWT token
+            String validJwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+            params.put("jwtToken", validJwt);
+
+            Map<String, Object> result1 = process(params);
+            System.out.println("Test 1 (Valid JWT): " + result1);
+
+            // Test with a malformed JWT token (missing parts)
+            params.put("jwtToken", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ");
+            Map<String, Object> result2 = process(params);
+            System.out.println("Test 2 (Malformed JWT - missing signature): " + result2);
+
+            // Test with an invalid JWT token (not a JWT)
+            params.put("jwtToken", "not.a.jwt");
+            Map<String, Object> result3 = process(params);
+            System.out.println("Test 3 (Invalid JWT): " + result3);
+
+            // Test with an empty JWT token
+            params.put("jwtToken", "");
+            Map<String, Object> result4 = process(params);
+            System.out.println("Test 4 (Empty JWT): " + result4);
+
+            // Test with custom JWT having different payload fields
+            String customJwt = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYmMxMjMiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJ1c2VyIiwiYWRtaW4iXSwiaWF0IjoxNjE1NDgzMjAwfQ.signature";
+            params.put("jwtToken", customJwt);
+            Map<String, Object> result5 = process(params);
+            System.out.println("Test 5 (Custom JWT with different fields): " + result5);
 
         } catch (Exception e) {
             System.err.println("Standalone test failed: " + e.getMessage());
@@ -46,391 +53,283 @@ public class JWTParser implements PluginInterface {
         }
     }
 
-    /**
-     * Generates metadata in the NEW format (sections, id, etc.).
-     */
     @Override
     public Map<String, Object> getMetadata() {
         Map<String, Object> metadata = new HashMap<>();
 
-        // --- Top Level Attributes (New Format) ---
-        metadata.put("id", "JWTParser"); // ID matches class name
-        metadata.put("name", "JWT Decoder"); // User-facing name
-        metadata.put("description", "Decode and inspect JSON Web Tokens (JWT). Optionally verify HMAC signatures.");
+        // --- Top Level Attributes ---
+        metadata.put("id", "JWTParser");
+        metadata.put("name", "JWT parser");
+        metadata.put("description", "Parse and decode your JSON Web Token (jwt) and display its content.");
         metadata.put("icon", "VpnKey");
-        metadata.put("category", "Crypto");
+        metadata.put("category", "Web");
         metadata.put("customUI", false);
-        metadata.put("triggerUpdateOnChange", false); // Requires manual submit
 
         // --- Sections ---
         List<Map<String, Object>> sections = new ArrayList<>();
 
-        // --- Section 1: Input Token ---
-        Map<String, Object> inputSection = new HashMap<>();
-        inputSection.put("id", "input");
-        inputSection.put("label", "Input Token");
+        // --- Section 1: JWT Parser ---
+        Map<String, Object> jwtSection = new HashMap<>();
+        jwtSection.put("id", "jwt");
+        jwtSection.put("label", "");
 
+        // --- Inputs ---
         List<Map<String, Object>> inputs = new ArrayList<>();
-
         inputs.add(Map.ofEntries(
                 Map.entry("id", "jwtToken"),
-                Map.entry("label", "JWT Token:"),
-                Map.entry("type", "text"),
-                Map.entry("multiline", true),
-                Map.entry("rows", 5),
+                Map.entry("label", "JWT to decode"),
                 Map.entry("placeholder", "Paste your JWT here (e.g., xxxxx.yyyyy.zzzzz)"),
+                Map.entry("type", "text"),
                 Map.entry("required", true),
-                Map.entry("monospace", true) // Good for tokens
-        ));
-
-        inputSection.put("inputs", inputs);
-        sections.add(inputSection);
-
-        // --- Section 2: Verification Options (Optional) ---
-        Map<String, Object> verificationSection = new HashMap<>();
-        verificationSection.put("id", "verification");
-        verificationSection.put("label", "Signature Verification (Optional - HMAC Only)");
-
-        List<Map<String, Object>> verificationInputs = new ArrayList<>();
-
-        verificationInputs.add(Map.ofEntries(
-                Map.entry("id", "verifySignature"),
-                Map.entry("label", "Verify Signature?"),
-                Map.entry("type", "switch"),
-                Map.entry("default", false),
-                Map.entry("helperText", "Requires the correct secret key.")
-        ));
-        verificationInputs.add(Map.ofEntries(
-                Map.entry("id", "secret"),
-                Map.entry("label", "Secret Key (Base64 Encoded or Text):"),
-                Map.entry("type", "password"), // Use password field
-                Map.entry("placeholder", "Enter signing secret/key"),
-                Map.entry("condition", "verifySignature === true"), // Show only if switch is on
-                Map.entry("required", true), // Required if verifySignature is true
-                Map.entry("helperText", "The key used for HMAC (HS256/HS384/HS512) signature.")
-        ));
-
-
-        verificationSection.put("inputs", verificationInputs);
-        sections.add(verificationSection);
-
-
-        // --- Section 3: Decoded Output ---
-        Map<String, Object> outputSection = new HashMap<>();
-        outputSection.put("id", "decodedOutput");
-        outputSection.put("label", "Decoded Token");
-        outputSection.put("condition", "success === true && typeof headerJson !== 'undefined'"); // Show only on successful parse
-
-        List<Map<String, Object>> outputs = new ArrayList<>();
-
-        // Header Output
-        outputs.add(Map.ofEntries(
-                Map.entry("id", "headerJson"), // Matches key in response map
-                Map.entry("label", "Header (Decoded)"),
-                Map.entry("type", "json"), // Use JSON type
-                Map.entry("buttons", List.of("copy"))
-        ));
-
-        // Payload Output
-        outputs.add(Map.ofEntries(
-                Map.entry("id", "payloadJson"), // Matches key in response map
-                Map.entry("label", "Payload (Decoded)"),
-                Map.entry("type", "json"),
-                Map.entry("buttons", List.of("copy"))
-        ));
-
-        // Signature Output
-        outputs.add(Map.ofEntries(
-                Map.entry("id", "signature"), // Matches key in response map
-                Map.entry("label", "Signature (Raw)"),
-                Map.entry("type", "text"),
-                Map.entry("monospace", true),
                 Map.entry("multiline", true),
-                Map.entry("rows", 2),
-                Map.entry("buttons", List.of("copy")),
-                Map.entry("condition", "typeof signature !== 'undefined' && signature !== ''") // Only show if signature exists
+                Map.entry("default", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"),
+                Map.entry("containerId", "main"),
+                Map.entry("width", 498),
+                Map.entry("height", 108),
+                Map.entry("monospace", true)
         ));
+        jwtSection.put("inputs", inputs);
 
-        // Signature Verification Status Output
-        outputs.add(Map.ofEntries(
-                Map.entry("id", "signatureStatus"), // Matches key in response map
-                Map.entry("label", "Signature Verification"),
-                Map.entry("type", "text"),
-                Map.entry("condition", "typeof signatureStatus !== 'undefined'") // Show if verification was attempted
-                // Style could be added dynamically based on status in frontend if needed
-        ));
+        // --- Outputs ---
+        List<Map<String, Object>> outputs = new ArrayList<>();
+        outputs.add(createOutputField("alg", "alg (Algorithm)"));
+        outputs.add(createOutputField("typ", "typ (Type)"));
+        outputs.add(createOutputField("payload", "Payload"));
+        outputs.add(createOutputField("sub", "sub (Subject)"));
+        outputs.add(createOutputField("name", "name (Full name)"));
+        outputs.add(createOutputField("iat", "iat (Issued at)"));
+        jwtSection.put("outputs", outputs);
 
-        outputSection.put("outputs", outputs);
-        sections.add(outputSection);
+        sections.add(jwtSection);
 
-
-        // --- Section 4: Error Display ---
+        // --- Error Section ---
         Map<String, Object> errorSection = new HashMap<>();
         errorSection.put("id", "errorDisplay");
         errorSection.put("label", "Error");
-        errorSection.put("condition", "success === false"); // Show only on failure
+        errorSection.put("condition", "success === false");
 
         List<Map<String, Object>> errorOutputs = new ArrayList<>();
         errorOutputs.add(Map.ofEntries(
-                Map.entry("id", "errorMessage"), // Specific ID for the error message
+                Map.entry("id", ERROR_OUTPUT_ID),
                 Map.entry("label", "Details"),
                 Map.entry("type", "text"),
-                Map.entry("style", "error") // Hint for styling
+                Map.entry("style", "error")
         ));
         errorSection.put("outputs", errorOutputs);
         sections.add(errorSection);
-
 
         metadata.put("sections", sections);
         return metadata;
     }
 
-    /**
-     * Processes the input parameters (using IDs from the new format)
-     * to parse (and optionally validate) a JWT token.
-     */
-    @Override
-    public Map<String, Object> process(Map<String, Object> input) {
-        String errorOutputId = "errorMessage"; // Matches the error output field ID
-
-        try {
-            // Get parameters using NEW IDs
-            String jwtToken = getStringParam(input, "jwtToken", null); // Required
-            boolean verifySignature = getBooleanParam(input);
-            String secret = getStringParam(input, "secret", ""); // Not required unless verifySignature is true
-
-            if (verifySignature && secret.isEmpty()) {
-                throw new IllegalArgumentException("Secret Key is required when 'Verify Signature' is checked.");
-            }
-
-            // Perform parsing and optional validation
-            return parseAndValidateJWT(jwtToken, verifySignature, secret);
-
-        } catch (IllegalArgumentException e) { // Catch validation errors
-            return Map.of("success", false, errorOutputId, e.getMessage());
-        } catch (Exception e) { // Catch unexpected errors
-            System.err.println("Error processing JWT request: " + e.getMessage());
-            e.printStackTrace();
-            return Map.of("success", false, errorOutputId, "Unexpected error during JWT processing: " + e.getMessage());
-        }
+    private Map<String, Object> createOutputField(String id, String label) {
+        return Map.ofEntries(
+                Map.entry("id", id),
+                Map.entry("label", label),
+                Map.entry("type", "text"),
+                Map.entry("containerId", "main"),
+                Map.entry("width", 498),
+                Map.entry("height", 34),
+                Map.entry("monospace", true)
+        );
     }
 
-    // ========================================================================
-    // Private Helper Methods
-    // ========================================================================
-
-    /**
-     * Parses and optionally validates the JWT token.
-     *
-     * @param jwtToken The JWT string.
-     * @param verify Whether to attempt signature verification.
-     * @param secret The secret key (only used if verify is true).
-     * @return A map containing the parsed results or an error.
-     */
-    private Map<String, Object> parseAndValidateJWT(String jwtToken, boolean verify, String secret) {
-        Map<String, Object> result = new LinkedHashMap<>(); // Preserve order
-        String errorOutputId = "errorMessage";
-
+    @Override
+    public Map<String, Object> process(Map<String, Object> input) {
         try {
-            // Basic format check
-            if (!JWT_PATTERN.matcher(jwtToken).matches()) {
-                throw new IllegalArgumentException("Invalid JWT format (must have Header.Payload[.Signature])");
+            // Get input parameters
+            String jwtToken = getStringParam(input, "jwtToken", null);
+
+            // --- Validation ---
+            if (jwtToken == null || jwtToken.trim().isEmpty()) {
+                return Map.of("success", false, ERROR_OUTPUT_ID, "JWT token is required.");
             }
 
-            String[] parts = jwtToken.split("\\.", -1); // Include trailing empty strings if signature is empty
-            if (parts.length < 2 || parts.length > 3) {
-                throw new IllegalArgumentException("Invalid JWT format (expected 2 or 3 parts separated by dots).");
-            }
-            if (parts[0].isEmpty() || parts[1].isEmpty()) {
-                throw new IllegalArgumentException("Invalid JWT format (header or payload part is empty).");
+            // Split the JWT into its three parts
+            String[] parts = jwtToken.split("\\.");
+            if (parts.length < 2) {
+                return Map.of("success", false, ERROR_OUTPUT_ID,
+                        "Invalid JWT format. JWT should contain at least header and payload sections separated by dots.");
             }
 
-
-            // Decode Header
-            Map<String, Object> header;
-            String headerJson;
+            // Decode header
+            String header;
+            Map<String, Object> headerJson;
             try {
-                headerJson = decodeBase64Url(parts[0]);
-                header = parseJson(headerJson);
+                header = decodeBase64(parts[0]);
+                headerJson = parseJson(header);
             } catch (Exception e) {
-                throw new IllegalArgumentException("Failed to decode or parse JWT header: " + e.getMessage());
+                return Map.of("success", false, ERROR_OUTPUT_ID, "Failed to decode JWT header: " + e.getMessage());
             }
 
-            // Decode Payload
-            Map<String, Object> payload;
-            String payloadJson;
+            // Decode payload
+            String payload;
+            Map<String, Object> payloadJson;
             try {
-                payloadJson = decodeBase64Url(parts[1]);
-                payload = parseJson(payloadJson);
-                processTimestamps(payload); // Add formatted timestamps
+                payload = decodeBase64(parts[1]);
+                payloadJson = parseJson(payload);
             } catch (Exception e) {
-                throw new IllegalArgumentException("Failed to decode or parse JWT payload: " + e.getMessage());
+                return Map.of("success", false, ERROR_OUTPUT_ID, "Failed to decode JWT payload: " + e.getMessage());
             }
 
-            // Signature
-            String signature = (parts.length == 3) ? parts[2] : "";
+            // Extract JWT header fields
+            String algorithm = headerJson.containsKey("alg") ? headerJson.get("alg").toString() : "";
+            String type = headerJson.containsKey("typ") ? headerJson.get("typ").toString() : "";
 
+            // Extract JWT payload fields
+            String subject = payloadJson.containsKey("sub") ? payloadJson.get("sub").toString() : "";
+            String name = payloadJson.containsKey("name") ? payloadJson.get("name").toString() : "";
+            String issuedAt = payloadJson.containsKey("iat") ? formatIssuedAt(payloadJson.get("iat")) : "";
 
-            // --- Signature Verification (Optional) ---
-            String signatureStatus = "Not Attempted";
-            boolean signatureValid; // Assume invalid until proven otherwise
-
-            if (verify) {
-                if (secret == null || secret.isEmpty()) {
-                    // This case is caught by input validation in process() now
-                    signatureStatus = "Verification skipped (Secret key missing)";
-                }
-                else if (signature.isEmpty()) {
-                    signatureStatus = "Verification failed (Token has no signature)";
-                }
-                else {
-                    String algorithm = (String) header.get("alg");
-                    if (algorithm == null || algorithm.isEmpty()) {
-                        signatureStatus = "Verification failed (Algorithm ('alg') missing in header)";
-                    } else {
-                        try {
-                            String dataToVerify = parts[0] + "." + parts[1];
-                            signatureValid = verifySignature(dataToVerify, signature, secret, algorithm);
-                            signatureStatus = signatureValid ? "Verified Successfully" : "Verification Failed (Invalid Signature)";
-                        } catch (UnsupportedOperationException unsupEx) {
-                            signatureStatus = "Verification Failed (" + unsupEx.getMessage() + ")";
-                            // Mark as invalid if unsupported
-                        } catch (Exception sigEx) {
-                            System.err.println("Error during signature verification: " + sigEx.getMessage());
-                            signatureStatus = "Verification Failed (Error during check)";
-                        }
-                    }
-                }
-            }
-
-            // --- Build Success Result ---
+            // Prepare results
+            Map<String, Object> result = new HashMap<>();
             result.put("success", true);
-            // Keys must match output field IDs in getMetadata()
-            result.put("headerJson", header); // Return parsed JSON object
-            result.put("payloadJson", payload); // Return parsed JSON object
-            if (!signature.isEmpty()) {
-                result.put("signature", signature); // Include raw signature if present
-            }
-            result.put("signatureStatus", signatureStatus); // Always include status
+            result.put("alg", algorithm);
+            result.put("typ", type);
+            result.put("payload", payload); // Return the full decoded payload JSON as a string
+            result.put("sub", subject);
+            result.put("name", name);
+            result.put("iat", issuedAt);
 
             return result;
 
-        } catch (IllegalArgumentException e) {
-            return Map.of("success", false, errorOutputId, e.getMessage());
         } catch (Exception e) {
-            // Catch unexpected issues during parsing/decoding
-            System.err.println("Unexpected error during JWT parsing: " + e.getMessage());
+            System.err.println("Error processing JWT parsing: " + e.getMessage());
             e.printStackTrace();
-            return Map.of("success", false, errorOutputId, "Failed to parse token: " + e.getMessage());
+            return Map.of("success", false, ERROR_OUTPUT_ID, "An unexpected error occurred: " + e.getMessage());
         }
     }
 
+    // ========================================================================
+    // Helper Methods
+    // ========================================================================
 
-    /**
-     * Verify HMAC or other signature types (placeholder/example).
-     * IMPORTANT: Replace with a robust library like java-jwt, jjwt, or Nimbus JOSE+JWT for production.
-     * This basic implementation is NOT secure or complete.
-     */
-    private boolean verifySignature(String dataToVerify, String signature, String secret, String algorithm) {
-        System.out.println("Attempting verification for algo: " + algorithm);
-        return switch (algorithm) {
-            case "HS256", "HS384", "HS512" -> {
-                // TODO: Implement secure HMAC verification using a proper library
-                // Example concept (NOT PRODUCTION READY):
-                // Mac mac = Mac.getInstance("Hmac" + algorithm.substring(1)); // e.g., HmacSHA256
-                // SecretKeySpec secretKey = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "Hmac" + algorithm.substring(1));
-                // mac.init(secretKey);
-                // byte[] calculatedSignatureBytes = mac.doFinal(dataToVerify.getBytes(StandardCharsets.UTF_8));
-                // byte[] providedSignatureBytes = Base64.getUrlDecoder().decode(signature);
-                // return MessageDigest.isEqual(calculatedSignatureBytes, providedSignatureBytes);
-
-                // For now, indicate it's not implemented securely
-                System.err.println("Warning: Secure HMAC verification for " + algorithm + " requires a dedicated JWT library. Returning false.");
-                throw new UnsupportedOperationException("Secure verification for " + algorithm + " not implemented in this basic parser.");
-            }
-            // return false;
-
-            case "RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512" -> {
-                // TODO: Implement RSA/ECDSA verification (requires public key and library)
-                System.err.println("Warning: Verification for asymmetric algorithm " + algorithm + " requires a public key and library.");
-                throw new UnsupportedOperationException("Verification for " + algorithm + " not implemented.");
-            }
-            // return false;
-
-            case "none" -> signature.isEmpty(); // Valid if signature part is actually empty
-
-            default -> {
-                System.err.println("Unsupported algorithm for verification: " + algorithm);
-                throw new UnsupportedOperationException("Unsupported algorithm for verification: " + algorithm);
-                // return false;
-            }
-        };
-    }
-
-
-    /** Decodes Base64URL string. */
-    private String decodeBase64Url(String base64Url) {
-        // Replace URL-safe chars, add padding if needed (Base64.getUrlDecoder handles this)
-        byte[] decodedBytes = Base64.getUrlDecoder().decode(base64Url);
-        return new String(decodedBytes, StandardCharsets.UTF_8);
-    }
-
-    /** Parses JSON string to Map. */
-    private Map<String, Object> parseJson(String jsonStr) {
-        try {
-            // Use TypeReference to get Map<String, Object>
-            return objectMapper.readValue(jsonStr, new TypeReference<>() {
-            });
-        } catch (JsonProcessingException e) {
-            // Throw a more specific runtime exception if parsing fails
-            throw new RuntimeException("Invalid JSON structure: " + e.getMessage(), e);
-        }
-    }
-
-    /** Adds formatted timestamp strings (_formatted) to payload map. */
-    private void processTimestamps(Map<String, Object> payload) {
-        String[] timeFields = {"iat", "exp", "nbf", "auth_time"};
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z"); // Include timezone indicator
-        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC")); // Assume timestamps are UTC epoch seconds
-
-        for (String field : timeFields) {
-            Object value = payload.get(field);
-            if (value instanceof Number) { // Check if it's a number
-                try {
-                    long timestampSeconds = ((Number) value).longValue();
-                    Date date = new Date(timestampSeconds * 1000); // Convert seconds to milliseconds
-                    payload.put(field + "_formatted", dateFormat.format(date)); // Add formatted version
-                } catch (Exception e) {
-                    System.err.println("Could not format timestamp for field '" + field + "': " + value);
-                    payload.put(field + "_formatted", "Invalid Timestamp");
-                }
-            }
-        }
-    }
-
-    // Null default indicates required
     private String getStringParam(Map<String, Object> input, String key, String defaultValue) throws IllegalArgumentException {
         Object value = input.get(key);
         if (value == null) {
             if (defaultValue == null) throw new IllegalArgumentException("Missing required parameter: " + key);
             return defaultValue;
         }
-        String strValue = value.toString(); // Allow empty string for secret initially
-        if (strValue.isEmpty() && defaultValue == null && !"secret".equals(key)) { // Secret can be empty unless verify=true
-            throw new IllegalArgumentException("Missing required parameter: " + key);
-        }
-        return strValue;
+        return value.toString();
     }
 
-    // Null default indicates required
-    private boolean getBooleanParam(Map<String, Object> input) {
-        Object value = input.get("verifySignature");
-        if (value instanceof Boolean) {
-            return (Boolean) value;
+    /**
+     * Decode a Base64 URL-safe encoded string
+     */
+    private String decodeBase64(String input) {
+        // Add padding if necessary
+        StringBuilder builder = new StringBuilder(input);
+        while (builder.length() % 4 != 0) {
+            builder.append('=');
         }
-        if (value != null) { // Handle string "true" case insensitive
-            return "true".equalsIgnoreCase(value.toString());
+        String paddedInput = builder.toString();
+
+        // Replace URL-safe characters
+        paddedInput = paddedInput.replace('-', '+').replace('_', '/');
+
+        byte[] decodedBytes = Base64.getDecoder().decode(paddedInput);
+        return new String(decodedBytes, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Parse a JSON string into a Map
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parseJson(String json) throws Exception {
+        // This is a simplified JSON parser for demonstration purposes
+        // In a real implementation, you would use a proper JSON library like Jackson or Gson
+
+        // For this example, we'll implement a very basic parser that can handle simple JSON objects
+        if (!json.startsWith("{") || !json.endsWith("}")) {
+            throw new Exception("Invalid JSON format");
         }
-        return false;
+
+        String content = json.substring(1, json.length() - 1);
+        Map<String, Object> result = new HashMap<>();
+
+        // Split by commas not inside quotes
+        List<String> pairs = new ArrayList<>();
+        StringBuilder currentPair = new StringBuilder();
+        boolean inQuotes = false;
+
+        for (char c : content.toCharArray()) {
+            if (c == '"') {
+                inQuotes = !inQuotes;
+            } else if (c == ',' && !inQuotes) {
+                pairs.add(currentPair.toString().trim());
+                currentPair = new StringBuilder();
+                continue;
+            }
+            currentPair.append(c);
+        }
+
+        if (currentPair.length() > 0) {
+            pairs.add(currentPair.toString().trim());
+        }
+
+        // Process each key-value pair
+        for (String pair : pairs) {
+            String[] keyValue = pair.split(":", 2);
+            if (keyValue.length == 2) {
+                String key = keyValue[0].trim().replace("\"", "");
+                String value = keyValue[1].trim();
+
+                // Handle different value types
+                if (value.startsWith("\"") && value.endsWith("\"")) {
+                    // String value
+                    result.put(key, value.substring(1, value.length() - 1));
+                } else if (value.equals("true") || value.equals("false")) {
+                    // Boolean value
+                    result.put(key, Boolean.parseBoolean(value));
+                } else if (value.matches("-?\\d+(\\.\\d+)?")) {
+                    // Numeric value
+                    if (value.contains(".")) {
+                        result.put(key, Double.parseDouble(value));
+                    } else {
+                        try {
+                            result.put(key, Integer.parseInt(value));
+                        } catch (NumberFormatException e) {
+                            // If it's too large for an int, use Long
+                            result.put(key, Long.parseLong(value));
+                        }
+                    }
+                } else if (value.startsWith("[") && value.endsWith("]")) {
+                    // Array value (simplified implementation)
+                    result.put(key, value);
+                } else if (value.startsWith("{") && value.endsWith("}")) {
+                    // Object value (simplified implementation)
+                    result.put(key, value);
+                } else {
+                    // Unknown type or null
+                    result.put(key, value);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Format the issued at timestamp
+     */
+    private String formatIssuedAt(Object iatObj) {
+        if (iatObj == null) {
+            return "";
+        }
+
+        try {
+            long timestamp;
+            if (iatObj instanceof Number) {
+                timestamp = ((Number) iatObj).longValue();
+            } else {
+                timestamp = Long.parseLong(iatObj.toString());
+            }
+
+            // Convert Unix timestamp to human-readable date
+            Date date = new Date(timestamp * 1000); // Convert seconds to milliseconds
+            return date.toString() + " (Unix timestamp: " + timestamp + ")";
+        } catch (NumberFormatException e) {
+            return iatObj.toString();
+        }
     }
 }

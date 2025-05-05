@@ -1,20 +1,12 @@
 package kostovite;
 
 import java.util.*;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 public class IPv4RangeExpander implements PluginInterface {
 
     private static final String ERROR_OUTPUT_ID = "errorMessage";
-    private static final String DEFAULT_START_IP = "192.168.1.1";
-    private static final String DEFAULT_END_IP = "192.168.6.255";
-    private static final Pattern IPV4_PATTERN = Pattern.compile(
-            "^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
-                    "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
-                    "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
-                    "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
-    );
 
     @Override
     public String getName() {
@@ -25,42 +17,32 @@ public class IPv4RangeExpander implements PluginInterface {
     public void execute() {
         System.out.println("IPv4RangeExpander Plugin executed (standalone test)");
         try {
-            // Test with default IPs
             Map<String, Object> params = new HashMap<>();
-            params.put("startAddress", DEFAULT_START_IP);
-            params.put("endAddress", DEFAULT_END_IP);
+            params.put("startAddress", "192.168.1.1");      // Test start IP
+            params.put("endAddress", "192.168.6.255");      // Test end IP
+
             Map<String, Object> result1 = process(params);
-            System.out.println("Test 1 (Default range): " + result1);
+            System.out.println("Test 1 (Range 192.168.1.1 - 192.168.6.255): " + result1);
 
-            // Test with smaller range
-            params.put("startAddress", "10.0.0.1");
-            params.put("endAddress", "10.0.0.10");
+            params.put("startAddress", "10.0.0.1");         // Test another range
+            params.put("endAddress", "10.0.0.255");
             Map<String, Object> result2 = process(params);
-            System.out.println("Test 2 (Small range): " + result2);
+            System.out.println("Test 2 (Range 10.0.0.1 - 10.0.0.255): " + result2);
 
-            // Test with large range
-            params.put("startAddress", "172.16.0.0");
+            params.put("startAddress", "172.16.0.0");       // Test another range
             params.put("endAddress", "172.31.255.255");
             Map<String, Object> result3 = process(params);
-            System.out.println("Test 3 (Large range): " + result3);
+            System.out.println("Test 3 (Range 172.16.0.0 - 172.31.255.255): " + result3);
 
-            // Test with invalid start IP
-            params.put("startAddress", "256.256.256.256");
-            params.put("endAddress", "10.0.0.10");
+            params.put("startAddress", "InvalidIP");        // Test with invalid IP
+            params.put("endAddress", "192.168.1.100");
             Map<String, Object> result4 = process(params);
-            System.out.println("Test 4 (Invalid start IP): " + result4);
+            System.out.println("Test 4 (Invalid Start IP): " + result4);
 
-            // Test with invalid end IP
-            params.put("startAddress", "10.0.0.1");
-            params.put("endAddress", "300.400.500.600");
+            params.put("startAddress", "192.168.1.100");    // Test with end IP < start IP
+            params.put("endAddress", "192.168.1.1");
             Map<String, Object> result5 = process(params);
-            System.out.println("Test 5 (Invalid end IP): " + result5);
-
-            // Test with start > end
-            params.put("startAddress", "192.168.5.10");
-            params.put("endAddress", "192.168.1.5");
-            Map<String, Object> result6 = process(params);
-            System.out.println("Test 6 (Start > End): " + result6);
+            System.out.println("Test 5 (End IP < Start IP): " + result5);
 
         } catch (Exception e) {
             System.err.println("Standalone test failed: " + e.getMessage());
@@ -73,107 +55,61 @@ public class IPv4RangeExpander implements PluginInterface {
         Map<String, Object> metadata = new HashMap<>();
 
         // --- Top Level Attributes ---
-        metadata.put("customUI", false);
-        metadata.put("name", "IPv4 range expander");
-        metadata.put("icon", "Dns");
-        metadata.put("description", "Given a start and an end IPv4 address, this tool calculates a valid IPv4 subnet along with its CIDR notation.");
         metadata.put("id", "IPv4RangeExpander");
+        metadata.put("name", "IPv4 range expander");
+        metadata.put("description", "Given a start and an end IPv4 address, this tool calculates a valid IPv4 subnet along with its CIDR notation.");
+        metadata.put("icon", "Dns");
         metadata.put("category", "Network");
+        metadata.put("customUI", false);
 
         // --- Sections ---
         List<Map<String, Object>> sections = new ArrayList<>();
 
-        // --- Section: IPv4 Range Expander ---
-        Map<String, Object> ipv4Section = new HashMap<>();
-        ipv4Section.put("id", "ipv4RangeExpander");
-        ipv4Section.put("label", "");
+        // --- Section 1: Main IPv4 Range Expander ---
+        Map<String, Object> mainSection = new HashMap<>();
+        mainSection.put("id", "ipv4RangeExpander");
+        mainSection.put("label", "");
 
         // --- Inputs ---
         List<Map<String, Object>> inputs = new ArrayList<>();
-
-        // Start address input
         inputs.add(Map.ofEntries(
-                Map.entry("monospace", true),
+                Map.entry("id", "startAddress"),
                 Map.entry("label", "Start address"),
                 Map.entry("placeholder", "Start IPv4 address"),
+                Map.entry("type", "text"),
                 Map.entry("required", true),
                 Map.entry("multiline", false),
-                Map.entry("id", "startAddress"),
-                Map.entry("type", "text"),
-                Map.entry("default", DEFAULT_START_IP),
+                Map.entry("default", "192.168.1.1"),
+                Map.entry("containerId", "input1"),
                 Map.entry("width", 300),
                 Map.entry("height", 36),
-                Map.entry("containerId", "input1")
+                Map.entry("monospace", true)
         ));
-
-        // End address input
         inputs.add(Map.ofEntries(
-                Map.entry("monospace", true),
+                Map.entry("id", "endAddress"), // Fixed the ID from the sample
                 Map.entry("label", "End address"),
                 Map.entry("placeholder", "End IPv4 address"),
+                Map.entry("type", "text"),
                 Map.entry("required", true),
                 Map.entry("multiline", false),
-                Map.entry("id", "endAddress"), // Fixed from "startAddress" to "endAddress"
-                Map.entry("type", "text"),
-                Map.entry("default", DEFAULT_END_IP),
+                Map.entry("default", "192.168.6.255"),
+                Map.entry("containerId", "input2"),
                 Map.entry("width", 300),
                 Map.entry("height", 36),
-                Map.entry("containerId", "input2")
+                Map.entry("monospace", true)
         ));
-
-        ipv4Section.put("inputs", inputs);
+        mainSection.put("inputs", inputs);
 
         // --- Outputs ---
         List<Map<String, Object>> outputs = new ArrayList<>();
+        outputs.add(createOutputField("start_new", "Start address (New)"));
+        outputs.add(createOutputField("end_new", "End address (New)"));
+        outputs.add(createOutputField("range_old", "Addresses in range (Old)"));
+        outputs.add(createOutputField("range_new", "Addresses in range (New)"));
+        outputs.add(createOutputField("cidr_new", "CIDR"));
+        mainSection.put("outputs", outputs);
 
-        // Result table
-        List<Map<String, Object>> rows = new ArrayList<>();
-        rows.add(Map.ofEntries(
-                Map.entry("id", "start_old"),
-                Map.entry("description", "Start address (Old)"),
-                Map.entry("value", "")
-        ));
-        rows.add(Map.ofEntries(
-                Map.entry("id", "start_new"),
-                Map.entry("description", "Start address (New)"),
-                Map.entry("value", "")
-        ));
-        rows.add(Map.ofEntries(
-                Map.entry("id", "end_old"),
-                Map.entry("description", "End address (Old)"),
-                Map.entry("value", "")
-        ));
-        rows.add(Map.ofEntries(
-                Map.entry("id", "end_new"),
-                Map.entry("description", "End address (New)"),
-                Map.entry("value", "")
-        ));
-        rows.add(Map.ofEntries(
-                Map.entry("id", "range_old"),
-                Map.entry("description", "Addresses in range (Old)"),
-                Map.entry("value", "")
-        ));
-        rows.add(Map.ofEntries(
-                Map.entry("id", "range_new"),
-                Map.entry("description", "Addresses in range (New)"),
-                Map.entry("value", "")
-        ));
-        rows.add(Map.ofEntries(
-                Map.entry("id", "cidr_new"),
-                Map.entry("description", "CIDR"),
-                Map.entry("value", "")
-        ));
-
-        outputs.add(Map.ofEntries(
-                Map.entry("id", "result"),
-                Map.entry("type", "table"),
-                Map.entry("label", ""),
-                Map.entry("rows", rows)
-        ));
-
-        ipv4Section.put("outputs", outputs);
-
-        sections.add(ipv4Section);
+        sections.add(mainSection);
 
         // --- Error Section ---
         Map<String, Object> errorSection = new HashMap<>();
@@ -195,80 +131,85 @@ public class IPv4RangeExpander implements PluginInterface {
         return metadata;
     }
 
+    private Map<String, Object> createOutputField(String id, String label) {
+        return Map.ofEntries(
+                Map.entry("id", id),
+                Map.entry("label", label),
+                Map.entry("type", "text"),
+                Map.entry("buttons", List.of("copy")),
+                Map.entry("buttonPlacement", Map.of("copy", "inside")),
+                Map.entry("containerId", "output"),
+                Map.entry("width", 600),
+                Map.entry("height", 36),
+                Map.entry("monospace", true)
+        );
+    }
+
     @Override
     public Map<String, Object> process(Map<String, Object> input) {
         try {
-            // Get the IPv4 addresses from input
-            String startAddress = getStringParam(input, "startAddress", "");
-            String endAddress = getStringParam(input, "endAddress", "");
+            // Get input parameters
+            String startAddressStr = getStringParam(input, "startAddress", null);
+            String endAddressStr = getStringParam(input, "endAddress", null);
 
-            // Validation
-            if (startAddress.trim().isEmpty() || endAddress.trim().isEmpty()) {
-                return Map.of("success", false, ERROR_OUTPUT_ID, "Both start and end IPv4 addresses are required.");
+            // --- Validation ---
+            if (startAddressStr == null) {
+                return Map.of("success", false, ERROR_OUTPUT_ID, "Start address is required.");
+            }
+            if (endAddressStr == null) {
+                return Map.of("success", false, ERROR_OUTPUT_ID, "End address is required.");
             }
 
-            // Validate IPv4 formats
-            if (!isValidIPv4(startAddress)) {
-                return Map.of("success", false, ERROR_OUTPUT_ID,
-                        "Invalid start IPv4 address format. Please use the format xxx.xxx.xxx.xxx where each octet is between 0-255.");
+            // Validate IP addresses format
+            long startIpLong;
+            long endIpLong;
+
+            try {
+                startIpLong = ipToLong(startAddressStr);
+            } catch (UnknownHostException e) {
+                return Map.of("success", false, ERROR_OUTPUT_ID, "Invalid start IP address format.");
             }
 
-            if (!isValidIPv4(endAddress)) {
-                return Map.of("success", false, ERROR_OUTPUT_ID,
-                        "Invalid end IPv4 address format. Please use the format xxx.xxx.xxx.xxx where each octet is between 0-255.");
+            try {
+                endIpLong = ipToLong(endAddressStr);
+            } catch (UnknownHostException e) {
+                return Map.of("success", false, ERROR_OUTPUT_ID, "Invalid end IP address format.");
             }
 
-            // Convert to integers for comparison
-            long startIp = ipToLong(startAddress);
-            long endIp = ipToLong(endAddress);
-
-            // Ensure start address is less than or equal to end address
-            if (startIp > endIp) {
-                return Map.of("success", false, ERROR_OUTPUT_ID,
-                        "Start address must be less than or equal to end address.");
+            // Ensure start IP is less than or equal to end IP
+            if (startIpLong > endIpLong) {
+                return Map.of("success", false, ERROR_OUTPUT_ID, "Start IP must be less than or equal to end IP.");
             }
 
-            // Calculate subnet information
-            long rangeOld = endIp - startIp + 1;
+            // Calculate the number of addresses in original range
+            long originalRangeSize = endIpLong - startIpLong + 1;
 
-            // Find the smallest power of 2 that can hold the range
-            int cidrBits = 32 - (int) Math.ceil(Math.log(rangeOld) / Math.log(2));
-            if (cidrBits < 0) {
-                cidrBits = 0; // Handle very large ranges
-            }
+            // Calculate CIDR and new subnet
+            int cidrPrefix = calculateCidrPrefix(startIpLong, endIpLong);
+            long netmask = calculateNetmask(cidrPrefix);
 
-            // Calculate network mask
-            long mask = 0xFFFFFFFF << (32 - cidrBits);
+            // Calculate network address (start of subnet)
+            long networkAddress = startIpLong & netmask;
 
-            // Calculate network address (subnet start)
-            long networkAddress = startIp & mask;
+            // Calculate broadcast address (end of subnet)
+            long broadcastAddress = networkAddress | (~netmask & 0xFFFFFFFFL);
 
-            // Calculate broadcast address (subnet end)
-            long broadcastAddress = networkAddress | ~mask & 0xFFFFFFFFL;
+            // Calculate new range size
+            long newRangeSize = broadcastAddress - networkAddress + 1;
 
-            // Calculate the new range size
-            long rangeNew = broadcastAddress - networkAddress + 1;
+            // Convert back to string representations
+            String newStartAddress = longToIp(networkAddress);
+            String newEndAddress = longToIp(broadcastAddress);
+            String cidrNotation = newStartAddress + "/" + cidrPrefix;
 
-            // Convert back to IP address strings
-            String startNew = longToIp(networkAddress);
-            String endNew = longToIp(broadcastAddress);
-
-            // Format the CIDR notation
-            String cidrNotation = startNew + "/" + cidrBits;
-
-            // Create result map with table rows
-            Map<String, String> resultRows = new HashMap<>();
-            resultRows.put("start_old", startAddress);
-            resultRows.put("start_new", startNew);
-            resultRows.put("end_old", endAddress);
-            resultRows.put("end_new", endNew);
-            resultRows.put("range_old", String.valueOf(rangeOld));
-            resultRows.put("range_new", String.valueOf(rangeNew));
-            resultRows.put("cidr_new", cidrNotation);
-
+            // Prepare results
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
-            result.put("result", resultRows);
+            result.put("start_new", newStartAddress);
+            result.put("end_new", newEndAddress);
+            result.put("range_old", String.valueOf(originalRangeSize));
+            result.put("range_new", String.valueOf(newRangeSize));
+            result.put("cidr_new", cidrNotation);
 
             return result;
 
@@ -279,44 +220,88 @@ public class IPv4RangeExpander implements PluginInterface {
         }
     }
 
-    // Validate IPv4 address format
-    private boolean isValidIPv4(String ip) {
-        Matcher matcher = IPV4_PATTERN.matcher(ip);
-        return matcher.matches();
-    }
+    // ========================================================================
+    // Helper Methods
+    // ========================================================================
 
-    // Convert IP address to long integer
-    private long ipToLong(String ipAddress) {
-        String[] octets = ipAddress.split("\\.");
-        long result = 0;
-
-        for (int i = 0; i < 4; i++) {
-            result = (result << 8) | Integer.parseInt(octets[i]);
-        }
-
-        return result;
-    }
-
-    // Convert long integer to IP address
-    private String longToIp(long ip) {
-        StringBuilder result = new StringBuilder();
-
-        for (int i = 3; i >= 0; i--) {
-            result.append((ip >> (i * 8)) & 0xFF);
-            if (i > 0) {
-                result.append(".");
-            }
-        }
-
-        return result.toString();
-    }
-
-    // Helper method to get string parameters
-    private String getStringParam(Map<String, Object> input, String key, String defaultValue) {
+    private String getStringParam(Map<String, Object> input, String key, String defaultValue) throws IllegalArgumentException {
         Object value = input.get(key);
         if (value == null) {
+            if (defaultValue == null) throw new IllegalArgumentException("Missing required parameter: " + key);
             return defaultValue;
         }
         return value.toString();
+    }
+
+    /**
+     * Convert an IP address to its long representation
+     */
+    private long ipToLong(String ipAddress) throws UnknownHostException {
+        byte[] bytes = InetAddress.getByName(ipAddress).getAddress();
+        long result = 0;
+        for (byte b : bytes) {
+            result = (result << 8) | (b & 0xFF);
+        }
+        return result & 0xFFFFFFFFL; // Ensure unsigned 32-bit value
+    }
+
+    /**
+     * Convert a long representation back to an IP address string
+     */
+    private String longToIp(long ip) {
+        return ((ip >> 24) & 0xFF) + "." +
+                ((ip >> 16) & 0xFF) + "." +
+                ((ip >> 8) & 0xFF) + "." +
+                (ip & 0xFF);
+    }
+
+    /**
+     * Calculate the CIDR prefix that covers the IP range
+     */
+    private int calculateCidrPrefix(long startIp, long endIp) {
+        long diff = startIp ^ endIp;
+        int leadingZeros = 0;
+
+        // Count leading zeros in the binary difference
+        for (int i = 31; i >= 0; i--) {
+            if ((diff & (1L << i)) == 0) {
+                leadingZeros++;
+            } else {
+                break;
+            }
+        }
+
+        // Calculate the smallest subnet that contains both IPs
+        int cidrPrefix = 32 - (32 - leadingZeros);
+
+        // Check if the range fits perfectly in the calculated CIDR
+        long mask = calculateNetmask(cidrPrefix);
+        long networkAddress = startIp & mask;
+        long broadcastAddress = networkAddress | (~mask & 0xFFFFFFFFL);
+
+        // If the calculated subnet doesn't fully contain the range, decrease prefix
+        while (networkAddress > startIp || broadcastAddress < endIp) {
+            cidrPrefix--;
+            mask = calculateNetmask(cidrPrefix);
+            networkAddress = startIp & mask;
+            broadcastAddress = networkAddress | (~mask & 0xFFFFFFFFL);
+
+            // Safety check to prevent infinite loop
+            if (cidrPrefix <= 0) {
+                break;
+            }
+        }
+
+        return cidrPrefix;
+    }
+
+    /**
+     * Calculate the netmask from CIDR prefix
+     */
+    private long calculateNetmask(int cidrPrefix) {
+        if (cidrPrefix == 0) {
+            return 0;
+        }
+        return 0xFFFFFFFFL << (32 - cidrPrefix) & 0xFFFFFFFFL;
     }
 }

@@ -37,6 +37,8 @@ export interface Section {
 }
 
 export interface InputField {
+  color: "primary" | "secondary" | "success" | "error" | "info" | "warning" | undefined;
+  value(value: any): void;
   id: string;
   label: string;
   type: string;
@@ -88,7 +90,7 @@ export interface OutputField {
   min?: number;
   max?: number;
   suffix?: string;
-  columns?: boolean;
+  columns?: Array<{ header: string; field: string }>;
 }
 
 // --- PluginListResponse Interface ---

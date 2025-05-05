@@ -1,60 +1,78 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { JSX } from "react";
-import {
-  Box,
-  Typography,
-  TextField,
-  Button,
-  useTheme, // Import useTheme
-} from "@mui/material";
-import { SxProps, Theme } from "@mui/material/styles"; // Import SxProps
+import { Box, Typography, TextField, Button, useTheme } from "@mui/material";
+import { SxProps, Theme } from "@mui/material/styles";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { Download as DownloadIcon } from "lucide-react";
 
-// Import OutputField từ nguồn duy nhất
-import type { OutputField } from "../data/pluginList"; // <-- Đảm bảo đường dẫn đúng
+import type { OutputField } from "../data/pluginList";
 
-// --- Component Props Interface ---
 interface RenderOutputProps {
   output: OutputField;
   value: any;
-  onRefresh: () => void;
+  resultData?: Record<string, any> | null;
+  onRefresh?: () => void;
   disabled?: boolean;
 }
 
-const RenderOutput = ({
+const RenderOutput: React.FC<RenderOutputProps> = ({
   output,
   value,
+  resultData,
   onRefresh,
   disabled = false,
-}: RenderOutputProps): JSX.Element | null => {
+}) => {
+  // IMPORTANT: All hooks MUST be called at the top level, unconditionally
   const theme = useTheme();
 
   if (!output) {
     return null;
   }
 
-  // --- Function to determine button style ---
+  // Helper functions for button operations
+  const handleCopy = () => {
+    const textToCopy = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value ?? '');
+    navigator.clipboard.writeText(textToCopy).catch(err => console.error('Copy failed', err));
+  };
+  
+  const handleDownload = () => {
+    const filenameKey = output.downloadFilenameKey || 'imageFileName'; 
+    const filename = resultData?.[filenameKey] || `${output.id || 'download'}.png`;
+    downloadDataUrl(String(value), filename);
+  };
+
+  function downloadDataUrl(dataUrl: string, filename: string) {
+    try {
+      if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
+        console.error("Invalid data URL provided for download:", dataUrl);
+        alert("Could not initiate download: Invalid image data.");
+        return;
+      }
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error("Download failed:", e);
+      alert("Download failed. See console for details.");
+    }
+  }
+
   const getButtonStyle = (
     buttonType: "copy" | "refresh" | "download"
   ): SxProps<Theme> => {
     const placement = output.buttonPlacement?.[buttonType];
 
-    // --- Style for OUTSIDE buttons (hoặc không xác định) ---
     if (placement === "outside" || placement === undefined) {
-      // Style riêng cho nút outside nếu placement là 'outside'
       if (placement === "outside") {
         return {
           bgcolor: "#ffffff14",
           color: "#ffffffd1",
           "&:hover": { bgcolor: "#ffffff29" },
-          // Giữ các style chung cho nút outside nếu cần
-          // ví dụ: padding: '6px 12px', // Padding lớn hơn cho outside
         };
-      }
-      // Style mặc định nếu placement không xác định (coi như outside)
-      else {
+      } else {
         let baseSx: SxProps<Theme> = {};
         switch (buttonType) {
           case "copy":
@@ -67,24 +85,21 @@ const RenderOutput = ({
             baseSx = { bgcolor: "#1976d2", "&:hover": { bgcolor: "#115293" } };
             break;
         }
-        // Thêm style chung cho nút outside/mặc định ở đây nếu cần
-        return { ...baseSx, color: "white" /* Đảm bảo chữ/icon trắng */ };
+        return { ...baseSx, color: "white" };
       }
     }
 
-    // --- Style for INSIDE buttons ---
-    // Áp dụng cho tất cả các nút có placement là 'inside'
     return {
-      bgcolor: "transparent", // Nền trong suốt
-      color: "white", // Màu icon/chữ trắng
-      minWidth: "auto", // Cho phép thu nhỏ
-      padding: "4px", // Padding nhỏ chỉ đủ cho icon
-      boxShadow: "none", // Bỏ shadow
-      border: "1px solid rgba(255, 255, 255, 0.2)", // Thêm viền mờ để dễ thấy hơn (tùy chọn)
-      backdropFilter: "blur(2px)", // Thêm hiệu ứng blur nhẹ phía sau (tùy chọn)
+      bgcolor: "transparent", 
+      color: "white", 
+      minWidth: "auto",
+      padding: "4px", 
+      boxShadow: "none",
+      border: "1px solid rgba(255, 255, 255, 0.2)", 
+      backdropFilter: "blur(2px)", 
       "&:hover": {
-        bgcolor: "rgba(255, 255, 255, 0.15)", // Hover sáng hơn chút
-        borderColor: "rgba(255, 255, 255, 0.3)", // Viền rõ hơn khi hover
+        bgcolor: "rgba(255, 255, 255, 0.15)", 
+        borderColor: "rgba(255, 255, 255, 0.3)", 
       },
     };
   };
@@ -96,7 +111,6 @@ const RenderOutput = ({
     const isInside = placement === "inside";
 
     const commonProps = {
-      // variant không cần thiết nữa vì style tự định nghĩa hết
       size: "small",
       sx: buttonSx,
       disabled: disabled,
@@ -109,13 +123,7 @@ const RenderOutput = ({
           <Button
             {...commonProps}
             key="copy"
-            onClick={() =>
-              navigator.clipboard.writeText(
-                value !== undefined && value !== null
-                  ? String(value)
-                  : String(output.default ?? "")
-              )
-            }
+            onClick={handleCopy}
             disabled={
               !(value !== undefined && value !== null
                 ? String(value)
@@ -132,16 +140,16 @@ const RenderOutput = ({
               <ContentCopyIcon
                 sx={{
                   fontSize: isInside ? "1rem" : "inherit",
-                  color: "white", // Đặt màu icon là trắng
-                  border: "none", // Bỏ viền
+                  color: "white",
+                  border: "none", 
                 }}
               />
             )}
-            {!isInside && "Copy"} {/* Chỉ hiển thị text cho outside */}
+            {!isInside && "Copy"}
           </Button>
         );
       case "refresh":
-        return (
+        return onRefresh ? (
           <Button
             {...commonProps}
             key="refresh"
@@ -153,7 +161,7 @@ const RenderOutput = ({
             )}
             {!isInside && "Refresh"}
           </Button>
-        );
+        ) : null;
       case "download": {
         const displayValue =
           value !== undefined && value !== null
@@ -164,13 +172,10 @@ const RenderOutput = ({
           <Button
             {...commonProps}
             key="download"
-            onClick={() => {
-              /* Download */
-            }}
+            onClick={handleDownload}
             title="Download"
           >
             <DownloadIcon size={isInside ? 14 : 16} />{" "}
-            {/* Icon nhỏ hơn cho inside */}
             {!isInside && "Download"}
           </Button>
         );
@@ -188,8 +193,52 @@ const RenderOutput = ({
     output.buttons?.filter((b) => output.buttonPlacement?.[b] !== "inside") ??
     [];
 
+  // Get the effective display value for this output
+  const getDisplayValue = () => {
+    // If this is a direct value from the backend, use it
+    if (resultData && resultData[output.id] !== undefined) {
+      return resultData[output.id];
+    }
+    
+    // Otherwise use the value passed directly to this component
+    return value !== undefined && value !== null ? value : output.default ?? "";
+  };
+
+  // Render text content (the default type in our metadata)
+  const renderTextContent = () => {
+    const displayValue = getDisplayValue();
+    
+    return (
+      <TextField
+        fullWidth
+        value={String(displayValue)}
+        multiline={false}  // From metadata, all are single line
+        rows={1}
+        InputProps={{ 
+          readOnly: true, 
+          style: { 
+            color: "white", 
+            fontFamily: output.monospace ? "monospace" : "inherit",
+            height: output.height ? `${output.height}px` : undefined
+          }
+        }}
+        sx={{
+          bgcolor: "#333",
+          borderRadius: 1,
+          width: output.width ? output.width : "100%",
+          "& .MuiInputBase-input.Mui-disabled": {
+            WebkitTextFillColor: "#aaa",
+            color: "#aaa",
+            cursor: "not-allowed",
+          },
+          "& .MuiInputBase-input": { cursor: "text" },
+        }}
+        disabled={disabled}
+      />
+    );
+  };
+
   return (
-    // Container chính với position relative
     <Box
       sx={{
         position: "relative",
@@ -200,83 +249,17 @@ const RenderOutput = ({
       }}
     >
       {/* Label */}
-      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: "bold" }}>
-        {output.label}
-      </Typography>
+      {output.label && (
+        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: "bold" }}>
+          {output.label}
+        </Typography>
+      )}
 
-      {/* Box chứa content và nút inside */}
       <Box sx={{ position: "relative" }}>
-        {/* Phần tử nội dung output */}
-        {(() => {
-          const displayValue =
-            value !== undefined && value !== null
-              ? String(value)
-              : String(output.default ?? "");
-          switch (output.type) {
-            // ... (các case render content giữ nguyên)
-            case "typography":
-              return (
-                <Typography
-                  sx={{
-                    color: "white",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
-                  variant="body1"
-                >
-                  {" "}
-                  {displayValue}{" "}
-                </Typography>
-              );
-            case "image":
-              return (
-                <Box textAlign="center">
-                  {" "}
-                  {displayValue ? (
-                    <img
-                      src={displayValue}
-                      alt={output.label || "Generated image"}
-                      style={{
-                        maxWidth: "100%",
-                        maxHeight: "400px",
-                        borderRadius: 8,
-                        display: "block",
-                        margin: "0 auto",
-                      }}
-                    />
-                  ) : (
-                    <Typography sx={{ color: "#888", fontStyle: "italic" }}>
-                      No image generated yet
-                    </Typography>
-                  )}{" "}
-                </Box>
-              );
-            case "text":
-            default:
-              return (
-                <TextField
-                  fullWidth
-                  value={displayValue}
-                  multiline
-                  rows={output.rows || 4}
-                  InputProps={{ readOnly: true, style: { color: "white" } }}
-                  sx={{
-                    bgcolor: "#333",
-                    borderRadius: 1,
-                    "& .MuiInputBase-input.Mui-disabled": {
-                      WebkitTextFillColor: "#aaa",
-                      color: "#aaa",
-                      cursor: "not-allowed",
-                    },
-                    "& .MuiInputBase-input": { cursor: "text" },
-                  }}
-                  disabled={disabled}
-                />
-              );
-          }
-        })()}
+        {/* For this specific tool, all outputs are text type */}
+        {renderTextContent()}
 
-        {/* --- Container cho nút INSIDE --- */}
+        {/* Inside buttons */}
         {insideButtons.length > 0 && (
           <Box
             sx={{
@@ -288,13 +271,12 @@ const RenderOutput = ({
               gap: theme.spacing(0.75),
             }}
           >
-            {/* Render các nút inside */}
             {insideButtons.map((buttonType) => renderButton(buttonType))}
           </Box>
         )}
       </Box>
 
-      {/* --- Container cho nút OUTSIDE --- */}
+      {/* Outside buttons */}
       {outsideButtons.length > 0 && (
         <Box
           mt={2}
@@ -303,7 +285,6 @@ const RenderOutput = ({
           gap={1.5}
           justifyContent="center"
         >
-          {/* Render các nút outside */}
           {outsideButtons.map((buttonType) => renderButton(buttonType))}
         </Box>
       )}
