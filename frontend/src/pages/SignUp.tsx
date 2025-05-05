@@ -210,6 +210,14 @@ function SignUpPage(): JSX.Element {
           <Typography component="h1" variant="h5">
             Sign Up
           </Typography>
+          
+          {/* Display general error if it exists */}
+          {errors.general && (
+            <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+              {errors.general}
+            </Typography>
+          )}
+          
           <Box
             component="form"
             onSubmit={handleSubmit}
@@ -223,7 +231,7 @@ function SignUpPage(): JSX.Element {
                   fullWidth
                   id="username"
                   label="Username"
-                  name={"username" satisfies keyof FormData}
+                  name="username"
                   autoComplete="username"
                   value={formData.username}
                   onChange={handleChange}
@@ -239,19 +247,20 @@ function SignUpPage(): JSX.Element {
                   fullWidth
                   id="email"
                   label="Email Address"
-                  name={"email" satisfies keyof FormData}
+                  name="email"
                   autoComplete="email"
                   value={formData.email}
                   onChange={handleChange}
                   error={!!errors.email}
                   helperText={errors.email}
+                  disabled={loading}
                 />
               </Grid>
               <Grid item xs={12} sx={{ width: "100%" }}>
                 <TextField
                   required
                   fullWidth
-                  name={"password" satisfies keyof FormData}
+                  name="password"
                   label="Password"
                   type="password"
                   id="password"
@@ -260,13 +269,14 @@ function SignUpPage(): JSX.Element {
                   onChange={handleChange}
                   error={!!errors.password}
                   helperText={errors.password}
+                  disabled={loading}
                 />
               </Grid>
               <Grid item xs={12} sx={{ width: "100%" }}>
                 <TextField
                   required
                   fullWidth
-                  name={"confirmPassword" satisfies keyof FormData}
+                  name="confirmPassword"
                   label="Confirm Password"
                   type="password"
                   id="confirmPassword"
@@ -275,6 +285,7 @@ function SignUpPage(): JSX.Element {
                   onChange={handleChange}
                   error={!!errors.confirmPassword}
                   helperText={errors.confirmPassword}
+                  disabled={loading}
                 />
               </Grid>
             </Grid>
@@ -282,10 +293,8 @@ function SignUpPage(): JSX.Element {
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2 }}
+              sx={{ mt: 3, mb: 2, position: "relative" }}
               disabled={loading} // Disable button when loading
-              // Optional: Style button to somewhat match the gradient theme
-              // style={{ background: '#337d5e' }} // style prop works too
             >
               {/* Loading Spinner */}
               {loading && (

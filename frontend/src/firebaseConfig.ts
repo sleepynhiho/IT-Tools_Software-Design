@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-// import { getFirestore } from "firebase/firestore"; // Add Firestore if needed
+import { getFirestore } from "firebase/firestore"; // <--- IMPORT THIS
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -9,12 +9,12 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  // measurementId: "G-XXXXXXXXXX" // Optional
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID // Assuming you have this in .env
 };
 
 const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
-// export const db = getFirestore(app); // Uncomment if you need Firestore
+export const db = getFirestore(app); // <--- INITIALIZE AND EXPORT DB
 
 export default app;

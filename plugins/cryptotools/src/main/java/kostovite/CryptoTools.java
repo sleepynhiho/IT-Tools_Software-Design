@@ -98,6 +98,7 @@ public class CryptoTools implements PluginInterface { // Assuming standard Plugi
         metadata.put("icon", "Lock");
         metadata.put("category", "Security");
         metadata.put("customUI", false);
+        metadata.put("accessLevel", "normal");
         // This tool requires explicit action, not dynamic updates on input change
         metadata.put("triggerUpdateOnChange", false);
 

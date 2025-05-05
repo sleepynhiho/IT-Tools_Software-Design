@@ -75,6 +75,7 @@ public class Chronometer implements PluginInterface {
         metadata.put("icon", "Timer");
         metadata.put("category", "Utilities");
         metadata.put("customUI", false);
+        metadata.put("accessLevel", "normal");
         metadata.put("triggerUpdateOnChange", false);
 
         // Sections

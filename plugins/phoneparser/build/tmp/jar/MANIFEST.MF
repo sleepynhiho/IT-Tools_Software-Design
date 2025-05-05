@@ -1,0 +1,7 @@
+Manifest-Version: 1.0
+Plugin-Class: kostovite.PhoneParserPlugin
+Plugin-Id: phoneparser
+Plugin-Version: 1.0.0
+Plugin-Provider: kostovite
+Plugin-Description: Parse, validate and format phone numbers
+

@@ -114,6 +114,24 @@ function LoginPage(): JSX.Element {
     }
   };
 
+  const getFirebaseErrorMessage = (code: string): string => {
+    switch (code) {
+      case "auth/user-not-found":
+        return "No account found with this email address.";
+      case "auth/wrong-password":
+        return "Incorrect password. Please try again.";
+      case "auth/invalid-email":
+        return "Please enter a valid email address.";
+      case "auth/user-disabled":
+        return "This account has been disabled. Please contact support.";
+      case "auth/too-many-requests":
+        return "Too many failed login attempts. Please try again later.";
+      default:
+        console.error("Unhandled Firebase Auth Error Code:", code);
+        return "Login failed. Please check your credentials and try again.";
+    }
+  };
+
   // --- Updated handleSubmit for Firebase ---
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -186,7 +204,7 @@ function LoginPage(): JSX.Element {
             component="form"
             onSubmit={handleSubmit}
             noValidate
-            sx={{ mt: 1 }}
+            sx={{ mt: 1, width: "100%" }}
           >
             {/* Email Field */}
             <TextField
@@ -195,7 +213,7 @@ function LoginPage(): JSX.Element {
               fullWidth
               id="email"
               label="Email Address"
-              name={"email" satisfies keyof FormData}
+              name="email"
               autoComplete="email"
               autoFocus
               value={formData.email}
@@ -209,7 +227,7 @@ function LoginPage(): JSX.Element {
               margin="normal"
               required
               fullWidth
-              name={"password" satisfies keyof FormData}
+              name="password"
               label="Password"
               type="password"
               id="password"
@@ -266,7 +284,3 @@ function LoginPage(): JSX.Element {
 }
 
 export default LoginPage;
-function getFirebaseErrorMessage(code: string): string | undefined {
-  throw new Error("Function not implemented.");
-}
-

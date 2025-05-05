@@ -75,6 +75,7 @@ public class CaseConverter implements PluginInterface {
         metadata.put("icon", "TextFields");
         metadata.put("category", "Converter");
         metadata.put("customUI", false);
+        metadata.put("accessLevel", "normal");
 
         // --- Sections ---
         List<Map<String, Object>> sections = new ArrayList<>();

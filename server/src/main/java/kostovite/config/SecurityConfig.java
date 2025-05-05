@@ -1,83 +1,91 @@
-package kostovite.config; // Use your actual package name
+// src/main/java/kostovite/config/SecurityConfig.java
+package kostovite.config;
 
 import com.google.firebase.auth.FirebaseAuth;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod; // Import HttpMethod if needed for specific method rules
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import com.google.cloud.firestore.Firestore;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
+import org.springframework.http.HttpMethod;
+import org.jetbrains.annotations.NotNull;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import static org.springframework.security.config.Customizer.withDefaults;
 import java.util.Arrays;
-import java.util.List;
+import java.util.List; // Import List
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
-    @Autowired
-    private FirebaseAuth firebaseAuth;
+    private final FirebaseAuth firebaseAuth;
+    private final Firestore firestore;
+
+    public SecurityConfig(FirebaseAuth firebaseAuth, Firestore firestore) {
+        this.firebaseAuth = firebaseAuth;
+        this.firestore = firestore;
+    }
 
     @Bean
     public FirebaseTokenFilter firebaseTokenFilter() {
-        // Assuming FirebaseTokenFilter only tries to verify if a token exists
-        // and doesn't block requests without a token.
-        return new FirebaseTokenFilter(firebaseAuth);
+        return new FirebaseTokenFilter(firebaseAuth, firestore);
     }
-
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(csrf -> csrf.disable())
+                .cors(withDefaults()) // Apply CORS bean
+                .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(firebaseTokenFilter(), UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authz -> authz
-                        // 1. Public Endpoints
-                        .requestMatchers("/api/public/**", "/error").permitAll()
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        .requestMatchers("/api/plugins/universal/manual-load").permitAll() // List is public
-                        .requestMatchers(HttpMethod.POST, "/api/debug/*/process").permitAll()
-
-                        // *** ADD THIS RULE FOR INDIVIDUAL METADATA ***
-                        .requestMatchers(HttpMethod.GET, "/api/plugins/universal/*/metadata").permitAll() // Allow GET metadata for any plugin
-
-                        // 2. Endpoints Accessible by BOTH Anonymous and Authenticated (Examples)
-                        .requestMatchers(HttpMethod.GET, "/api/tools/**").permitAll() // Example path
-                        // Remove this if covered by the rule above: .requestMatchers("/api/plugins/metadata").permitAll()
-
-                        // 3. Endpoints Requiring Authentication
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Allow OPTIONS preflight
+                        .requestMatchers("/public/**", "/login", "/signup").permitAll()
+                        // Allow anonymous access to list/process (checked in service)
+                        .requestMatchers(HttpMethod.GET, "/api/plugins", "/api/plugins/**").permitAll() // Broadened GET under /api/plugins
+                        .requestMatchers(HttpMethod.POST, "/api/plugins/**").permitAll() // Broadened POST under /api/plugins
+                        // Admin ONLY endpoints
+                        .requestMatchers(HttpMethod.POST, "/api/plugins/upload").hasRole("ADMIN") // Keep specific admin higher
+                        .requestMatchers(HttpMethod.DELETE, "/api/plugins/{pluginName}").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/plugins/refresh").hasRole("ADMIN")
+                        .requestMatchers("/api/plugins/unload/**").hasRole("ADMIN")
+                        .requestMatchers("/api/plugins/universal/unload/**").hasRole("ADMIN")
+                        .requestMatchers("/api/debug/**").hasRole("ADMIN")
+                        // Other Authenticated endpoints
                         .requestMatchers("/api/secure/**").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/tools/favorites").authenticated()
-                        .requestMatchers("/api/users/profile").authenticated()
-//                        .requestMatchers(HttpMethod.POST, "/api/plugins/universal/*/process").authenticated() // Processing requires auth
-
-                        // 4. Default Authenticated (Fallback)
-                        .anyRequest().authenticated()
-                )
-                .addFilterBefore(firebaseTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+                        // Fallback for any other /api endpoint
+                        .requestMatchers("/api/**").authenticated() // Secure others by default
+                        .anyRequest().permitAll()
+                );
 
         return http.build();
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        // Make sure your frontend origin(s) are listed
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Cache-Control", "Content-Type", "X-Requested-With", "Accept")); // Added Accept just in case
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
-
+    CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = getCorsConfiguration();
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration("/api/**", configuration); // Apply config to all /api/** paths
         return source;
+    }
+
+    @NotNull
+    private static CorsConfiguration getCorsConfiguration() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://127.0.0.1:5173"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
+        configuration.setAllowedHeaders(List.of("*")); // Allow all headers for simplicity during debug - RESTRICT IN PRODUCTION
+        // --- FIX: Explicitly allow credentials ---
+        configuration.setAllowCredentials(true); // <<<--- ADD THIS LINE
+        // -----------------------------------------
+        return configuration;
     }
 }

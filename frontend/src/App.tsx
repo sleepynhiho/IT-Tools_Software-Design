@@ -10,33 +10,35 @@ import SignUpPage from "./pages/SignUp";
 import LoginPage from "./pages/Login";
 import { AuthProvider } from "./context/AuthContext";
 
+// Create a wrapper component that applies MainLayout
+const WithMainLayout = ({ component: Component, ...props }) => {
+  return (
+    <MainLayout>
+      <Component {...props} />
+    </MainLayout>
+  );
+};
+
 function App() {
   return (
     <AuthProvider>
       <ThemeProvider theme={theme}>
-        <Router>
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <Router>
             <Routes>
-              {/* Routes không dùng MainLayout */}
+              {/* Routes without MainLayout */}
               <Route path="/signup" element={<SignUpPage />} />
               <Route path="/login" element={<LoginPage />} />
 
-              {/* Routes dùng MainLayout */}
-              <Route
-                path="*"
-                element={
-                  <MainLayout>
-                    <Routes>
-                      <Route path="/" element={<Home />} />
-                      <Route path="/tools/:id" element={<ToolRenderer />} />
-                      <Route path="*" element={<div>404 Not Found</div>} />
-                    </Routes>
-                  </MainLayout>
-                }
-              />
+              {/* Routes with MainLayout */}
+              <Route path="/" element={<WithMainLayout component={Home} />} />
+              <Route path="/tools/:id" element={<WithMainLayout component={ToolRenderer} />} />
+              
+              {/* 404 route with MainLayout */}
+              <Route path="*" element={<WithMainLayout component={() => <div>404 Not Found</div>} />} />
             </Routes>
-          </LocalizationProvider>
-        </Router>
+          </Router>
+        </LocalizationProvider>
       </ThemeProvider>
     </AuthProvider>
   );

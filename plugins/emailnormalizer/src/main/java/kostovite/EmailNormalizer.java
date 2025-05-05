@@ -65,6 +65,7 @@ public class EmailNormalizer implements PluginInterface {
         metadata.put("icon", "Email");
         metadata.put("category", "Development");
         metadata.put("customUI", false);
+        metadata.put("accessLevel", "premium");
 
         // --- Sections ---
         List<Map<String, Object>> sections = new ArrayList<>();

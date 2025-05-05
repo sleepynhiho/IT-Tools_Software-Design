@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { fallbackMetadata } from "./fallbackMetadata"; // Import the fallback data
+import { auth } from "../firebaseConfig"; // Import Firebase auth
 
 // Configuration constants
 const USE_FALLBACK_METADATA = false; // Set to true to always use fallback data
@@ -11,6 +12,7 @@ const RETRY_DELAY = 300; // Delay between retries in milliseconds
 const API_BASE_URL = "http://localhost:8081"; // Fallback for safety
 
 // --- Interfaces (with proper exports) ---
+
 export interface PluginMetadata {
   triggerUpdateOnChange: any;
   id: string;
@@ -21,6 +23,8 @@ export interface PluginMetadata {
   customUI?: boolean;
   sections: Section[]; // Array of sections
   version?: string;
+  // Access control
+  accessLevel?: string; // 'normal', 'premium', 'admin'
   // Add frontend-specific fields for processing
   processFunction?: (input: any) => Promise<any>;
   
@@ -96,6 +100,8 @@ export interface OutputField {
 // --- PluginListResponse Interface ---
 export interface PluginListResponse {
   loadedPlugins: string[];
+  status?: string;
+  userType?: string;
 }
 
 /**
@@ -106,10 +112,11 @@ const delay = (ms: number): Promise<void> => {
 };
 
 /**
- * Helper function to fetch a single plugin's metadata with retry
+ * Helper function to fetch a single plugin's metadata with retry and authentication
  */
 const fetchPluginMetadata = async (
   pluginName: string,
+  token?: string,
   maxRetries: number = MAX_RETRIES,
   retryDelay: number = RETRY_DELAY
 ): Promise<PluginMetadata | null> => {
@@ -117,8 +124,19 @@ const fetchPluginMetadata = async (
   
   while (retries <= maxRetries) {
     try {
-      const url = `${API_BASE_URL}/api/plugins/universal/${pluginName}/metadata`;
-      const res = await fetch(url);
+      // Use the updated endpoint
+      const url = `${API_BASE_URL}/api/plugins/universal/${pluginName}/plugin-info`;
+      
+      // Set up headers with authentication token
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const res = await fetch(url, {
+        headers,
+        credentials: 'include'
+      });
       
       if (!res.ok) {
         throw new Error(`${res.status} ${res.statusText}`);
@@ -139,10 +157,21 @@ const fetchPluginMetadata = async (
       // Add a process function to call the backend
       metadata.processFunction = async (input: any) => {
         try {
+          // Get a fresh token for the request
+          const currentToken = await auth.currentUser?.getIdToken();
+          const headers: Record<string, string> = {
+            "Content-Type": "application/json"
+          };
+          
+          if (currentToken) {
+            headers['Authorization'] = `Bearer ${currentToken}`;
+          }
+          
           const response = await fetch(`${API_BASE_URL}/api/plugins/universal/${metadata.id}/process`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify(input),
+            credentials: 'include'
           });
           
           if (!response.ok) {
@@ -178,12 +207,14 @@ const fetchPluginMetadata = async (
 
 /**
  * Process plugins in batches with parallelism but controlled load
+ * Updated to include authentication token
  */
 async function processPluginsInBatches(
   pluginNames: string[], 
   batchSize: number = BATCH_SIZE,
   delayBetweenBatches: number = BATCH_DELAY,
-  progressCallback?: (progress: number) => void
+  progressCallback?: (progress: number) => void,
+  token?: string
 ): Promise<PluginMetadata[]> {
   const validMetadata: PluginMetadata[] = [];
   const batches = [];
@@ -209,7 +240,7 @@ async function processPluginsInBatches(
     
     // Process all plugins in the current batch in parallel
     const batchResults = await Promise.allSettled(
-      batch.map(pluginName => fetchPluginMetadata(pluginName))
+      batch.map(pluginName => fetchPluginMetadata(pluginName, token))
     );
     
     // Collect successful results
@@ -232,116 +263,6 @@ async function processPluginsInBatches(
   
   return validMetadata;
 }
-
-/**
- * Custom hook to fetch metadata for all available universal plugins.
- * Uses batch processing for better performance while maintaining reliability.
- */
-export const useAllPluginMetadata = () => {
-  const [metadataList, setMetadataList] = useState<PluginMetadata[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [loadingProgress, setLoadingProgress] = useState<number>(0);
-  const [error, setError] = useState<string | null>(null);
-  const [dataSource, setDataSource] = useState<'backend' | 'fallback' | null>(null);
-
-
-  
-  // Use a ref to track if the fetch has already been initiated
-  const fetchInitiatedRef = useRef<boolean>(false);
-
-  useEffect(() => {
-    // Use fallback data directly if configured to do so
-    if (USE_FALLBACK_METADATA) {
-      console.log("Using fallback metadata (configured)");
-      setMetadataList(fallbackMetadata);
-      setDataSource('fallback');
-      setLoading(false);
-      setLoadingProgress(100);
-      return;
-    }
-    
-    // Prevent multiple fetches in development mode with React.StrictMode
-    if (fetchInitiatedRef.current) {
-      console.log('Fetch already initiated, skipping duplicate fetch');
-      return;
-    }
-    
-    fetchInitiatedRef.current = true;
-    
-    const fetchAllMetadata = async () => {
-      setLoading(true);
-      setLoadingProgress(0);
-      setError(null);
-      console.log("Starting to fetch all plugin metadata...");
-
-      try {
-        const pluginListUrl = `${API_BASE_URL}/api/plugins/universal/manual-load`;
-        console.log("Fetching plugin list from:", pluginListUrl);
-        const pluginListRes = await fetch(pluginListUrl);
-
-        if (!pluginListRes.ok) {
-          throw new Error(
-            `Failed to load plugin list: ${pluginListRes.status} ${pluginListRes.statusText}`
-          );
-        }
-
-        // Parse the plugin list response
-        const pluginListData: PluginListResponse = await pluginListRes.json();
-        const { loadedPlugins } = pluginListData;
-        
-        if (!Array.isArray(loadedPlugins)) {
-          throw new Error("Invalid plugin list format received from server.");
-        }
-        console.log(`Found ${loadedPlugins.length} plugins reported by server:`, loadedPlugins);
-        
-        setLoadingProgress(10); // 10% progress - plugin list loaded
-
-        if (loadedPlugins.length === 0) {
-          console.log("No plugins listed by the server. Using fallback data.");
-          setMetadataList(fallbackMetadata);
-          setDataSource('fallback');
-          setLoading(false);
-          setLoadingProgress(100);
-          return;
-        }
-        
-        // Process plugins in batches - good balance between speed and reliability
-        const validMetadata = await processPluginsInBatches(
-          loadedPlugins, 
-          BATCH_SIZE, 
-          BATCH_DELAY, 
-          setLoadingProgress
-        );
-        
-        console.log(`Batch processing complete: ${validMetadata.length} out of ${loadedPlugins.length} plugins loaded`);
-        
-        if (validMetadata.length > 0) {
-          setMetadataList(validMetadata);
-          setDataSource('backend');
-        } else {
-          console.log("No plugins fetched successfully, using fallback data");
-          setMetadataList(fallbackMetadata);
-          setDataSource('fallback');
-        }
-        
-        setLoadingProgress(100); // 100% progress - all done
-      } catch (err: any) {
-        console.error("FATAL: Failed to fetch plugin metadata:", err);
-        setError(err.message || "An unknown error occurred while fetching plugin data");
-        setMetadataList(fallbackMetadata);
-        setDataSource('fallback');
-        setLoadingProgress(100); // Error, but still complete
-      } finally {
-        setLoading(false);
-        console.log("Finished metadata fetching process.");
-      }
-    };
-
-    fetchAllMetadata();
-  }, []);
-
-  return { metadataList, loading, loadingProgress, error, dataSource };
-};
 
 /**
  * Helper to convert backend plugin metadata format to frontend format if needed
@@ -406,3 +327,133 @@ const mapInputType = (backendType: string): string => {
   
   return typeMap[backendType] || backendType;
 };
+
+/**
+ * Custom hook to fetch and manage plugin metadata
+ */
+export const useAllPluginMetadata = () => {
+  const [metadataList, setMetadataList] = useState<PluginMetadata[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [loadingProgress, setLoadingProgress] = useState<number>(0);
+  const [error, setError] = useState<string | null>(null);
+  const [dataSource, setDataSource] = useState<'backend' | 'fallback' | null>(null);
+  
+  // Use a ref to track if the fetch has already been initiated
+  const fetchInitiatedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    // Use fallback data directly if configured to do so
+    if (USE_FALLBACK_METADATA) {
+      console.log("Using fallback metadata (configured)");
+      setMetadataList(fallbackMetadata);
+      setDataSource('fallback');
+      setLoading(false);
+      setLoadingProgress(100);
+      return;
+    }
+    
+    // Prevent multiple fetches in development mode with React.StrictMode
+    if (fetchInitiatedRef.current) {
+      console.log('Fetch already initiated, skipping duplicate fetch');
+      return;
+    }
+    
+    fetchInitiatedRef.current = true;
+    
+    const fetchAllMetadata = async () => {
+      setLoading(true);
+      setLoadingProgress(0);
+      setError(null);
+      console.log("Starting to fetch all plugin metadata...");
+
+      try {
+        // Get the auth token
+        const token = await auth.currentUser?.getIdToken();
+        
+        // Use the updated endpoint
+        const pluginsUrl = `${API_BASE_URL}/api/plugins/universal/load-plugins`;
+        console.log("Fetching plugin list from:", pluginsUrl);
+        
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch(pluginsUrl, {
+          headers,
+          credentials: 'include'
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to load plugin list: ${response.status} ${response.statusText}`
+          );
+        }
+
+        const pluginListData: PluginListResponse = await response.json();
+        const { loadedPlugins, userType } = pluginListData;
+        
+        if (!Array.isArray(loadedPlugins)) {
+          throw new Error("Invalid plugin list format received from server.");
+        }
+        
+        console.log(`Found ${loadedPlugins.length} plugins for user type ${userType || 'unknown'}:`, loadedPlugins);
+        
+        setLoadingProgress(10); // 10% progress - plugin list loaded
+
+        if (loadedPlugins.length === 0) {
+          console.log("No plugins listed by the server. Using fallback data.");
+          setMetadataList(fallbackMetadata);
+          setDataSource('fallback');
+          setLoading(false);
+          setLoadingProgress(100);
+          return;
+        }
+        
+        // Process plugins in batches - good balance between speed and reliability
+        const validMetadata = await processPluginsInBatches(
+          loadedPlugins, 
+          BATCH_SIZE, 
+          BATCH_DELAY, 
+          setLoadingProgress,
+          token
+        );
+        
+        console.log(`Batch processing complete: ${validMetadata.length} out of ${loadedPlugins.length} plugins loaded`);
+        
+        if (validMetadata.length > 0) {
+          setMetadataList(validMetadata);
+          setDataSource('backend');
+        } else {
+          console.log("No plugins fetched successfully, using fallback data");
+          setMetadataList(fallbackMetadata);
+          setDataSource('fallback');
+        }
+        
+        setLoadingProgress(100); // 100% progress - all done
+      } catch (err: any) {
+        console.error("FATAL: Failed to fetch plugin metadata:", err);
+        setError(err.message || "An unknown error occurred while fetching plugin data");
+        setMetadataList(fallbackMetadata);
+        setDataSource('fallback');
+        setLoadingProgress(100); // Error, but still complete
+      } finally {
+        setLoading(false);
+        console.log("Finished metadata fetching process.");
+      }
+    };
+
+    fetchAllMetadata();
+
+    // Clean up function to handle component unmount during fetch
+    return () => {
+      // We can't abort ongoing fetch requests directly due to the batch processing,
+      // but we can set a flag to avoid setting state after unmount
+      fetchInitiatedRef.current = false;
+    };
+  }, []);
+
+  return { metadataList, loading, loadingProgress, error, dataSource };
+};
+
+export default useAllPluginMetadata;

@@ -3,19 +3,21 @@ package kostovite.controllers;
 import kostovite.ExtendedPluginInterface;
 import kostovite.ManualPluginLoader;
 import kostovite.PluginInterface;
+import kostovite.services.PluginService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus; // Import HttpStatus
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile; // Import MultipartFile
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.logging.Level; // Import Level
-import java.util.logging.Logger; // Import Logger
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 @RestController
@@ -23,20 +25,19 @@ import java.util.stream.Collectors;
 public class UniversalPluginController {
 
     private final ManualPluginLoader pluginLoader;
-    // Use java.util.logging matching the examples provided
+    private final PluginService pluginService; // Add PluginService for access control
     private static final Logger logger = Logger.getLogger(UniversalPluginController.class.getName());
 
-    // Remove redundant Autowired field if constructor injection is used
-
     @Autowired
-    public UniversalPluginController(ManualPluginLoader pluginLoader) {
+    public UniversalPluginController(ManualPluginLoader pluginLoader, PluginService pluginService) {
         this.pluginLoader = pluginLoader;
+        this.pluginService = pluginService;
+        logger.info("UniversalPluginController initialized with ManualPluginLoader and PluginService");
     }
 
     // --- Helper Method to Find Plugin (Refactored) ---
     private PluginInterface findPluginByName(String pluginName) {
         for (PluginInterface p : pluginLoader.getLoadedPlugins()) {
-            // Use equalsIgnoreCase for robustness
             if (p.getName().equalsIgnoreCase(pluginName)) {
                 return p;
             }
@@ -45,13 +46,47 @@ public class UniversalPluginController {
         return null;
     }
 
+    // --- Helper Method to Find Plugin with Access Control ---
+    private PluginInterface findAccessiblePlugin(String pluginName, Authentication authentication) {
+        PluginInterface plugin = findPluginByName(pluginName);
+        if (plugin == null) {
+            return null;
+        }
+
+        // Check access control if authentication is available
+        if (authentication != null) {
+            String userType = pluginService.extractUserType(authentication);
+            try {
+                Map<String, Object> metadata = plugin.getMetadata();
+                String pluginAccessLevel = String.valueOf(metadata.getOrDefault("accessLevel", "normal")).toLowerCase();
+                if (!pluginService.canUserAccess(userType, pluginAccessLevel)) {
+                    logger.warning("Access denied: User type '" + userType + "' attempted to access plugin '" +
+                            pluginName + "' with required access level '" + pluginAccessLevel + "'");
+                    return null;
+                }
+            } catch (Exception e) {
+                logger.log(Level.SEVERE, "Error checking access for plugin " + pluginName, e);
+                return null;
+            }
+        }
+
+        return plugin;
+    }
+
     // --- Helper Method for Not Found Response ---
     private ResponseEntity<Map<String, Object>> buildPluginNotFoundResponse(String pluginName) {
         Map<String, Object> errorResponse = new HashMap<>();
-        errorResponse.put("success", false); // Consistent error structure
+        errorResponse.put("success", false);
         errorResponse.put("errorMessage", "Plugin not found: " + pluginName);
-        // Return 404 Not Found status
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    // --- Helper Method for Access Denied Response ---
+    private ResponseEntity<Map<String, Object>> buildAccessDeniedResponse(String pluginName) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("success", false);
+        errorResponse.put("errorMessage", "Access denied to plugin: " + pluginName);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
     }
 
     // --- Helper Method for Unsupported Plugin Type ---
@@ -60,60 +95,77 @@ public class UniversalPluginController {
         Map<String, Object> errorResponse = new HashMap<>();
         errorResponse.put("success", false);
         errorResponse.put("errorMessage", "Plugin '" + pluginName + "' is not an ExtendedPluginInterface and does not support " + operation);
-        // Return 400 Bad Request status, as the client tried an operation the plugin type doesn't support
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
-    // --- Helper method to guess field name based on mime type (simple version) ---
+    // --- Helper method to guess field name based on mime type ---
     private String guessDataFieldName(String contentType) {
         if (contentType != null) {
             if (contentType.startsWith("image/")) return "capturedImageData";
             if (contentType.startsWith("video/")) return "capturedVideoData";
         }
         logger.warning("Could not reliably guess data field name for content type: " + contentType);
-        return null; // Cannot guess reliably
+        return null;
     }
 
-    // --- Existing Endpoints (Minor adjustments for consistency) ---
+    // --- Updated Endpoints with Access Control ---
 
     @GetMapping
-    public ResponseEntity<Map<String, Object>> getAllPlugins() {
-        Map<String, Object> response = new HashMap<>();
-        List<PluginInterface> plugins = pluginLoader.getLoadedPlugins();
+    public ResponseEntity<Map<String, Object>> getAllPlugins(Authentication authentication) {
+        String userType = pluginService.extractUserType(authentication);
+        logger.info("Getting all plugins for user type: " + userType);
 
-        response.put("count", plugins.size());
-        // Use equalsIgnoreCase safe stream processing if needed, assumed names are consistent casing
-        response.put("plugins", plugins.stream().map(PluginInterface::getName).toList());
+        Map<String, Object> response = new HashMap<>();
+        List<PluginInterface> allPlugins = pluginLoader.getLoadedPlugins();
+
+        // Filter plugins based on user access level
+        List<String> accessiblePlugins = allPlugins.stream()
+                .filter(plugin -> {
+                    try {
+                        Map<String, Object> metadata = plugin.getMetadata();
+                        String pluginAccessLevel = String.valueOf(metadata.getOrDefault("accessLevel", "normal")).toLowerCase();
+                        return pluginService.canUserAccess(userType, pluginAccessLevel);
+                    } catch (Exception e) {
+                        logger.log(Level.WARNING, "Error checking access for plugin " + plugin.getName(), e);
+                        return false;
+                    }
+                })
+                .map(PluginInterface::getName)
+                .collect(Collectors.toList());
+
+        response.put("count", accessiblePlugins.size());
+        response.put("plugins", accessiblePlugins);
+        response.put("userType", userType);
         return ResponseEntity.ok(response);
     }
 
     /**
-     * Existing endpoint for processing data sent as JSON in the request body.
-     * Assumes data (like images/video) is already Base64 encoded within the input map.
+     * Process data sent as JSON in the request body.
      */
     @PostMapping("/{pluginName}")
     public ResponseEntity<Map<String, Object>> processPluginJsonData(
             @PathVariable String pluginName,
-            @RequestBody Map<String, Object> input) {
-        logger.info("Processing JSON request for plugin: " + pluginName);
-        PluginInterface plugin = findPluginByName(pluginName);
+            @RequestBody Map<String, Object> input,
+            Authentication authentication) {
+
+        logger.info("Processing JSON request for plugin: " + pluginName + " by user: " +
+                (authentication != null ? authentication.getName() : "anonymous"));
+
+        PluginInterface plugin = findAccessiblePlugin(pluginName, authentication);
         if (plugin == null) {
             return buildPluginNotFoundResponse(pluginName);
         }
 
         try {
-            if (plugin instanceof ExtendedPluginInterface extendedPlugin) { // Use pattern variable binding
-                // Process using the ExtendedPluginInterface
+            if (plugin instanceof ExtendedPluginInterface extendedPlugin) {
                 Map<String, Object> result = extendedPlugin.process(input);
                 logger.info("Plugin " + pluginName + " processed JSON data successfully.");
                 return ResponseEntity.ok(result);
             } else {
-                // Fallback for basic plugins (that don't process input maps)
                 plugin.execute();
                 logger.info("Executed basic plugin (no data processing): " + pluginName);
-                // Create a basic success response indicating execution
                 Map<String, Object> fallbackResponse = new HashMap<>();
-                fallbackResponse.put("success", true); // Indicate success
+                fallbackResponse.put("success", true);
                 fallbackResponse.put("message", "Basic plugin executed successfully (does not process input data).");
                 fallbackResponse.put("pluginName", plugin.getName());
                 return ResponseEntity.ok(fallbackResponse);
@@ -127,38 +179,32 @@ public class UniversalPluginController {
         }
     }
 
-    // --- NEW: Endpoint for Multipart File Upload ---
     /**
      * Handles file uploads via multipart/form-data.
-     * Converts the uploaded file to Base64 and places it in the input map
-     * before passing it to the plugin's process method.
-     * Requires 'dataFieldName' parameter to specify the key for the Base64 data in the map.
      */
     @PostMapping(value = "/{pluginName}/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> processPluginMultipartData(
             @PathVariable String pluginName,
-            @RequestParam("file") MultipartFile file, // The uploaded file
-            @RequestParam Map<String, String> allParams // Catch all other form fields
-    ) {
+            @RequestParam("file") MultipartFile file,
+            @RequestParam Map<String, String> allParams,
+            Authentication authentication) {
+
         long startTime = System.currentTimeMillis();
         logger.info(String.format("Received multipart upload for plugin '%s': file='%s', size=%d, params=%s",
                 pluginName, file.getOriginalFilename(), file.getSize(), allParams.keySet()));
 
-        PluginInterface plugin = findPluginByName(pluginName);
+        PluginInterface plugin = findAccessiblePlugin(pluginName, authentication);
         if (plugin == null) {
             return buildPluginNotFoundResponse(pluginName);
         }
 
-        // Check if the plugin can actually process data
         if (!(plugin instanceof ExtendedPluginInterface extendedPlugin)) {
             return buildUnsupportedPluginResponse(pluginName, "data processing via multipart upload");
         }
 
         try {
-            // --- Data Mapping Logic ---
             Map<String, Object> input = new HashMap<>();
 
-            // 1. Handle the file upload -> Base64 encode
             if (file.isEmpty()) {
                 logger.warning("Received empty file for multipart upload to plugin: " + pluginName);
                 return ResponseEntity.badRequest().body(Map.of("success", false, "errorMessage", "Uploaded file is empty."));
@@ -167,11 +213,7 @@ public class UniversalPluginController {
             String base64Data = Base64.getEncoder().encodeToString(fileBytes);
             logger.fine("Encoded multipart file to Base64 (length: " + base64Data.length() + ")");
 
-
-            // 2. Determine where to put the base64 data and mime type in the input map
-            // Convention: Expect 'dataFieldName' and optional 'mimeTypeFieldName' in the params
             String dataFieldName = allParams.get("dataFieldName");
-            // Try guessing if not provided (useful for simple webcam uploads)
             if (dataFieldName == null || dataFieldName.isBlank()) {
                 dataFieldName = guessDataFieldName(file.getContentType());
                 if(dataFieldName != null) {
@@ -179,25 +221,21 @@ public class UniversalPluginController {
                 }
             }
 
-            // dataFieldName is essential for placing the data correctly
             if (dataFieldName == null || dataFieldName.isBlank()){
                 logger.warning("Missing required 'dataFieldName' parameter for multipart upload to plugin: " + pluginName);
-                return ResponseEntity.badRequest().body(Map.of("success", false, "errorMessage", "Missing required form parameter: dataFieldName (e.g., 'capturedImageData' or 'capturedVideoData')"));
+                return ResponseEntity.badRequest().body(Map.of("success", false, "errorMessage", "Missing required form parameter: dataFieldName"));
             }
 
             input.put(dataFieldName, base64Data);
             logger.fine("Putting Base64 data into input map field: " + dataFieldName);
 
-            // Optionally add mime type if field name is provided
             String mimeTypeFieldName = allParams.get("mimeTypeFieldName");
             if (mimeTypeFieldName != null && !mimeTypeFieldName.isBlank() && file.getContentType() != null) {
                 input.put(mimeTypeFieldName, file.getContentType());
                 logger.fine("Putting MimeType ("+ file.getContentType() +") into input map field: " + mimeTypeFieldName);
             }
 
-            // 3. Add all other parameters from the form data to the input map
             allParams.forEach((key, value) -> {
-                // Avoid overwriting the file/mime data fields or the convention fields
                 if (!key.equals("file") && !key.equals("dataFieldName") && !key.equals("mimeTypeFieldName") && !input.containsKey(key)) {
                     input.put(key, value);
                     logger.fine("Adding parameter to input map: " + key + "=" + value);
@@ -205,8 +243,6 @@ public class UniversalPluginController {
             });
             logger.info("Constructed input map for plugin " + pluginName + ": " + input.keySet());
 
-
-            // --- Process with Plugin ---
             Map<String, Object> result = extendedPlugin.process(input);
             long duration = System.currentTimeMillis() - startTime;
             logger.info(String.format("Plugin '%s' processed multipart data successfully. Duration: %d ms", pluginName, duration));
@@ -222,43 +258,35 @@ public class UniversalPluginController {
         }
     }
 
-
-    // --- NEW: Endpoint for Binary Data Upload ---
     /**
      * Handles file uploads as raw binary data in the request body.
-     * Converts the binary data to Base64 and places it in the input map.
-     * Requires 'X-Data-Field-Name' header to specify the key for the Base64 data.
      */
     @PostMapping(value = "/{pluginName}/binary", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     public ResponseEntity<Map<String, Object>> processPluginBinaryData(
             @PathVariable String pluginName,
-            @RequestBody byte[] fileData, // The raw binary data
-            @RequestHeader("Content-Type") String contentType, // Standard Content-Type header
-            // Custom headers for mapping data into the plugin's expected input map
+            @RequestBody byte[] fileData,
+            @RequestHeader("Content-Type") String contentType,
             @RequestHeader(value = "X-Data-Field-Name", required = false) String dataFieldNameHeader,
             @RequestHeader(value = "X-Mime-Type-Field-Name", required = false) String mimeTypeFieldNameHeader,
-            // Capture other optional headers that might be parameters for the plugin
-            @RequestHeader(value = "X-File-Name", required = false) String fileNameHeader
-    ) {
-        long startTime = System.currentTimeMillis();
-        logger.info(String.format("Received binary upload for plugin '%s': size=%d, Content-Type=%s, X-Data-Field-Name=%s, X-File-Name=%s",
-                pluginName, fileData.length, contentType, dataFieldNameHeader, fileNameHeader));
+            @RequestHeader(value = "X-File-Name", required = false) String fileNameHeader,
+            Authentication authentication) {
 
-        PluginInterface plugin = findPluginByName(pluginName);
+        long startTime = System.currentTimeMillis();
+        logger.info(String.format("Received binary upload for plugin '%s': size=%d, Content-Type=%s",
+                pluginName, fileData.length, contentType));
+
+        PluginInterface plugin = findAccessiblePlugin(pluginName, authentication);
         if (plugin == null) {
             return buildPluginNotFoundResponse(pluginName);
         }
 
-        // Check if the plugin can actually process data
         if (!(plugin instanceof ExtendedPluginInterface extendedPlugin)) {
             return buildUnsupportedPluginResponse(pluginName, "data processing via binary upload");
         }
 
         try {
-            // --- Data Mapping Logic ---
             Map<String, Object> input = new HashMap<>();
 
-            // 1. Convert binary data to Base64
             if (fileData.length == 0) {
                 logger.warning("Received empty binary data for plugin: " + pluginName);
                 return ResponseEntity.badRequest().body(Map.of("success", false, "errorMessage", "Received empty binary data payload."));
@@ -266,8 +294,6 @@ public class UniversalPluginController {
             String base64Data = Base64.getEncoder().encodeToString(fileData);
             logger.fine("Encoded binary data to Base64 (length: " + base64Data.length() + ")");
 
-            // 2. Determine where to put the base64 data and mime type
-            // Use header X-Data-Field-Name, fallback to guessing
             String dataFieldName = dataFieldNameHeader;
             if (dataFieldName == null || dataFieldName.isBlank()) {
                 dataFieldName = guessDataFieldName(contentType);
@@ -278,32 +304,24 @@ public class UniversalPluginController {
 
             if (dataFieldName == null || dataFieldName.isBlank()){
                 logger.warning("Missing required 'X-Data-Field-Name' header for binary upload to plugin: " + pluginName);
-                return ResponseEntity.badRequest().body(Map.of("success", false, "errorMessage", "Missing required header: X-Data-Field-Name (e.g., 'capturedImageData' or 'capturedVideoData')"));
+                return ResponseEntity.badRequest().body(Map.of("success", false, "errorMessage", "Missing required header: X-Data-Field-Name"));
             }
 
             input.put(dataFieldName, base64Data);
             logger.fine("Putting Base64 data into input map field: " + dataFieldName);
 
-            // Optionally add mime type if field name header is provided
-            String mimeTypeFieldName = mimeTypeFieldNameHeader;
-            if (mimeTypeFieldName != null && !mimeTypeFieldName.isBlank() && contentType != null) {
-                input.put(mimeTypeFieldName, contentType);
-                logger.fine("Putting MimeType ("+ contentType +") into input map field: " + mimeTypeFieldName);
+            if (mimeTypeFieldNameHeader != null && !mimeTypeFieldNameHeader.isBlank() && contentType != null) {
+                input.put(mimeTypeFieldNameHeader, contentType);
+                logger.fine("Putting MimeType ("+ contentType +") into input map field: " + mimeTypeFieldNameHeader);
             }
 
-            // 3. Add optional headers like filename to the input map
-            // Convention: Use the header name directly as the key in the map if it's relevant
             if (fileNameHeader != null && !fileNameHeader.isBlank()) {
-                // Assume the plugin expects it under a key like 'outputFileName' or similar
-                // Adjust this key based on plugin expectations or add another header for the target key name
-                input.put("outputFileName", fileNameHeader); // Adjust key if needed
+                input.put("outputFileName", fileNameHeader);
                 logger.fine("Adding X-File-Name to input map as 'outputFileName': " + fileNameHeader);
             }
-            // Could add more headers here if needed
 
             logger.info("Constructed input map for plugin " + pluginName + ": " + input.keySet());
 
-            // --- Process with Plugin ---
             Map<String, Object> result = extendedPlugin.process(input);
             long duration = System.currentTimeMillis() - startTime;
             logger.info(String.format("Plugin '%s' processed binary data successfully. Duration: %d ms", pluginName, duration));
@@ -315,25 +333,39 @@ public class UniversalPluginController {
         }
     }
 
+    // --- CHANGED: Renamed endpoint to avoid conflict with PluginController ---
+    @GetMapping("/load-plugins")
+    public ResponseEntity<Map<String, Object>> loadPlugins(Authentication authentication) {
+        String userType = pluginService.extractUserType(authentication);
+        logger.info("Loading plugins for user type: " + userType);
 
-    // --- Plugin Management Endpoints (Unchanged) ---
-
-    @GetMapping("/manual-load")
-    public ResponseEntity<Map<String, Object>> manualLoad() {
-        // ... (implementation unchanged)
         Map<String, Object> response = new HashMap<>();
         try {
             String workingDir = System.getProperty("user.dir");
             Path pluginsPath = Paths.get(workingDir, "plugins-deploy").toAbsolutePath();
-            List<PluginInterface> plugins = pluginLoader.loadPlugins(pluginsPath); // Use injected loader
-            List<String> pluginNames = plugins.stream()
+            List<PluginInterface> allPlugins = pluginLoader.loadPlugins(pluginsPath);
+
+            // Filter plugins based on user access level
+            List<String> accessiblePlugins = allPlugins.stream()
+                    .filter(plugin -> {
+                        try {
+                            Map<String, Object> metadata = plugin.getMetadata();
+                            String pluginAccessLevel = String.valueOf(metadata.getOrDefault("accessLevel", "normal")).toLowerCase();
+                            return pluginService.canUserAccess(userType, pluginAccessLevel);
+                        } catch (Exception e) {
+                            logger.log(Level.WARNING, "Error checking access for plugin " + plugin.getName(), e);
+                            return false;
+                        }
+                    })
                     .map(PluginInterface::getName)
                     .collect(Collectors.toList());
-            response.put("loadedPlugins", pluginNames);
+
+            response.put("loadedPlugins", accessiblePlugins);
             response.put("status", "success");
-            logger.info("Manually loaded plugins from: " + pluginsPath + ", Found: " + pluginNames);
+            response.put("userType", userType);
+            logger.info("Loaded " + accessiblePlugins.size() + " accessible plugins for user type " + userType);
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "Error during manual plugin loading", e);
+            logger.log(Level.SEVERE, "Error during plugin loading", e);
             response.put("status", "error");
             response.put("message", e.getMessage());
         }
@@ -341,14 +373,26 @@ public class UniversalPluginController {
     }
 
     @DeleteMapping("/unload/{pluginName}")
-    public ResponseEntity<Map<String, Object>> unloadPlugin(@PathVariable String pluginName) {
-        // ... (implementation unchanged)
+    public ResponseEntity<Map<String, Object>> unloadPlugin(
+            @PathVariable String pluginName,
+            Authentication authentication) {
+
+        // Only allow admin users to unload plugins
+        String userType = pluginService.extractUserType(authentication);
+        if (!"admin".equals(userType)) {
+            logger.warning("Non-admin user (" + userType + ") attempted to unload plugin: " + pluginName);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "status", "error",
+                    "message", "Only admin users can unload plugins"
+            ));
+        }
+
         Map<String, Object> response = new HashMap<>();
-        boolean success = pluginLoader.unloadPlugin(pluginName); // Use injected loader
+        boolean success = pluginLoader.unloadPlugin(pluginName);
         if (success) {
             response.put("status", "success");
             response.put("message", "Plugin '" + pluginName + "' unloaded successfully");
-            logger.info("Unloaded plugin: " + pluginName);
+            logger.info("Admin user unloaded plugin: " + pluginName);
         } else {
             response.put("status", "error");
             response.put("message", "Failed to unload plugin '" + pluginName + "' (not found or error).");
@@ -358,20 +402,34 @@ public class UniversalPluginController {
     }
 
     @DeleteMapping("/unload-all")
-    public ResponseEntity<Map<String, Object>> unloadAllPlugins() {
-        // ... (implementation unchanged)
+    public ResponseEntity<Map<String, Object>> unloadAllPlugins(Authentication authentication) {
+        // Only allow admin users to unload all plugins
+        String userType = pluginService.extractUserType(authentication);
+        if (!"admin".equals(userType)) {
+            logger.warning("Non-admin user (" + userType + ") attempted to unload all plugins");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "status", "error",
+                    "message", "Only admin users can unload all plugins"
+            ));
+        }
+
         Map<String, Object> response = new HashMap<>();
-        int count = pluginLoader.unloadAllPlugins(); // Use injected loader
+        int count = pluginLoader.unloadAllPlugins();
         response.put("status", "success");
         response.put("message", count + " plugins unloaded successfully");
-        logger.info("Unloaded all " + count + " plugins.");
+        logger.info("Admin user unloaded all " + count + " plugins");
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/{pluginName}/metadata")
-    public ResponseEntity<Map<String, Object>> getPluginMetadata(@PathVariable String pluginName) {
-        // ... (implementation unchanged)
-        logger.fine("Requesting metadata for plugin: " + pluginName);
+    // --- CHANGED: Renamed endpoint to avoid conflict with PluginController ---
+    @GetMapping("/{pluginName}/plugin-info")
+    public ResponseEntity<Map<String, Object>> getPluginInfo(
+            @PathVariable String pluginName,
+            Authentication authentication) {
+
+        logger.fine("Requesting plugin info for plugin: " + pluginName);
+        String userType = pluginService.extractUserType(authentication);
+
         PluginInterface plugin = findPluginByName(pluginName);
         if (plugin == null) {
             return buildPluginNotFoundResponse(pluginName);
@@ -379,11 +437,24 @@ public class UniversalPluginController {
 
         try {
             Map<String, Object> metadata = plugin.getMetadata();
-            logger.fine("Returning metadata for plugin: " + pluginName);
+            String pluginAccessLevel = String.valueOf(metadata.getOrDefault("accessLevel", "normal")).toLowerCase();
+
+            // Check if user has access to this plugin
+            if (!pluginService.canUserAccess(userType, pluginAccessLevel)) {
+                logger.warning("User type '" + userType + "' attempted to access info for plugin '" +
+                        pluginName + "' with required access level '" + pluginAccessLevel + "'");
+                return buildAccessDeniedResponse(pluginName);
+            }
+
+            // Add user type information to the response
+            metadata.put("userType", userType);
+
+            logger.fine("Returning info for plugin: " + pluginName + " to user type: " + userType);
             return ResponseEntity.ok(metadata);
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "Error retrieving metadata for plugin " + pluginName, e);
-            return ResponseEntity.internalServerError().body(Map.of("success", false,"errorMessage", "Error retrieving plugin metadata: " + e.getMessage()));
+            logger.log(Level.SEVERE, "Error retrieving info for plugin " + pluginName, e);
+            return ResponseEntity.internalServerError().body(Map.of("success", false,
+                    "errorMessage", "Error retrieving plugin info: " + e.getMessage()));
         }
     }
 }

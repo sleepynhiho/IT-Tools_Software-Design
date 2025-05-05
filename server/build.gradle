@@ -46,7 +46,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
     // Exclude conflicting logging implementations
-    configurations.all {
+    configurations.configureEach {
         exclude group: 'commons-logging', module: 'commons-logging'
         exclude group: 'org.slf4j', module: 'slf4j-reload4j'
         exclude group: 'log4j', module: 'log4j'
@@ -115,7 +115,7 @@ tasks.withType(Test).configureEach {
 }
 
 // Task to create plugins-deploy directory
-task createPluginsDir {
+tasks.register('createPluginsDir') {
     doLast {
         def pluginsDir = new File("${projectDir}/plugins-deploy")
         if (!pluginsDir.exists()) {
@@ -131,7 +131,7 @@ task createPluginsDir {
 processResources.dependsOn createPluginsDir
 
 // Create logs directory for logging
-task createLogsDir {
+tasks.register('createLogsDir') {
     doLast {
         def logsDir = new File("${projectDir}/logs")
         if (!logsDir.exists()) {
