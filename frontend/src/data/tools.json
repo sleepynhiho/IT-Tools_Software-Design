@@ -1041,3 +1041,457 @@ With a concrete example, if you wash 5 plates in 3 minutes and you have 500 plat
     }
   ]
 }
+
+{
+  "customUI": false,
+  "name": "Roman numeral converter",
+  "icon": "Numbers",
+  "description": "Convert Roman numerals to numbers and convert numbers to Roman numerals.",
+  "id": "RomanNumeralConverter",
+  "category": "Converter",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "label": "",
+          "id": "arabicInputNumber",
+          "type": "text",
+          "required": true,
+          "default": "42",
+          "containerId": "main",
+          "width": 200,
+          "height": 40,
+        }
+      ],
+      "outputs": [
+        {
+          "label": "",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "outside" },
+          "id": "romanOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "main",
+        }
+      ],
+      "id": "arabicToRoman",
+      "label": "Arabic to Roman"
+    },
+    {
+      "inputs": [
+        {
+          "label": "",
+          "id": "romanInputNumber",
+          "type": "textarea",
+          "required": true,
+          "default": "XLII",
+          "containerId": "main",
+          "width": 200,
+          "height": 40,
+        }
+      ],
+      "outputs": [
+        {
+          "label": "",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "outside" },
+          "id": "arabicOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "main",
+        }
+      ],
+      "id": "romanToArabic",
+      "label": "Roman to Arabic"
+    }
+  ]
+}
+
+
+{
+  "customUI": false,
+  "name": "XML to JSON",
+  "icon": "Code",
+  "description": "Convert XML to JSON",
+  "id": "XMLToJSON",
+  "category": "Converter",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "label": "Your XML content",
+          "placeholder": "Paste your XML here...",
+          "required": true,
+          "multiline": true,
+          "containerId": "input",
+          "id": "inputXML",
+          "type": "textarea",
+          "width": 600,
+          "height": 420,
+        }
+      ],
+      "outputs": [
+        {
+          "label": "Converted JSON",
+          "monospace": true,
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "jsonOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "output",
+        }
+      ],
+      "id": "xmlToJson",
+      "label": ""
+    }
+  ]
+}
+
+{
+  "customUI": false,
+  "name": "Random port generator",
+  "icon": "Shuffle",
+  "description": "Generate random port numbers outside of the range of ""known"" ports (0-1023).",
+  "id": "RandomPortGenerator",
+  "category": "Development",
+  "sections": [
+    {
+      "outputs": [
+        {
+          "label": "",
+          "monospace": true,
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "outside" },
+          "id": "randomPort",
+          "type": "text",
+          "width": 600,
+          "height": 150,
+          "containerId": "output",
+        }
+      ],
+      "id": "randomPort",
+      "label": ""
+    }
+  ]
+}
+
+{
+  "customUI": false,
+  "name": "JSON prettify and format",
+  "icon": "FormatListNumbered",
+  "description": "Prettify your JSON string into a friendly, human-readable format.",
+  "id": "JSONPrettify",
+  "category": "Development",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "label": "Sort keys",
+          "id": "sortKeys",
+          "type": "switch",
+          "default": true,
+          "containerId": "input1",
+        },
+        {
+          "required": true,
+          "default": "3",
+          "label": "Indent size",
+          "id": "indentSize",
+          "type": "number",
+          "placeholder": "e.g., 3",
+          "button": ["minus", "plus"],
+          "width": 100,
+          "height": 40,
+          "containerId": "input1",
+        },
+        {
+          "label": "Your raw JSON",
+          "placeholder": "Paste your raw JSON here...",
+          "required": true,
+          "multiline": true,
+          "containerId": "input2",
+          "id": "rawJson",
+          "type": "text",
+          "width": 600,
+          "height": 420,
+        }
+      ],
+      "outputs": [
+        {
+          "label": "Prettified version of your JSON",
+          "monospace": true,
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "formattedJson",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "output",
+        }
+      ],
+      "id": "jsonPrettify",
+      "label": ""
+    }
+  ]
+}
+
+{
+  "customUI": false,
+  "name": "JSON minify",
+  "icon": "FormatListNumbered",
+  "description": "Minify and compress your JSON by removing unnecessary whitespace.",
+  "id": "JSONMinify",
+  "category": "Development",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "label": "Your raw JSON",
+          "placeholder": "Paste your raw JSON here...",
+          "required": true,
+          "multiline": true,
+          "containerId": "input",
+          "id": "inputXML",
+          "type": "textarea",
+          "width": 600,
+          "height": 420,
+          "default": "{\n  \"name\": \"John\",\n  \"age\": 30,\n  \"city\": \"New York\"\n}",
+        }
+      ],
+      "outputs": [
+        {
+          "label": "Minified version of your JSON",
+          "monospace": true,
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "jsonOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "output",
+        }
+      ],
+      "id": "jsonMinify",
+      "label": ""
+    }
+  ]
+}
+
+
+{
+  "customUI": false,
+  "name": "IPv4 address converter",
+  "icon": "Dns",
+  "description": "Convert an IP address into decimal, binary, hexadecimal, or even an IPv6 representation of it.",
+  "id": "IPv4AddressConverter",
+  "category": "Network",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "label": "The ipv4 address:",
+          "id": "ipv4Address",
+          "type": "text",
+          "required": true,
+          "default": "192.168.1.1",
+          "containerId": "input",
+          "width": 600,
+          "height": 36,
+        }
+      ],
+      "outputs": [
+        {
+          "label": "Decimal",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "decimalOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "output",
+        },
+        {
+          "label": "Hexadecimal",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "hexadecimalOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "output",
+        },
+        {
+          "label": "Binary",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "binaryOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "output",
+        },
+        {
+          "label": "IPv6",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "ipv6Output",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "output",
+        },
+        {
+          "label": "IPv6 (short)",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "inside" },
+          "id": "ipv6ShortOutput",
+          "type": "text",
+          "width": 440,
+          "height": 36,
+          "containerId": "output",
+        }        
+      ],
+      "id": "ipv4AddressConverter",
+      "label": ""
+    }
+  ]
+}
+
+{
+  "customUI": false,
+  "name": "IPv4 range expander",
+  "icon": "Dns",
+  "description": "Given a start and an end IPv4 address, this tool calculates a valid IPv4 subnet along with its CIDR notation.",
+  "id": "IPv4RangeExpander",
+  "category": "Network",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "monospace": true,
+          "label": "Start address",
+          "placeholder": "Start IPv4 address",
+          "required": true,
+          "multiline": false,
+          "id": "startAddress",
+          "type": "text",
+          "default": "192.168.1.1",
+          "width": 300,
+          "height": 36,
+          "containerId": "input1",
+        },
+        {
+          "monospace": true,
+          "label": "End address",
+          "placeholder": "End IPv4 address",
+          "required": true,
+          "multiline": false,
+          "id": "startAddress",
+          "type": "text",
+          "default": "192.168.6.255",
+          "width": 300,
+          "height": 36,
+          "containerId": "input2",
+        }
+      ],
+      "outputs": [
+        {
+          "id": "result",
+          "type": "table",
+          "label": "",
+          "rows": [
+            { "id": "start_old", "description": "Start address (Old)", "value": "" },
+            { "id": "start_new", "description": "Start address (New)", "value": "" },
+            { "id": "end_old", "description": "End address (Old)", "value": "" },
+            { "id": "end_new", "description": "End address (New)", "value": "" },
+            { "id": "range_old", "description": "Addresses in range (Old)", "value": "" },
+            { "id": "range_new", "description": "Addresses in range (New)", "value": "" },
+            { "id": "cidr_new", "description": "CIDR", "value": "" }
+          ]
+        },    
+      ],
+
+      "id": "ipv4RangeExpander",
+      "label": ""
+    }
+  ],
+}
+
+{
+  "customUI": false,
+  "name": "MAC address generator",
+  "icon": "DevicesOther",
+  "description": "Enter the quantity and prefix. MAC addresses will be generated in your chosen case (uppercase or lowercase)",
+  "id": "MACAddressGenerator",
+  "category": "Network",
+  "sections": [
+    {
+      "inputs": [
+        {
+          "required": true,
+          "default": "1",
+          "label": "Quantity:",
+          "id": "quantity",
+          "type": "number",
+          "placeholder": "e.g., 1",
+          "button": ["minus", "plus"],
+          "width": 450,
+          "height": 36,
+          "containerId": "input1",
+        },
+        {
+          "label": "MAC address prefix:",
+          "id": "prefix",
+          "type": "text",
+          "placeholder": "e.g., 00:1A:2B",
+          "default": "64:16:7F",
+          "containerId": "input2",
+          "width": 450,
+          "height": 36,
+        },
+        {
+          "label": "Case:",
+          "id": "case",
+          "default": "upper",
+          "type": "select",
+          "options": [
+            { "value": "upper", "label": "Uppercase" },
+            { "value": "lower", "label": "Lowercase" }
+          ],
+          "containerId": "input3",
+        },
+        {
+          "label": "Separator:",
+          "id": "separator",
+          "default": ":",
+          "type": "select",
+          "options": [
+            { "value": ":", "label": ":" },
+            { "value": "-", "label": "-" },
+            { "value": ".", "label": "." }
+          ],
+          "containerId": "input4",
+        }
+      ],
+      "outputs": [
+        {
+          "label": "",
+          "buttons": ["copy"],
+          "buttonPlacement": { "copy": "outside" },
+          "id": "macAddress",
+          "type": "text",
+          "width": 600,
+          "height": 60,
+          "containerId": "output",
+        },   
+      ],
+
+      "id": "phone",
+      "label": ""
+    }
+  ],
+}

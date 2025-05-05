@@ -12,11 +12,6 @@ repositories {
 dependencies {
     implementation project(':plugin-api')
     implementation 'org.pf4j:pf4j:3.10.0'
-
-    // Google's libphonenumber for phone number validation and formatting
-    implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.2'
-    implementation 'com.googlecode.libphonenumber:geocoder:2.195'
-    implementation 'com.googlecode.libphonenumber:carrier:1.181'
 }
 
 tasks.named('jar') {
@@ -42,11 +37,11 @@ tasks.named('jar') {
     manifest {
         attributes(
                 'Manifest-Version': '1.0',
-                'Plugin-Class': 'kostovite.PhoneParserPlugin',
-                'Plugin-Id': 'phoneparser',
+                'Plugin-Class': 'kostovite.XMLToJSONPlugin',
+                'Plugin-Id': 'xmltojson',
                 'Plugin-Version': project.version,
                 'Plugin-Provider': 'kostovite',
-                'Plugin-Description': 'Parse, validate and format phone numbers'
+                'Plugin-Description': 'XML To Json plugin for IT-Tools'
         )
     }
 }
