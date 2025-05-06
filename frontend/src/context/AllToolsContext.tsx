@@ -8,10 +8,6 @@ import { useAuth } from "./AuthContext";
 import { collection, doc, setDoc, getDocs, query, where, deleteDoc } from "firebase/firestore"; // Added deleteDoc
 import { db } from "../firebaseConfig";
 
-// Current date and time information for logging
-const CURRENT_DATE_TIME = "2025-05-06 18:46:58";
-const CURRENT_USER_LOGIN = "Kostovite";
-
 // Tool Interface from your backend/plugin service
 interface Tool {
   id: string;    // This will now be the Firestore Document ID
@@ -45,7 +41,7 @@ interface AllToolsContextType {
   removeTool: (toolId: string, toolName: string) => Promise<boolean>; // Added new function
 }
 
-const getLogPrefix = (currentUser: any) => `[${CURRENT_DATE_TIME}] [User: ${currentUser?.uid ?? (currentUser?.email ?? 'anonymous')}]`;
+const getLogPrefix = (currentUser: any) => `[User: ${currentUser?.uid ?? (currentUser?.email ?? 'anonymous')}]`;
 
 const AllToolsContext = createContext<AllToolsContextType | undefined>(undefined);
 
