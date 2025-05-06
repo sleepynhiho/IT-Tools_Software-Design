@@ -1,3 +1,4 @@
+// src/components/ToolCard.tsx
 import {
   Card,
   Typography,
@@ -23,22 +24,22 @@ import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import LockIcon from "@mui/icons-material/Lock";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useFavoriteTools } from "../context/FavoriteToolsContext";
 import { useAuth } from "../context/AuthContext";
+import { useAllTools } from "../context/AllToolsContext"; // Added import for useAllTools
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
 // Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted)
-const CURRENT_DATE_TIME = "2025-05-06 16:52:20";
-const CURRENT_USER_LOGIN = "hanhiho";
+const CURRENT_DATE_TIME = "2025-05-06 18:35:58";
+const CURRENT_USER_LOGIN = "Kostovite";
+
+const getLogPrefix = (currentUser: any) => `[${CURRENT_DATE_TIME}] [User: ${currentUser?.uid ?? (currentUser?.email ?? 'anonymous')}]`;
 
 const ToolCard = ({
   tool,
   onFavoriteToggle,
-  onToolRemove,
-  onToolStatusToggle,
-  onToolAccessLevelChange,
 }: {
   tool: {
     id: string;
@@ -49,92 +50,43 @@ const ToolCard = ({
     status?: "enabled" | "disabled";
   };
   onFavoriteToggle: (tool: any) => void;
-  onToolRemove?: (toolId: string) => void;
-  onToolStatusToggle?: (
-    toolId: string,
-    newStatus: "enabled" | "disabled"
-  ) => void;
-  onToolAccessLevelChange?: (
-    toolId: string,
-    newLevel: "normal" | "premium"
-  ) => void;
 }) => {
   const IconComponent =
     MuiIcons[tool.icon as keyof typeof MuiIcons] || MuiIcons.HelpOutline;
 
   const { favoriteTools } = useFavoriteTools();
   const { currentUser, userType, refreshUserData } = useAuth();
+  // Use AllToolsContext for admin actions
+  const { removeTool, updateToolStatus, updateToolAccessLevel, isLoading: isContextLoading, error: contextError } = useAllTools();
+
   const isAdmin = userType === "admin";
   const isPremiumUser = userType === "premium" || userType === "admin";
 
   const isFavorite = favoriteTools.some((fav) => fav.id === tool.id);
   
-  // State to track the Firestore premium status
-  const [firestorePremium, setFirestorePremium] = useState<boolean | null>(null);
-  // State to track the Firestore enabled status
-  const [firestoreEnabled, setFirestoreEnabled] = useState<boolean | null>(null);
-  
-  // Use either the Firestore premium status or the tool's accessLevel
-  const isPremium = firestorePremium !== null ? firestorePremium : tool.accessLevel === "premium";
-  // Use either the Firestore enabled status or the tool's status
-  const isEnabled = firestoreEnabled !== null ? firestoreEnabled : tool.status !== "disabled";
+  // Use tool props directly, as AllToolsContext now merges API data with Firestore overrides
+  const isPremium = tool.accessLevel === "premium";
+  const isEnabled = tool.status !== "disabled";
   
   const needsUpgrade = isPremium && !isPremiumUser;
   const isDisabled = !isEnabled;
 
   const navigate = useNavigate();
 
-  // Add state for admin actions menu
+  // Admin actions menu state
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const open = Boolean(anchorEl);
+  const openAdminMenu = Boolean(anchorEl);
 
-  // Add state for premium upgrade dialog
+  // Dialog states
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
-  // Add state for disabled tool dialog
   const [showDisabledDialog, setShowDisabledDialog] = useState(false);
+  const [showRemoveConfirmDialog, setShowRemoveConfirmDialog] = useState(false);
   
-  // Add state for upgrade process
+  // Process states
   const [upgrading, setUpgrading] = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [upgradeSuccess, setUpgradeSuccess] = useState(false);
-
-  // Helper function to sanitize a tool name for use as a Firestore document ID
-  const sanitizeToolNameForFirestore = (name: string): string => {
-    // Replace forward slashes with a safe character (underscore)
-    return name.replace(/\//g, '_');
-  };
-
-  // Check Firestore for the status when component mounts
-  useEffect(() => {
-    const checkFirestoreToolStatus = async () => {
-      try {
-        const safeDocId = sanitizeToolNameForFirestore(tool.name);
-        const toolDocRef = doc(db, "tools", safeDocId);
-        const docSnap = await getDoc(toolDocRef);
-        
-        if (docSnap.exists()) {
-          const toolData = docSnap.data();
-          console.log(`[${CURRENT_DATE_TIME}] ${CURRENT_USER_LOGIN}: Tool data from Firestore:`, toolData);
-          
-          // If premium field exists in Firestore, use it
-          if (toolData.premium !== undefined) {
-            setFirestorePremium(toolData.premium);
-            console.log(`[${CURRENT_DATE_TIME}] ${CURRENT_USER_LOGIN}: Tool ${tool.name} premium status from Firestore: ${toolData.premium}`);
-          }
-          
-          // If enabled field exists in Firestore, use it
-          if (toolData.enabled !== undefined) {
-            setFirestoreEnabled(toolData.enabled);
-            console.log(`[${CURRENT_DATE_TIME}] ${CURRENT_USER_LOGIN}: Tool ${tool.name} enabled status from Firestore: ${toolData.enabled}`);
-          }
-        }
-      } catch (error) {
-        console.error(`[${CURRENT_DATE_TIME}] ${CURRENT_USER_LOGIN}: Error fetching tool status from Firestore:`, error);
-      }
-    };
-    
-    checkFirestoreToolStatus();
-  }, [tool.name]);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   const handleCardClick = () => {
     // If tool is disabled and user is not admin, show disabled dialog
@@ -170,36 +122,46 @@ const ToolCard = ({
     onFavoriteToggle(tool);
   };
 
+  // Updated admin action handlers that use AllToolsContext
   const handleRemoveClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     handleMenuClose();
-    if (onToolRemove) {
-      onToolRemove(tool.id);
+    setShowRemoveConfirmDialog(true); // Show confirmation dialog
+  };
+
+  const confirmRemoveTool = async () => {
+    const logP = getLogPrefix(currentUser);
+    setIsRemoving(true);
+    console.log(`${logP} [ToolCard] Confirming remove for tool ID: ${tool.id}, Name: ${tool.name}`);
+    // Pass both tool.id (for Firestore state consistency) and tool.name (for backend)
+    const success = await removeTool(tool.id, tool.name);
+    setIsRemoving(false);
+    setShowRemoveConfirmDialog(false);
+    if (success) {
+        console.log(`${logP} [ToolCard] Tool ${tool.name} removal process initiated successfully.`);
+        // UI will update when allTools list refetches from context
+    } else {
+        console.error(`${logP} [ToolCard] Tool ${tool.name} removal failed.`);
+        // Error is handled and shown by AllToolsContext or a global error handler
     }
   };
 
-  const handleStatusToggle = (e: React.MouseEvent) => {
+  const handleStatusToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
     handleMenuClose();
-    if (onToolStatusToggle) {
-      const newStatus = isEnabled ? "disabled" : "enabled";
-      onToolStatusToggle(tool.id, newStatus);
-      
-      // Update local state immediately for better UX
-      setFirestoreEnabled(newStatus === "enabled");
-    }
+    const newStatus = isEnabled ? "disabled" : "enabled";
+    console.log(`[${CURRENT_DATE_TIME}] [ToolCard] Toggling status for ${tool.id} to ${newStatus}`);
+    await updateToolStatus(tool.id, newStatus);
+    // Local state updates in AllToolsContext will trigger re-render
   };
 
-  const handleAccessLevelChange = (e: React.MouseEvent) => {
+  const handleAccessLevelChange = async (e: React.MouseEvent) => {
     e.stopPropagation();
     handleMenuClose();
-    if (onToolAccessLevelChange) {
-      const newLevel = isPremium ? "normal" : "premium";
-      onToolAccessLevelChange(tool.id, newLevel);
-      
-      // Update local state immediately for better UX
-      setFirestorePremium(newLevel === "premium");
-    }
+    const newLevel = isPremium ? "normal" : "premium";
+    console.log(`[${CURRENT_DATE_TIME}] [ToolCard] Changing access for ${tool.id} to ${newLevel}`);
+    await updateToolAccessLevel(tool.id, newLevel);
+    // Local state updates in AllToolsContext will trigger re-render
   };
 
   const handleUpgradeDialogClose = () => {
@@ -240,20 +202,6 @@ const ToolCard = ({
       }, { merge: true });
       
       console.log(`[${CURRENT_DATE_TIME}] ${CURRENT_USER_LOGIN}: Successfully updated user to premium in Firestore`);
-      
-      // Now also update the tool's premium status in Firestore for this tool
-      const safeDocId = sanitizeToolNameForFirestore(tool.name);
-      const toolRef = doc(db, "tools", safeDocId);
-      
-      await setDoc(toolRef, {
-        premium: true,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-      
-      console.log(`[${CURRENT_DATE_TIME}] ${CURRENT_USER_LOGIN}: Successfully updated tool ${safeDocId} premium status in Firestore`);
-      
-      // Update local state for immediate UI feedback
-      setFirestorePremium(true);
       
       // Show success state
       setUpgradeSuccess(true);
@@ -310,7 +258,7 @@ const ToolCard = ({
         }}
         onClick={handleCardClick}
       >
-        {/* Premium badge - now uses isPremium which considers Firestore data */}
+        {/* Premium badge */}
         {isPremium && (
           <Box
             sx={{
@@ -435,7 +383,7 @@ const ToolCard = ({
                   </IconButton>
                   <Menu
                     anchorEl={anchorEl}
-                    open={open}
+                    open={openAdminMenu}
                     onClose={(e) => handleMenuClose(e as React.MouseEvent)}
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -791,6 +739,69 @@ const ToolCard = ({
             }}
           >
             Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* NEW: Remove Confirmation Dialog */}
+      <Dialog 
+        open={showRemoveConfirmDialog} 
+        onClose={() => !isRemoving && setShowRemoveConfirmDialog(false)}
+        PaperProps={{
+          sx: {
+            backgroundColor: "#2e2e2e",
+            color: "#ffffff",
+            borderRadius: "8px",
+            border: "1px solid #d32f2f",
+          }
+        }}
+      >
+        <DialogTitle 
+          sx={{
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+          }}
+        >
+          Confirm Removal
+        </DialogTitle>
+        <DialogContent sx={{ py: 3 }}>
+          <Typography>Are you sure you want to remove the tool "<strong>{tool.name}</strong>"? This will delete its JAR file from the server.</Typography>
+          {isContextLoading && (
+            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
+              <CircularProgress size={20} sx={{ mr: 1 }} />
+              <Typography variant="caption" color="textSecondary">
+                Checking status...
+              </Typography>
+            </Box>
+          )}
+          {contextError && <Alert severity="error" sx={{ mt: 2 }}>{contextError}</Alert>}
+        </DialogContent>
+        <DialogActions 
+          sx={{
+            borderTop: "1px solid rgba(255,255,255,0.1)",
+            p: 2,
+          }}
+        >
+          <Button 
+            onClick={() => setShowRemoveConfirmDialog(false)} 
+            color="inherit" 
+            disabled={isRemoving}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={confirmRemoveTool} 
+            color="error" 
+            variant="contained" 
+            disabled={isRemoving}
+            sx={{ 
+              backgroundColor: "#d32f2f", 
+              "&:hover": { 
+                backgroundColor: "#b71c1c" 
+              } 
+            }}
+          >
+            {isRemoving && <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} />}
+            Remove
           </Button>
         </DialogActions>
       </Dialog>

@@ -107,7 +107,7 @@ public class WifiQRCodeGenerator implements PluginInterface {
         metadata.put("name", "WiFi QR Code Generator"); // User-facing name
         metadata.put("description", "Easily share your WiFi network credentials by generating a QR code.");
         metadata.put("icon", "Wifi");
-        metadata.put("category", "Networking");
+        metadata.put("category", "Network");
         metadata.put("customUI", false);
         metadata.put("triggerUpdateOnChange", false); // Requires manual submit
 

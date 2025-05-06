@@ -1,6 +1,9 @@
+// src/main/java/kostovite/controllers/PluginController.java
 package kostovite.controllers;
 
 import kostovite.services.PluginService;
+import kostovite.services.PluginService.PluginDisabledException; // Import custom exception
+import kostovite.services.PluginService.PluginStatusCheckResult; // Import status result
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,96 +53,95 @@ public class PluginController {
     }
 
     @GetMapping
-    // Removed @PreAuthorize("isAuthenticated()") to allow anonymous access
+    // No @PreAuthorize, allows anonymous access to this endpoint.
+    // Access control is handled within the service.
     public ResponseEntity<List<Map<String, Object>>> getPluginsForCurrentUser(Authentication authentication) {
-        if (authentication == null) {
-            log.info("Anonymous user requesting plugin list");
-            // For anonymous users, return plugins with "public" access level
-            try {
-                // Note: You'll need to update PluginService to handle null authentication
-                List<Map<String, Object>> accessiblePlugins = pluginService.getAccessiblePluginMetadata(authentication);
-                return ResponseEntity.ok(accessiblePlugins);
-            } catch (Exception e) {
-                log.error("Error retrieving accessible plugins for anonymous user: {}", e.getMessage(), e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Collections.emptyList());
-            }
-        }
+        String userIdentifier = (authentication != null ? authentication.getName() : "anonymous");
+        log.info("Request received for GET /api/plugins by user/identity: {}", userIdentifier);
 
-        log.info("Request received for GET /api/plugins by user {}", authentication.getName());
         try {
+            // pluginService.getAccessiblePluginMetadata should now:
+            // 1. Get all plugins.
+            // 2. For each plugin, check its enabled/disabled status (e.g., from Firestore via isPluginEnabled).
+            // 3. If enabled, then check if the current user (anonymous or authenticated) can access it based on userType vs pluginAccessLevel.
+            // 4. Return metadata of only enabled AND accessible plugins.
             List<Map<String, Object>> accessiblePlugins = pluginService.getAccessiblePluginMetadata(authentication);
+            log.info("Returning {} accessible and enabled plugins for user/identity: {}", accessiblePlugins.size(), userIdentifier);
             return ResponseEntity.ok(accessiblePlugins);
         } catch (Exception e) {
-            log.error("Error retrieving accessible plugins for user {}: {}", authentication.getName(), e.getMessage(), e);
+            log.error("Error retrieving accessible plugins for user/identity {}: {}", userIdentifier, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Collections.emptyList());
         }
     }
 
+    private ResponseEntity<Map<String, Object>> handleProcessRequest(
+            String pluginName, Map<String, Object> input, Authentication authentication, boolean isDebug) {
+
+        String userIdentifier = (authentication != null ? authentication.getName() : "anonymous");
+        String logPrefix = isDebug ? "Debug processing" : "Processing";
+        log.info("{} request for plugin: {} by user/identity: {}", logPrefix, pluginName, userIdentifier);
+
+        try {
+            // The pluginService.processPlugin method should internally call isPluginEnabled first.
+            // If disabled, it will throw PluginDisabledException.
+            // Then it checks user access level. If denied, it throws AccessDeniedException.
+            Map<String, Object> result = pluginService.processPlugin(pluginName, input, authentication);
+
+            if (isDebug) {
+                result.put("debug_request_info", Map.of(
+                        "plugin", pluginName,
+                        "user", userIdentifier,
+                        "timestamp", System.currentTimeMillis()
+                ));
+            }
+            return ResponseEntity.ok(result);
+        } catch (PluginDisabledException e) {
+            log.warn("{} failed - Plugin '{}' is disabled. Reason: {}", logPrefix, pluginName, e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE) // 503 might be more appropriate for "disabled"
+                    .body(Map.of("success", false, "error", "Plugin disabled by administrator.", "message", e.getMessage()));
+        } catch (IllegalArgumentException e) { // Typically for plugin not found
+            log.warn("{} failed - Plugin not found: {}", logPrefix, pluginName, e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "error", e.getMessage()));
+        } catch (AccessDeniedException e) { // For user not having access to an *enabled* plugin
+            log.warn("{} failed - Access denied for plugin {}: {}", logPrefix, pluginName, e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("success", false, "error", "No access permission for this plugin.", "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error in {} with plugin {}: {}", logPrefix, pluginName, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success", false, "error", "Processing failed: " + e.getMessage()));
+        }
+    }
+
     @PostMapping("/{pluginName}/process")
-    // Removed @PreAuthorize("isAuthenticated()") to allow anonymous access
     public ResponseEntity<Map<String, Object>> processPlugin(
             @PathVariable String pluginName,
             @RequestBody Map<String, Object> input,
             Authentication authentication) {
-
-        log.info("Processing request for plugin: {} by user {}", pluginName,
-                (authentication != null ? authentication.getName() : "anonymous"));
-
-        try {
-            // Pass authentication (which might be null) to the service
-            Map<String, Object> result = pluginService.processPlugin(pluginName, input, authentication);
-            return ResponseEntity.ok(result);
-        } catch (IllegalArgumentException e) {
-            log.warn("Processing failed - Plugin not found: {}", pluginName, e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "error", e.getMessage()));
-        } catch (AccessDeniedException e) {
-            log.warn("Processing failed - Access denied for plugin {}: {}", pluginName, e.getMessage());
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("success", false, "error", e.getMessage()));
-        } catch (Exception e) {
-            log.error("Error in processing with plugin {}: {}", pluginName, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success", false, "error", "Processing failed: " + e.getMessage()));
-        }
+        return handleProcessRequest(pluginName, input, authentication, false);
     }
 
     @PostMapping("/debug/{pluginName}/process")
-    // Removed @PreAuthorize("isAuthenticated()") to allow anonymous access
     public ResponseEntity<Map<String, Object>> processPluginDebug(
             @PathVariable String pluginName,
             @RequestBody Map<String, Object> input,
             Authentication authentication) {
-
-        log.info("Debug processing request for plugin: {} by user {}", pluginName,
-                (authentication != null ? authentication.getName() : "anonymous"));
-
-        try {
-            Map<String, Object> result = pluginService.processPlugin(pluginName, input, authentication);
-
-            result.put("debug_request_info", Map.of(
-                    "plugin", pluginName,
-                    "user", (authentication != null ? authentication.getName() : "anonymous"),
-                    "timestamp", System.currentTimeMillis()
-            ));
-
-            return ResponseEntity.ok(result);
-        } catch (IllegalArgumentException e) {
-            log.warn("Debug processing failed - Plugin not found: {}", pluginName, e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "error", e.getMessage()));
-        } catch (AccessDeniedException e) {
-            log.warn("Debug processing failed - Access denied for plugin {}: {}", pluginName, e.getMessage());
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("success", false, "error", e.getMessage()));
-        } catch (Exception e) {
-            log.error("Error in debug processing with plugin {}: {}", pluginName, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success", false, "error", "Processing failed: " + e.getMessage()));
-        }
+        return handleProcessRequest(pluginName, input, authentication, true);
     }
 
     @GetMapping("/universal/{pluginName}/metadata")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated()") // Keep this if only logged-in users can get specific metadata
     public ResponseEntity<Map<String, Object>> getPluginMetadata(
             @PathVariable String pluginName,
             Authentication authentication) {
 
         log.info("Metadata request for plugin: {} by user {}", pluginName, authentication.getName());
+
+        // Check general enabled status first
+        PluginStatusCheckResult statusResult = pluginService.isPluginEnabled(pluginName);
+        if (!statusResult.isEnabled()) {
+            log.warn("Metadata request for disabled plugin '{}'. Reason: {}", pluginName, statusResult.message());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("success", false, "error", "Plugin disabled by administrator.", "message", statusResult.message()));
+        }
 
         try {
             PluginInterface plugin = manualPluginLoader.getPluginByName(pluginName);
@@ -148,7 +150,6 @@ public class PluginController {
                         Map.of("success", false, "error", "Plugin not found: " + pluginName));
             }
 
-            // Check access before returning metadata
             String userType = pluginService.extractUserType(authentication);
             Map<String, Object> metadata = plugin.getMetadata();
             String pluginAccessLevel = String.valueOf(metadata.getOrDefault("accessLevel", "normal")).toLowerCase();
@@ -156,7 +157,7 @@ public class PluginController {
             if (!pluginService.canUserAccess(userType, pluginAccessLevel)) {
                 log.warn("Metadata access denied for plugin {} to user type {}", pluginName, userType);
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
-                        Map.of("success", false, "error", "Access denied to plugin metadata: " + pluginName));
+                        Map.of("success", false, "error", "No access permission for this plugin.", "message", "User does not have sufficient access for this plugin's metadata."));
             }
 
             return ResponseEntity.ok(metadata);
@@ -171,33 +172,13 @@ public class PluginController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> getLoadedPlugins(Authentication authentication) {
         log.info("Request for loaded plugins list by user {}", authentication.getName());
-
         try {
-            String userType = pluginService.extractUserType(authentication);
-            List<PluginInterface> allPlugins = manualPluginLoader.getLoadedPlugins();
-
-            // Filter plugins based on access level
-            List<String> accessiblePlugins = allPlugins.stream()
-                    .filter(plugin -> {
-                        try {
-                            Map<String, Object> metadata = plugin.getMetadata();
-                            String pluginAccessLevel = String.valueOf(metadata.getOrDefault("accessLevel", "normal")).toLowerCase();
-                            return pluginService.canUserAccess(userType, pluginAccessLevel);
-                        } catch (Exception e) {
-                            log.warn("Error checking access for plugin {}: {}", plugin.getName(), e.getMessage());
-                            return false;
-                        }
-                    })
-                    .map(PluginInterface::getName)
-                    .collect(Collectors.toList());
-
-            log.info("Returning {} accessible plugins for user type {}", accessiblePlugins.size(), userType);
-
+            List<Map<String, Object>> accessiblePlugins = pluginService.getAccessiblePluginMetadata(authentication);
             Map<String, Object> response = new HashMap<>();
-            response.put("loadedPlugins", accessiblePlugins);
-            response.put("userType", userType);
+            // The getAccessiblePluginMetadata returns List<Map<String,Object>>, not List<String>
+            response.put("loadedPlugins", accessiblePlugins.stream().map(p -> p.get("name")).collect(Collectors.toList())); // Extract names if that's what FE expects
+            response.put("userType", pluginService.extractUserType(authentication));
             response.put("timestamp", System.currentTimeMillis());
-
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("Error retrieving loaded plugins: {}", e.getMessage(), e);
@@ -207,28 +188,12 @@ public class PluginController {
     }
 
     @PostMapping("/universal/{pluginName}/process")
-    // Removed @PreAuthorize("isAuthenticated()") to allow anonymous access
     public ResponseEntity<Map<String, Object>> processUniversalPlugin(
             @PathVariable String pluginName,
             @RequestBody Map<String, Object> input,
             Authentication authentication) {
-
-        log.info("Universal processing request for plugin: {} by user {}", pluginName,
-                (authentication != null ? authentication.getName() : "anonymous"));
-
-        try {
-            Map<String, Object> result = pluginService.processPlugin(pluginName, input, authentication);
-            return ResponseEntity.ok(result);
-        } catch (IllegalArgumentException e) {
-            log.warn("Universal processing failed - Plugin not found: {}", pluginName, e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "error", e.getMessage()));
-        } catch (AccessDeniedException e) {
-            log.warn("Universal processing failed - Access denied for plugin {}: {}", pluginName, e.getMessage());
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("success", false, "error", e.getMessage()));
-        } catch (Exception e) {
-            log.error("Error in universal processing with plugin {}: {}", pluginName, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success", false, "error", "Processing failed: " + e.getMessage()));
-        }
+        // Delegate to the common handler
+        return handleProcessRequest(pluginName, input, authentication, false);
     }
 
     @PostMapping("/upload")
@@ -300,10 +265,15 @@ public class PluginController {
     @GetMapping("/extensions/{extensionName}/execute")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, String>> executePlugin(@PathVariable String extensionName, Authentication authentication) {
-        log.warn("Execute endpoint called for '{}' by user '{}' - needs access check", extensionName, authentication.getName());
+        log.warn("Execute endpoint called for '{}' by user '{}'", extensionName, authentication.getName());
 
-        // Get user type
-        String userType = pluginService.extractUserType(authentication);
+        // Check general enabled status first
+        PluginStatusCheckResult statusResult = pluginService.isPluginEnabled(extensionName);
+        if (!statusResult.isEnabled()) {
+            log.warn("Execute request for disabled plugin '{}'. Reason: {}", extensionName, statusResult.message());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("status", "error", "message", statusResult.message()));
+        }
 
         // Get plugin
         PluginInterface plugin = manualPluginLoader.getPluginByName(extensionName);
@@ -313,6 +283,9 @@ public class PluginController {
         }
 
         try {
+            // Get user type
+            String userType = pluginService.extractUserType(authentication);
+
             // Check access level
             Map<String, Object> metadata = plugin.getMetadata();
             String pluginAccessLevel = String.valueOf(metadata.getOrDefault("accessLevel", "normal")).toLowerCase();
@@ -338,50 +311,83 @@ public class PluginController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<Map<String, Object>>> getExtensions(Authentication authentication) {
         log.debug("Request for /extensions by user {}", authentication.getName());
-
-        // Get user type to filter plugins
-        String userType = pluginService.extractUserType(authentication);
-
         try {
-            // Filter plugins based on access level just like the main endpoint
-            List<Map<String, Object>> filteredExtensions = manualPluginLoader.getLoadedPlugins().stream()
-                    .filter(plugin -> {
-                        try {
-                            Map<String, Object> metadata = plugin.getMetadata();
-                            String pluginAccessLevel = String.valueOf(metadata.getOrDefault("accessLevel", "normal")).toLowerCase();
-                            return pluginService.canUserAccess(userType, pluginAccessLevel);
-                        } catch (Exception e) {
-                            log.warn("Error checking access for plugin {}: {}", plugin.getName(), e.getMessage());
-                            return false;
-                        }
-                    })
-                    .map(plugin -> {
-                        try {
-                            Map<String, Object> basicInfo = new HashMap<>();
-                            basicInfo.put("name", plugin.getName());
-
-                            // Add minimal metadata if available
-                            try {
-                                Map<String, Object> metadata = plugin.getMetadata();
-                                basicInfo.put("id", metadata.getOrDefault("id", plugin.getName()));
-                                basicInfo.put("description", metadata.getOrDefault("description", ""));
-                                basicInfo.put("category", metadata.getOrDefault("category", "Other"));
-                            } catch (Exception e) {
-                                log.warn("Error getting metadata for plugin {}: {}", plugin.getName(), e.getMessage());
-                            }
-
-                            return basicInfo;
-                        } catch (Exception e) {
-                            log.error("Error mapping plugin {}: {}", plugin.getName(), e.getMessage());
-                            return Map.<String, Object>of("name", plugin.getName());
-                        }
+            List<Map<String, Object>> accessiblePlugins = pluginService.getAccessiblePluginMetadata(authentication);
+            // The current code maps to basicInfo. Adjust if getAccessiblePluginMetadata already returns the desired format.
+            List<Map<String, Object>> filteredExtensions = accessiblePlugins.stream()
+                    .map(metadata -> {
+                        Map<String, Object> basicInfo = new HashMap<>();
+                        basicInfo.put("name", metadata.get("name"));
+                        basicInfo.put("id", metadata.getOrDefault("id", metadata.get("name")));
+                        basicInfo.put("description", metadata.getOrDefault("description", ""));
+                        basicInfo.put("category", metadata.getOrDefault("category", "Other"));
+                        return basicInfo;
                     })
                     .collect(Collectors.toList());
-
             return ResponseEntity.ok(filteredExtensions);
         } catch (Exception e) {
             log.error("Error retrieving extensions for user {}: {}", authentication.getName(), e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Collections.emptyList());
+        }
+    }
+
+    @DeleteMapping("/{pluginId}/delete")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, String>> deletePluginWithId(@PathVariable String pluginId, Authentication authentication) {
+        String adminUsername = (authentication != null && authentication.getName() != null) ? authentication.getName() : "UnknownAdmin";
+        log.info("Plugin delete (with ID endpoint) attempt for '{}' by user: {}",
+                pluginId, adminUsername);
+
+        try {
+            // First, try to find the plugin by ID to verify it exists
+            // Assuming getPluginByName can also take an ID if they are the same, or you have getPluginById
+            PluginInterface plugin = manualPluginLoader.getPluginByName(pluginId); // Or manualPluginLoader.getPluginById(pluginId)
+            if (plugin == null) {
+                log.warn("Delete request for non-existent plugin ID: '{}' by user: {}",
+                        pluginId, adminUsername);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of(
+                                "status", "error",
+                                "message", "Plugin not found with ID: " + pluginId
+                        ));
+            }
+
+            // Proceed with deletion
+            boolean deleted = manualPluginLoader.deletePlugin(pluginId); // Pass the ID/name that deletePlugin expects
+
+            if (!deleted) {
+                log.warn("Failed to delete plugin with ID: '{}' by user: {}",
+                        pluginId, adminUsername);
+                // Assuming plugin was unloaded but JAR deletion might be pending
+                Path pluginsPath = pluginsDirectory.toAbsolutePath();
+                manualPluginLoader.loadPlugins(pluginsPath); // Refresh list
+                return ResponseEntity.status(HttpStatus.ACCEPTED) // Or INTERNAL_SERVER_ERROR if immediate delete is critical
+                        .body(Map.of(
+                                "status", "pending_or_failed_immediate_delete",
+                                "message", "Plugin unloaded. JAR deletion failed immediately (may be locked) or was scheduled for JVM exit. Plugins reloaded."
+                        ));
+            }
+
+            // Reload plugins after successful deletion
+            Path pluginsPath = pluginsDirectory.toAbsolutePath();
+            manualPluginLoader.loadPlugins(pluginsPath);
+
+            log.info("Successfully deleted plugin with ID: '{}' by user: {}",
+                    pluginId, adminUsername);
+
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "message", "Plugin deleted successfully by admin."
+            ));
+        } catch (Exception e) {
+            log.error("Exception during plugin deletion for ID '{}' by user: {}: {}",
+                    pluginId, adminUsername, e.getMessage(), e);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                            "status", "error",
+                            "message", "Failed to delete plugin: " + e.getMessage()
+                    ));
         }
     }
 }
