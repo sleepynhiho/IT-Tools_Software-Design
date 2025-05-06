@@ -14,6 +14,7 @@ const API_BASE_URL = "http://localhost:8081"; // Fallback for safety
 // --- Interfaces (with proper exports) ---
 
 export interface PluginMetadata {
+  status: string;
   triggerUpdateOnChange: any;
   id: string;
   name: string;
@@ -41,6 +42,7 @@ export interface Section {
 }
 
 export interface InputField {
+  marks: boolean;
   color: "primary" | "secondary" | "success" | "error" | "info" | "warning" | undefined;
   value(value: any): void;
   id: string;

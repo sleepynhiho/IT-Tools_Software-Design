@@ -1,4 +1,3 @@
-// src/components/ToolCard.tsx
 import {
   Card,
   Typography,
@@ -32,8 +31,8 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
 // Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted)
-const CURRENT_DATE_TIME = "2025-05-06 18:35:58";
-const CURRENT_USER_LOGIN = "Kostovite";
+const CURRENT_DATE_TIME = "2025-05-06 19:48:36";
+const CURRENT_USER_LOGIN = "hanhiho";
 
 const getLogPrefix = (currentUser: any) => `[${CURRENT_DATE_TIME}] [User: ${currentUser?.uid ?? (currentUser?.email ?? 'anonymous')}]`;
 
@@ -241,9 +240,9 @@ const ToolCard = ({
           },
           transition: "border-color 0.3s ease-in-out",
           overflow: "hidden",
-          // Add semi-transparent overlay for disabled tools (even for non-admins)
+          // Add semi-transparent overlay for disabled tools, BUT ONLY FOR NON-ADMINS
           position: "relative",
-          ...(isDisabled && {
+          ...(isDisabled && !isAdmin && {
             "&::after": {
               content: '""',
               position: "absolute",
@@ -322,7 +321,7 @@ const ToolCard = ({
           </Box>
         )}
         
-        {/* Disabled lock overlay (for non-admins) */}
+        {/* Disabled lock overlay (for non-admins only) */}
         {isDisabled && !isAdmin && (
           <Box
             sx={{
@@ -341,6 +340,28 @@ const ToolCard = ({
             }}
           >
             <BlockIcon sx={{ color: "#d32f2f", fontSize: "32px" }} />
+          </Box>
+        )}
+
+        {/* Admin status indicator for disabled tools */}
+        {isDisabled && isAdmin && (
+          <Box
+            sx={{
+              position: "absolute",
+              bottom: "10px",
+              right: "10px",
+              backgroundColor: "rgba(211, 47, 47, 0.15)",
+              borderRadius: "4px",
+              padding: "4px 8px",
+              display: "flex",
+              alignItems: "center",
+              zIndex: 2,
+              border: "1px solid rgba(211, 47, 47, 0.3)",
+            }}
+          >
+            <Typography variant="caption" sx={{ color: "#d32f2f", fontWeight: "medium", fontSize: "0.65rem" }}>
+              Admin View
+            </Typography>
           </Box>
         )}
 
@@ -368,7 +389,7 @@ const ToolCard = ({
               sx={{
                 fontSize: { xs: 40, sm: 45, md: 50 },
                 color: isDisabled ? "#d32f2f" : (isPremium ? "#ffb300" : "custom.icon"),
-                opacity: isDisabled ? 0.5 : 1,
+                opacity: isDisabled && !isAdmin ? 0.5 : 1,
               }}
             />
             <Box sx={{ display: "flex" }}>
@@ -377,7 +398,11 @@ const ToolCard = ({
                 <>
                   <IconButton
                     onClick={handleMenuOpen}
-                    sx={{ p: { xs: 0.5, sm: 0.75, md: 1 } }}
+                    sx={{ 
+                      p: { xs: 0.5, sm: 0.75, md: 1 },
+                      position: "relative",
+                      zIndex: 5, // Ensure menu button is always clickable for admins
+                    }}
                   >
                     <MoreVertIcon sx={{ color: "custom.icon" }} />
                   </IconButton>
@@ -386,8 +411,15 @@ const ToolCard = ({
                     open={openAdminMenu}
                     onClose={(e) => handleMenuClose(e as React.MouseEvent)}
                     onClick={(e) => e.stopPropagation()}
+                    sx={{ zIndex: 9999 }} // Ensure menu is always visible
                   >
-                    <MenuItem onClick={handleStatusToggle}>
+                    <MenuItem 
+                      onClick={handleStatusToggle}
+                      sx={{
+                        color: isEnabled ? "#d32f2f" : "#4caf50",
+                        fontWeight: isDisabled ? 500 : 400,
+                      }}
+                    >
                       {isEnabled ? (
                         <>
                           <BlockIcon
@@ -402,7 +434,7 @@ const ToolCard = ({
                             fontSize="small"
                             sx={{ mr: 1, color: "#4caf50" }}
                           />
-                          Enable Tool
+                          <strong>Enable Tool</strong>
                         </>
                       )}
                     </MenuItem>
@@ -449,7 +481,7 @@ const ToolCard = ({
                       color: "#ffb300", 
                       fontSize: "16px",
                       verticalAlign: 'middle',
-                      opacity: isDisabled ? 0.5 : 1,
+                      opacity: isDisabled && !isAdmin ? 0.5 : 1,
                     }} 
                   />
                 </Box>
@@ -457,19 +489,23 @@ const ToolCard = ({
               {/* Favorite button */}
               <IconButton
                 onClick={handleFavoriteClick}
-                sx={{ p: { xs: 0.5, sm: 0.75, md: 1 } }}
+                sx={{ 
+                  p: { xs: 0.5, sm: 0.75, md: 1 },
+                  position: "relative",
+                  zIndex: isAdmin ? 5 : 1, // Ensure button is clickable for admins
+                }}
                 disabled={isDisabled && !isAdmin}
               >
                 {isFavorite ? (
                   <FavoriteIcon 
                     color="error" 
-                    sx={{ opacity: isDisabled ? 0.5 : 1 }}
+                    sx={{ opacity: isDisabled && !isAdmin ? 0.5 : 1 }}
                   />
                 ) : (
                   <FavoriteIcon 
                     sx={{ 
                       color: "custom.icon", 
-                      opacity: isDisabled ? 0.5 : 1, 
+                      opacity: isDisabled && !isAdmin ? 0.5 : 1, 
                     }}
                   />
                 )}
@@ -481,7 +517,9 @@ const ToolCard = ({
             sx={{
               flex: 1,
               overflow: "hidden",
-              opacity: isDisabled ? 0.5 : 1,
+              opacity: isDisabled && !isAdmin ? 0.5 : 1, // Only dim for non-admins
+              position: "relative", // Ensure content is properly positioned
+              zIndex: isAdmin ? 3 : 0, // Higher z-index for admins to see content
             }}
           >
             <Typography

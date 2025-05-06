@@ -145,19 +145,7 @@ public class IPv4AddressConverter implements PluginInterface {
                 Map.entry("height", 36),
                 Map.entry("containerId", "output")
         ));
-
-        // IPv6 short output
-        outputs.add(Map.ofEntries(
-                Map.entry("label", "IPv6 (short)"),
-                Map.entry("buttons", List.of("copy")),
-                Map.entry("buttonPlacement", Map.of("copy", "inside")),
-                Map.entry("id", "ipv6ShortOutput"),
-                Map.entry("type", "text"),
-                Map.entry("width", 440),
-                Map.entry("height", 36),
-                Map.entry("containerId", "output")
-        ));
-
+        
         ipv4Section.put("outputs", outputs);
 
         sections.add(ipv4Section);
