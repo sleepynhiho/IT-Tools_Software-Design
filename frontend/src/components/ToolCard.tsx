@@ -28,10 +28,14 @@ import { useState } from "react";
 import { useFavoriteTools } from "../context/FavoriteToolsContext";
 import { useAuth } from "../context/AuthContext";
 import { useAllTools } from "../context/AllToolsContext"; // Added import for useAllTools
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
-const getLogPrefix = (currentUser: any) => `[User: ${currentUser?.uid ?? (currentUser?.email ?? 'anonymous')}]`;
+// Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted)
+const CURRENT_DATE_TIME = "2025-05-06 18:35:58";
+const CURRENT_USER_LOGIN = "Kostovite";
+
+const getLogPrefix = (currentUser: any) => `[${CURRENT_DATE_TIME}] [User: ${currentUser?.uid ?? (currentUser?.email ?? 'anonymous')}]`;
 
 const ToolCard = ({
   tool,
@@ -51,7 +55,7 @@ const ToolCard = ({
     MuiIcons[tool.icon as keyof typeof MuiIcons] || MuiIcons.HelpOutline;
 
   const { favoriteTools } = useFavoriteTools();
-  const { currentUser, userType} = useAuth();
+  const { currentUser, userType, refreshUserData } = useAuth();
   // Use AllToolsContext for admin actions
   const { removeTool, updateToolStatus, updateToolAccessLevel, isLoading: isContextLoading, error: contextError } = useAllTools();
 
@@ -146,7 +150,7 @@ const ToolCard = ({
     e.stopPropagation();
     handleMenuClose();
     const newStatus = isEnabled ? "disabled" : "enabled";
-    console.log(`[ToolCard] Toggling status for ${tool.id} to ${newStatus}`);
+    console.log(`[${CURRENT_DATE_TIME}] [ToolCard] Toggling status for ${tool.id} to ${newStatus}`);
     await updateToolStatus(tool.id, newStatus);
     // Local state updates in AllToolsContext will trigger re-render
   };
@@ -155,7 +159,7 @@ const ToolCard = ({
     e.stopPropagation();
     handleMenuClose();
     const newLevel = isPremium ? "normal" : "premium";
-    console.log(`[ToolCard] Changing access for ${tool.id} to ${newLevel}`);
+    console.log(`[${CURRENT_DATE_TIME}] [ToolCard] Changing access for ${tool.id} to ${newLevel}`);
     await updateToolAccessLevel(tool.id, newLevel);
     // Local state updates in AllToolsContext will trigger re-render
   };
@@ -186,7 +190,7 @@ const ToolCard = ({
     setUpgradeError(null);
     
     try {
-      console.log(`[Starting premium upgrade process...`);
+      console.log(`[${CURRENT_DATE_TIME}] ${CURRENT_USER_LOGIN}: Starting premium upgrade process...`);
       
       // Get reference to the user document
       const userDocRef = doc(db, "users", currentUser.uid);
@@ -197,10 +201,13 @@ const ToolCard = ({
         upgradedAt: serverTimestamp()
       }, { merge: true });
       
-      console.log(`[Successfully updated user to premium in Firestore`);
+      console.log(`[${CURRENT_DATE_TIME}] ${CURRENT_USER_LOGIN}: Successfully updated user to premium in Firestore`);
       
       // Show success state
       setUpgradeSuccess(true);
+      
+      // Refresh user data in context
+      await refreshUserData();
       
       // Close dialog after a delay
       setTimeout(() => {
@@ -208,7 +215,7 @@ const ToolCard = ({
         navigate(`/tools/${tool.id}`); // Navigate to the tool after upgrading
       }, 2000);
     } catch (error) {
-      console.error(`Error upgrading to premium:`, error);
+      console.error(`[${CURRENT_DATE_TIME}] ${CURRENT_USER_LOGIN}: Error upgrading to premium:`, error);
       setUpgradeError("Failed to upgrade your account. Please try again later.");
     } finally {
       setUpgrading(false);
@@ -603,6 +610,7 @@ const ToolCard = ({
                 variant="caption"
                 sx={{ color: "#a3a3a3", display: "block", textAlign: "center" }}
               >
+                Current Time (UTC): {CURRENT_DATE_TIME}
               </Typography>
             </>
           )}
@@ -708,6 +716,7 @@ const ToolCard = ({
               variant="caption"
               sx={{ color: "#a3a3a3", display: "block", textAlign: "center", mt: 2 }}
             >
+              Current Time (UTC): {CURRENT_DATE_TIME}
             </Typography>
           </Box>
         </DialogContent>
