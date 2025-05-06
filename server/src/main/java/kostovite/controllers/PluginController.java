@@ -1,4 +1,3 @@
-// src/main/java/kostovite/controllers/PluginController.java
 package kostovite.controllers;
 
 import kostovite.services.PluginService;
@@ -204,23 +203,49 @@ public class PluginController {
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Plugin file is empty"));
             }
-            if (!file.getOriginalFilename().endsWith(".jar")) {
-                return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Only JAR files are supported"));
+
+            // --- IMPORTANT: Sanitize filename and add more checks ---
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename == null || originalFilename.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Plugin filename cannot be empty."));
             }
 
-            Path targetPath = pluginsDirectory.resolve(file.getOriginalFilename());
-            Files.copy(file.getInputStream(), targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            // Basic sanitization: prevent path traversal, allow only alphanumeric, hyphens, underscores, dots.
+            String sanitizedFilename = originalFilename.replaceAll("[^a-zA-Z0-9.\\-_]", "_");
+            if (!sanitizedFilename.toLowerCase().endsWith(".jar")) { // Check sanitized name
+                return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Only JAR files are supported (filename must end with .jar). Invalid or sanitized filename: " + sanitizedFilename));
+            }
+            // --- END Filename Sanitization ---
 
+            Path targetPath = pluginsDirectory.resolve(sanitizedFilename); // Use sanitized filename
+
+            // --- Check for directory traversal attempt after resolving ---
+            if (!targetPath.normalize().startsWith(pluginsDirectory.normalize())) {
+                log.error("Directory traversal attempt detected in plugin upload: {} (resolved to {})", sanitizedFilename, targetPath);
+                return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Invalid plugin filename (potential path traversal)."));
+            }
+            // --- END Directory Traversal Check ---
+
+            Files.copy(file.getInputStream(), targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            log.info("Plugin JAR '{}' (original: '{}') uploaded successfully to: {}", sanitizedFilename, originalFilename, targetPath);
+
+            // After uploading, trigger a reload of plugins
             Path pluginsPath = Paths.get(System.getProperty("user.dir"), "plugins-deploy").toAbsolutePath();
-            manualPluginLoader.loadPlugins(pluginsPath);
+            List<PluginInterface> plugins = manualPluginLoader.loadPlugins(pluginsPath);
+            log.info("Reloaded plugins after new JAR upload, {} plugins loaded", plugins.size());
 
             Map<String, String> response = new HashMap<>();
             response.put("status", "success");
-            response.put("message", "Plugin uploaded and loaded successfully by admin.");
+            response.put("message", "Plugin '" + sanitizedFilename + "' uploaded and plugins reloaded successfully by admin.");
+            response.put("pluginFilename", sanitizedFilename); // Return the sanitized name it was saved as
             response.put("pluginPath", targetPath.toString());
+            response.put("loadedCount", String.valueOf(plugins.size()));
             return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Failed plugin upload by user {}: {}", authentication.getName(), e.getMessage(), e);
+        } catch (IOException e) { // Catch specific IOException for file operations
+            log.error("IOException during plugin upload by user {}: {}", authentication.getName(), e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("status", "error", "message", "Failed to save uploaded plugin file: " + e.getMessage()));
+        } catch (Exception e) { // Catch other potential exceptions
+            log.error("Generic exception during plugin upload by user {}: {}", authentication.getName(), e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("status", "error", "message", "Failed to upload plugin: " + e.getMessage()));
         }
     }

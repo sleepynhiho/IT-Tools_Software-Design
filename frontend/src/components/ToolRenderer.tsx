@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom"; // Add useNavigate
+import { useParams, useNavigate } from "react-router-dom";
 import debounce from "lodash.debounce";
-import CustomPluginUIs from "./plugins/CustomPluginUIs"; // Adjust path if needed
+import CustomPluginUIs from "./plugins/CustomPluginUIs";
 
-// MUI Imports
 import {
   Box,
   Typography,
@@ -43,35 +42,31 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  useTheme,
+  Stack,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import DownloadIcon from "@mui/icons-material/Download";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
-import LabelIcon from "@mui/icons-material/Label"; // Example list icon
-import StarIcon from "@mui/icons-material/Star"; // Added for premium icon
-import { useTheme } from "@mui/material/styles";
+import LabelIcon from "@mui/icons-material/Label";
+import StarIcon from "@mui/icons-material/Star";
 
-// Local Imports
-import CommonLayout from "../layouts/CommonLayout"; // Adjust path if needed
-// --- CHANGE 1: Import from AllToolsContext and AuthContext, and use fetchWithAuth ---
-import { useAllTools } from "../context/AllToolsContext"; // Use the correct context
-import { useAuth } from "../context/AuthContext"; // Need this for getIdToken
-import { fetchWithAuth } from "../utils/fetchWithAuth"; // Use your auth utility
-// Keep interfaces from original source, ensure path is correct
+import CommonLayout from "../layouts/CommonLayout";
+import { useAllTools } from "../context/AllToolsContext";
+import { useAuth } from "../context/AuthContext";
+import { fetchWithAuth } from "../utils/fetchWithAuth";
 import {
   PluginMetadata,
   Section,
   InputField,
   OutputField,
-} from "../data/pluginList"; // Adjust path if needed
-// --- End CHANGE 1 ---
+} from "../data/pluginList";
 
-// Configuration (API_BASE_URL might not be needed if using relative paths + proxy)
-// const API_BASE_URL = "http://localhost:8081";
+const CURRENT_DATE_TIME = "2025-05-06 21:20:11";
+const CURRENT_USER_LOGIN = "Kostovite";
 
-// --- Helper Functions ---
 function downloadDataUrl(dataUrl: string, filename: string) {
   try {
     if (
@@ -95,25 +90,20 @@ function downloadDataUrl(dataUrl: string, filename: string) {
   }
 }
 
-// --- Main Component ---
 const ToolRenderer: React.FC = () => {
-  // --- Hooks ---
   const { id: toolIdFromUrl } = useParams<{ id: string }>();
-  const navigate = useNavigate(); // Add useNavigate hook
-  // --- CHANGE 2: Use useAllTools hook ---
+  const navigate = useNavigate();
+  const theme = useTheme();
+  
   const {
-    allTools: allPluginMetadata, // Get list from the context
+    allTools: allPluginMetadata,
     isLoading: loadingMetadataList,
     error: metadataListError,
-    // refetchTools // You can use this if needed, e.g., for a manual refresh button for the list
   } = useAllTools();
-  // --- End CHANGE 2 ---
 
-  // --- CHANGE 3: Get getIdToken and userType from useAuth ---
   const { getIdToken, userType } = useAuth();
   const isAdmin = userType === 'admin';
   const isPremiumUser = userType === 'premium' || userType === 'admin';
-  // --- End CHANGE 3 ---
 
   const [metadata, setMetadata] = useState<PluginMetadata | null>(null);
   const [loadingMetadata, setLoadingMetadata] = useState<boolean>(true);
@@ -127,12 +117,8 @@ const ToolRenderer: React.FC = () => {
     null
   );
   
-  // Add state for premium upgrade dialog
   const [showPremiumDialog, setShowPremiumDialog] = useState<boolean>(false);
-  
-  const theme = useTheme();
 
-  // --- Condition Evaluation ---
   const evaluateCondition = useCallback(
     (
       conditionStr?: string,
@@ -166,7 +152,6 @@ const ToolRenderer: React.FC = () => {
     [formData, resultData]
   );
 
-  // --- API Call Logic ---
   const processRequest = useCallback(
     async (currentFormData: Record<string, any>) => {
       if (!metadata?.id) {
@@ -177,7 +162,6 @@ const ToolRenderer: React.FC = () => {
         });
         return;
       }
-      // --- CHANGE 4: Add check for getIdToken ---
       if (!getIdToken) {
         console.error("Process skipped: Auth token function not available.");
         setResultData({
@@ -186,17 +170,13 @@ const ToolRenderer: React.FC = () => {
         });
         return;
       }
-      // --- End CHANGE 4 ---
       
-      // --- ADD PREMIUM CHECK ---
       if (metadata.accessLevel === 'premium' && !isPremiumUser) {
         console.log("Process skipped: Premium feature, user is not premium.");
         setShowPremiumDialog(true);
         return;
       }
-      // --- End PREMIUM CHECK ---
 
-      // --- Client-side validation ---
       let clientSideValid = true;
       const tempErrors: Record<string, string> = {};
       metadata.sections?.forEach((section) => {
@@ -256,16 +236,12 @@ const ToolRenderer: React.FC = () => {
         setIsProcessing(false);
         return;
       }
-      // --- End Validation ---
 
       setIsProcessing(true);
 
-      // --- CHANGE 5: Define URL and use fetchWithAuth ---
-      // Using the URL from the error log. Ensure your proxy handles '/api' if path is relative.
       const processURL = `/api/debug/${metadata.id}/process`;
 
       try {
-        // Build payload
         const payload: Record<string, any> = {};
         metadata.sections?.forEach((section) => {
           section.inputs?.forEach((field) => {
@@ -303,20 +279,16 @@ const ToolRenderer: React.FC = () => {
           Object.keys(payload)
         );
 
-        // Make the API call using fetchWithAuth
         const response = await fetchWithAuth(
-          // Use fetchWithAuth
           processURL,
           {
             method: "POST",
-            // fetchWithAuth sets Content-Type, Accept automatically for JSON
             body: JSON.stringify(payload),
           },
-          getIdToken // Pass the function to get the token
+          getIdToken
         );
-        // --- End CHANGE 5 ---
 
-        const result = await response.json(); // Assuming response is always JSON, even for errors
+        const result = await response.json();
         console.log("Backend process response:", result);
 
         const errorKey =
@@ -326,7 +298,6 @@ const ToolRenderer: React.FC = () => {
           "errorMessage";
 
         if (!response.ok || result.success === false) {
-          // Handle 403 specifically if possible
           const errorMessage =
             response.status === 403
               ? "Access Denied. You may not have permission for this tool or action."
@@ -357,22 +328,18 @@ const ToolRenderer: React.FC = () => {
         setIsProcessing(false);
       }
     },
-    [metadata, resultData, evaluateCondition, getIdToken, isPremiumUser] // --- CHANGE 6: Add isPremiumUser ---
+    [metadata, resultData, evaluateCondition, getIdToken, isPremiumUser]
   );
 
   const debouncedProcessRequest = useCallback(debounce(processRequest, 500), [
     processRequest,
   ]);
 
-  // --- Effects ---
-
-  // 1. Load metadata for the specific tool and initialize form
   useEffect(() => {
-    setLoadingMetadata(true); // Start loading specific tool metadata
+    setLoadingMetadata(true);
 
     if (loadingMetadataList) {
       console.log("[ToolRenderer] Waiting for main plugin list to load...");
-      // Don't return immediately, wait for list or error
     } else if (metadataListError) {
       console.error(
         "[ToolRenderer] Error loading main plugin list:",
@@ -387,7 +354,6 @@ const ToolRenderer: React.FC = () => {
       setToolMetadataError("Invalid plugin list format.");
       setLoadingMetadata(false);
     } else {
-      // List is loaded (or empty) and no error from context
       console.log(
         `[ToolRenderer] Finding metadata for id: ${toolIdFromUrl} in list of ${allPluginMetadata.length} from Context`
       );
@@ -396,17 +362,14 @@ const ToolRenderer: React.FC = () => {
       );
 
       if (toolMetadata) {
-        // Check if tool is disabled and user is not admin - redirect to home
         if (toolMetadata.status === 'disabled' && !isAdmin) {
           console.log("[ToolRenderer] Tool is disabled and user is not admin, redirecting to home");
           navigate('/');
           return;
         }
 
-        // Check if tool is premium and user is not premium/admin - show premium dialog
         if (toolMetadata.accessLevel === 'premium' && !isPremiumUser) {
           console.log("[ToolRenderer] Premium tool detected, user is not premium");
-          // Still load the tool data but show premium dialog when trying to use it
           setShowPremiumDialog(true);
         }
         
@@ -429,10 +392,10 @@ const ToolRenderer: React.FC = () => {
               else if (input.type === "number")
                 initialFormData[key] =
                   input.min ??
-                  0; // Or null/undefined? Consider desired behavior
+                  0;
               else if (input.type === "color")
                 initialFormData[key] = input.default ?? "#000000";
-              else initialFormData[key] = ""; // Default empty string for text/other
+              else initialFormData[key] = "";
             });
           });
           console.log("[ToolRenderer] Initializing formData:", initialFormData);
@@ -459,16 +422,14 @@ const ToolRenderer: React.FC = () => {
     isAdmin, 
     isPremiumUser,
     navigate
-  ]); // Added isAdmin, isPremiumUser, navigate to dependencies
+  ]);
 
-  // 2. Effect to Trigger initial processing AFTER formData is initialized
   useEffect(() => {
     if (
       metadata?.triggerUpdateOnChange === true &&
       Object.keys(formData).length > 0 &&
       !isProcessing &&
       !resultData &&
-      // Don't auto-process premium tools for non-premium users
       !(metadata.accessLevel === 'premium' && !isPremiumUser)
     ) {
       console.log(
@@ -480,14 +441,13 @@ const ToolRenderer: React.FC = () => {
   }, [
     formData,
     metadata?.triggerUpdateOnChange,
-    metadata?.accessLevel, // Added accessLevel
+    metadata?.accessLevel,
     processRequest,
     isProcessing,
     resultData,
-    isPremiumUser // Added isPremiumUser
+    isPremiumUser
   ]);
 
-  // --- Event Handlers ---
   const handleInputChange = useCallback(
     (inputId: string, value: any) => {
       const newFormData = { ...formData, [inputId]: value };
@@ -503,7 +463,6 @@ const ToolRenderer: React.FC = () => {
         console.log(
           `[ToolRenderer] Debouncing process request due to change in ${inputId}`
         );
-        // Don't auto-process premium tools for non-premium users
         if (!(metadata.accessLevel === 'premium' && !isPremiumUser)) {
           debouncedProcessRequest(newFormData);
         }
@@ -519,21 +478,24 @@ const ToolRenderer: React.FC = () => {
     }
   }, [formData, metadata, processRequest]);
 
-  // Function to render custom UI components
   const renderCustomUI = useCallback(() => {
     if (!metadata?.customUI || !metadata.id) return null;
     
-    // Check if premium tool and user is not premium/admin
     if (metadata.accessLevel === 'premium' && !isPremiumUser) {
       return (
         <Alert 
           severity="warning" 
-          sx={{ mb: 2 }}
+          sx={{ 
+            mb: 2,
+            backgroundColor: 'rgba(255, 179, 0, 0.1)',
+            color: '#ffffff'
+          }}
           action={
             <Button 
-              color="inherit" 
+              color="warning" 
               size="small"
               onClick={() => navigate('/upgrade')}
+              sx={{ color: '#ffb300' }}
             >
               UPGRADE
             </Button>
@@ -558,7 +520,14 @@ const ToolRenderer: React.FC = () => {
       );
     }
     return (
-      <Alert severity="warning" sx={{ mb: 2 }}>
+      <Alert 
+        severity="warning" 
+        sx={{ 
+          mb: 2,
+          backgroundColor: 'rgba(237, 108, 2, 0.1)', 
+          color: '#ffffff' 
+        }}
+      >
         This tool requires a custom UI component that is not available.
       </Alert>
     );
@@ -573,18 +542,15 @@ const ToolRenderer: React.FC = () => {
     navigate
   ]);
 
-  // Handle premium dialog close
   const handlePremiumDialogClose = () => {
     setShowPremiumDialog(false);
   };
 
-  // Handle upgrade button click
   const handleUpgradeClick = () => {
     navigate('/upgrade');
     setShowPremiumDialog(false);
   };
 
-  // --- Render Logic ---
   if (loadingMetadataList || loadingMetadata) {
     return (
       <CommonLayout
@@ -594,7 +560,7 @@ const ToolRenderer: React.FC = () => {
         icon=""
       >
         <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-          <CircularProgress />
+          <CircularProgress sx={{ color: "#3b956f" }} />
         </Box>
       </CommonLayout>
     );
@@ -609,7 +575,14 @@ const ToolRenderer: React.FC = () => {
         toolId={toolIdFromUrl || ""}
         icon=""
       >
-        <Alert severity="error" sx={{ m: 2 }}>
+        <Alert 
+          severity="error" 
+          sx={{ 
+            m: 2, 
+            backgroundColor: 'rgba(211, 47, 47, 0.1)',
+            color: '#ffffff'
+          }}
+        >
           {displayError || "Tool metadata could not be loaded."}
         </Alert>
       </CommonLayout>
@@ -632,7 +605,6 @@ const ToolRenderer: React.FC = () => {
       toolId={metadata.id}
       icon={metadata.icon}
     >
-      {/* Premium Tool Badge */}
       {isPremiumTool && (
         <Box
           sx={{
@@ -644,10 +616,11 @@ const ToolRenderer: React.FC = () => {
             border: '1px solid',
             borderColor: 'warning.main',
             borderRadius: 1,
+            width: '100%',
           }}
         >
           <StarIcon sx={{ color: 'warning.main', mr: 1 }} />
-          <Typography variant="body2" sx={{ fontWeight: 'medium', color: isPremiumUser ? 'text.primary' : 'text.secondary' }}>
+          <Typography variant="body2" sx={{ fontWeight: 'medium', color: isPremiumUser ? '#ffffff' : '#a3a3a3' }}>
             {isPremiumUser 
               ? 'Premium Tool - You have full access to this feature' 
               : 'Premium Tool - Some features may be limited'}
@@ -655,18 +628,29 @@ const ToolRenderer: React.FC = () => {
         </Box>
       )}
 
-      {/* Admin Warning for Disabled Tool */}
       {isDisabledTool && isAdmin && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
+        <Alert 
+          severity="warning" 
+          sx={{ 
+            mb: 2,
+            backgroundColor: 'rgba(237, 108, 2, 0.1)', 
+            color: '#ffffff',
+            width: '100%',
+          }}
+        >
           This tool is currently disabled. Only administrators can view it.
         </Alert>
       )}
 
-      {/* Display Processing Errors */}
       {resultData?.success === false && resultData[errorOutputFieldId] && (
         <Alert
           severity="error"
-          sx={{ mb: 2 }}
+          sx={{ 
+            mb: 2,
+            backgroundColor: 'rgba(211, 47, 47, 0.1)',
+            color: '#ffffff',
+            width: '100%',
+          }}
           onClose={() =>
             setResultData((prev) => ({
               ...prev,
@@ -679,109 +663,109 @@ const ToolRenderer: React.FC = () => {
         </Alert>
       )}
 
-      {/* Render either custom UI or standard UI */}
       {metadata.customUI ? (
         renderCustomUI()
       ) : (
         <>
-          <Grid container spacing={3}>
-            {metadata.sections
-              ?.filter((section) => evaluateCondition(section.condition))
-              .map((section: Section, index: number) => (
-                <Grid
-                  item
-                  xs={12}
-                  key={`${metadata.id}-${section.id}-${index}`}
-                >
-                  {/* Render Inputs */}
-                  {section.inputs &&
-                    section.inputs.filter((field) =>
-                      evaluateCondition(field.condition, formData, resultData)
-                    ).length > 0 && (
-                      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }} elevation={2}>
-                        {section.label && (
-                          <Typography
-                            variant="h6"
-                            sx={{
-                              mb: 2.5,
-                              borderBottom: 1,
-                              borderColor: "divider",
-                              pb: 1,
-                            }}
-                          >
-                            {section.label}
-                          </Typography>
-                        )}
-                        <Grid container spacing={2.5}>
-                          {section.inputs
-                            .filter((field) =>
-                              evaluateCondition(
-                                field.condition,
-                                formData,
-                                resultData
-                              )
+          {metadata.sections
+            ?.filter((section) => evaluateCondition(section.condition))
+            .map((section: Section, index: number) => (
+              <Box
+                key={`${metadata.id}-${section.id}-${index}`}
+                sx={{ width: '100%', mb: 3 }}
+              >
+                {section.inputs &&
+                  section.inputs.filter((field) =>
+                    evaluateCondition(field.condition, formData, resultData)
+                  ).length > 0 && (
+                    <Paper 
+                      sx={{ 
+                        p: { xs: 1.5, sm: 2, md: 3 },
+                        mb: 3,
+                        backgroundColor: '#232323',
+                        color: '#ffffff',
+                        width: '100%',
+                        boxSizing: 'border-box'
+                      }} 
+                      elevation={2}
+                    >
+                      {section.label && (
+                        <Typography
+                          variant="h6"
+                          sx={{
+                            mb: 2.5,
+                            borderBottom: 1,
+                            borderColor: "divider",
+                            pb: 1,
+                            color: "#ffffff"
+                          }}
+                        >
+                          {section.label}
+                        </Typography>
+                      )}
+                      <Stack spacing={2} width="100%">
+                        {section.inputs
+                          .filter((field) =>
+                            evaluateCondition(
+                              field.condition,
+                              formData,
+                              resultData
                             )
-                            .map((field: InputField) => (
-                              <Grid
-                                xs={12}
-                                sm={
-                                  field.type === "switch" ||
-                                  field.type === "color" ||
-                                  field.type === "slider"
-                                    ? 6
-                                    : 12
+                          )
+                          .map((field: InputField) => (
+                            <Box key={field.id} width="100%">
+                              <RenderInput
+                                field={field}
+                                value={formData[field.id]}
+                                onChange={(value) =>
+                                  handleInputChange(field.id, value)
                                 }
-                                md={
-                                  field.type === "color" ||
-                                  field.type === "switch"
-                                    ? 4
-                                    : field.type === "slider"
-                                    ? 8
-                                    : 12
-                                }
-                                key={field.id}
-                              >
-                                <RenderInput
-                                  field={field}
-                                  value={formData[field.id]}
-                                  onChange={(value) =>
-                                    handleInputChange(field.id, value)
-                                  }
-                                  disabled={isProcessing || (isPremiumTool && !isPremiumUser)}
-                                  error={formErrors[field.id]}
-                                />
-                              </Grid>
-                            ))}
-                        </Grid>
-                      </Paper>
-                    )}
-                  {/* Render Outputs */}
-                  {section.outputs &&
-                    section.outputs.filter((field) =>
-                      evaluateCondition(field.condition, formData, resultData)
-                    ).length > 0 &&
-                    evaluateCondition(
-                      section.condition,
-                      formData,
-                      resultData
-                    ) &&
-                    (resultData ||
-                      isProcessing ||
-                      section.id === "errorDisplay") && (
-                      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }} elevation={2}>
-                        {section.label && (
-                          <Typography
-                            variant="h6"
-                            sx={{
-                              mb: 2.5,
-                              borderBottom: 1,
-                              borderColor: "divider",
-                              pb: 1,
-                            }}
-                          >
-                            {section.label}
-                          </Typography>
-                        )}
+                                disabled={isProcessing || (isPremiumTool && !isPremiumUser)}
+                                error={formErrors[field.id]}
+                              />
+                            </Box>
+                          ))}
+                      </Stack>
+                    </Paper>
+                  )}
+                {section.outputs &&
+                  section.outputs.filter((field) =>
+                    evaluateCondition(field.condition, formData, resultData)
+                  ).length > 0 &&
+                  evaluateCondition(
+                    section.condition,
+                    formData,
+                    resultData
+                  ) &&
+                  (resultData ||
+                    isProcessing ||
+                    section.id === "errorDisplay") && (
+                    <Paper 
+                      sx={{ 
+                        p: { xs: 1.5, sm: 2, md: 3 },
+                        mb: 3,
+                        backgroundColor: '#232323',
+                        color: '#ffffff',
+                        width: '100%',
+                        boxSizing: 'border-box'
+                      }} 
+                      elevation={2}
+                    >
+                      {section.label && (
+                        <Typography
+                          variant="h6"
+                          sx={{
+                            mb: 2.5,
+                            borderBottom: 1,
+                            borderColor: "divider",
+                            pb: 1,
+                            color: "#ffffff"
+                          }}
+                        >
+                          {section.label}
+                        </Typography>
+                      )}
+                      <Stack spacing={2} width="100%">
                         {(resultData || section.id === "errorDisplay") &&
                           section.outputs
                             .filter((field) =>
@@ -802,18 +786,17 @@ const ToolRenderer: React.FC = () => {
                                   outputValue !== null) ||
                                 (resultData?.success !== false &&
                                   outputValue !== undefined &&
-                                  outputValue !== null); // Show normal field if not error state or no specific error value
+                                  outputValue !== null);
                               if (shouldRender) {
                                 return (
-                                  <Box key={output.id} sx={{ mb: 2 }}>
-                                    {" "}
+                                  <Box key={output.id} width="100%">
                                     <RenderOutput
                                       output={output}
                                       value={outputValue}
                                       resultData={resultData}
                                       onRefresh={handleExecute}
                                       disabled={isProcessing || (isPremiumTool && !isPremiumUser)}
-                                    />{" "}
+                                    />
                                   </Box>
                                 );
                               }
@@ -827,25 +810,30 @@ const ToolRenderer: React.FC = () => {
                               pt: 1,
                             }}
                           >
-                            <CircularProgress size={20} />{" "}
-                            <Typography variant="body2" sx={{ ml: 1 }}>
+                            <CircularProgress size={20} sx={{ color: "#3b956f" }} />
+                            <Typography variant="body2" sx={{ ml: 1, color: "#a3a3a3" }}>
                               Processing...
                             </Typography>
                           </Box>
                         )}
-                      </Paper>
-                    )}
-                </Grid>
-              ))}
-          </Grid>
+                      </Stack>
+                    </Paper>
+                  )}
+              </Box>
+            ))}
 
-          {/* Manual Process Button */}
           <Button
             variant="contained"
             color="primary"
             onClick={isPremiumTool && !isPremiumUser ? () => setShowPremiumDialog(true) : handleExecute}
             disabled={isProcessing || loadingMetadata}
-            sx={{ mt: 1 }}
+            sx={{ 
+              mt: 1,
+              backgroundColor: "#3b956f",
+              '&:hover': {
+                backgroundColor: "#2d7d5b"
+              }
+            }}
             startIcon={
               isProcessing ? (
                 <CircularProgress size={20} color="inherit" />
@@ -867,7 +855,6 @@ const ToolRenderer: React.FC = () => {
         </>
       )}
       
-      {/* Premium Upgrade Dialog */}
       <Dialog
         open={showPremiumDialog}
         onClose={handlePremiumDialogClose}
@@ -878,7 +865,8 @@ const ToolRenderer: React.FC = () => {
             color: "#ffffff",
             borderRadius: "8px",
             border: "1px solid #3b956f",
-            maxWidth: "500px"
+            maxWidth: "500px",
+            width: '100%'
           }
         }}
       >
@@ -891,10 +879,10 @@ const ToolRenderer: React.FC = () => {
           Premium Feature
         </DialogTitle>
         <DialogContent sx={{ py: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
+          <Typography variant="h6" sx={{ mb: 2, color: "#ffffff" }}>
             {metadata.name} is a Premium Tool
           </Typography>
-          <Typography variant="body1" sx={{ mb: 2 }}>
+          <Typography variant="body1" sx={{ mb: 2, color: "#a3a3a3" }}>
             This feature requires a premium subscription to access. Upgrade your account to unlock this tool and all other premium features.
           </Typography>
           <Box sx={{ display: "flex", alignItems: "center", background: "rgba(0,0,0,0.2)", p: 2, borderRadius: "4px", mb: 2 }}>
@@ -902,26 +890,30 @@ const ToolRenderer: React.FC = () => {
               <StarIcon sx={{ color: "#ffb300", fontSize: "32px" }} />
             </Box>
             <Box>
-              <Typography variant="body1" sx={{ fontWeight: "bold", mb: 0.5 }}>
+              <Typography variant="body1" sx={{ fontWeight: "bold", mb: 0.5, color: "#ffffff" }}>
                 Premium Benefits:
               </Typography>
-              <Typography variant="body2" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ mb: 0.5, color: "#a3a3a3" }}>
                 • Access to all premium tools
               </Typography>
-              <Typography variant="body2" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ mb: 0.5, color: "#a3a3a3" }}>
                 • Priority customer support
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ color: "#a3a3a3" }}>
                 • Early access to new features
               </Typography>
             </Box>
           </Box>
           <Typography variant="caption" sx={{ color: "#a3a3a3", display: "block", textAlign: "center" }}>
-            Current Time (UTC): 2025-05-06 13:54:02
+            Current Time (UTC): {CURRENT_DATE_TIME}
           </Typography>
         </DialogContent>
         <DialogActions sx={{ borderTop: "1px solid rgba(255,255,255,0.1)", p: 2, justifyContent: "space-between" }}>
-          <Button onClick={handlePremiumDialogClose} color="inherit">
+          <Button 
+            onClick={handlePremiumDialogClose} 
+            color="inherit"
+            sx={{ color: "#a3a3a3" }}
+          >
             Maybe Later
           </Button>
           <Button 
@@ -942,9 +934,6 @@ const ToolRenderer: React.FC = () => {
   );
 };
 
-// ========================================================================
-// Inline RenderInput and RenderOutput Components (Keep Implementations)
-// ========================================================================
 interface RenderInputProps {
   field: InputField;
   value: any;
@@ -959,6 +948,8 @@ const RenderInput: React.FC<RenderInputProps> = ({
   disabled,
   error,
 }) => {
+  const theme = useTheme();
+  
   const commonProps = {
     fullWidth: true,
     size: "small",
@@ -969,6 +960,27 @@ const RenderInput: React.FC<RenderInputProps> = ({
     error: !!error,
     helperText: error || field.helperText,
     placeholder: field.placeholder,
+    sx: {
+      width: '100%',
+      '& .MuiOutlinedInput-root': {
+        color: '#ffffff',
+        '& fieldset': {
+          borderColor: '#525252',
+        },
+        '&:hover fieldset': {
+          borderColor: '#3b956f',
+        },
+        '&.Mui-focused fieldset': {
+          borderColor: '#3b956f',
+        },
+      },
+      '& .MuiInputLabel-root': {
+        color: '#a3a3a3',
+      },
+      '& .MuiFormHelperText-root': {
+        color: !!error ? '#d32f2f' : '#a3a3a3',
+      },
+    }
   } as const;
   switch (field.type) {
     case "text":
@@ -978,7 +990,8 @@ const RenderInput: React.FC<RenderInputProps> = ({
           {...commonProps}
           type={field.type}
           multiline={field.multiline}
-          rows={field.rows}
+          rows={field.rows || 2}
+          maxRows={field.maxRows || 6}
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
         />
@@ -994,6 +1007,7 @@ const RenderInput: React.FC<RenderInputProps> = ({
             min: field.min,
             max: field.max,
             step: field.step ?? "any",
+            style: { color: '#ffffff' }
           }}
         />
       );
@@ -1006,12 +1020,50 @@ const RenderInput: React.FC<RenderInputProps> = ({
           disabled={disabled}
           required={field.required}
           error={!!error}
+          sx={{
+            width: '100%',
+            '& .MuiOutlinedInput-root': {
+              color: '#ffffff',
+              '& fieldset': {
+                borderColor: '#525252',
+              },
+              '&:hover fieldset': {
+                borderColor: '#3b956f',
+              },
+              '&.Mui-focused fieldset': {
+                borderColor: '#3b956f',
+              },
+            },
+            '& .MuiInputLabel-root': {
+              color: '#a3a3a3',
+            },
+            '& .MuiFormHelperText-root': {
+              color: !!error ? '#d32f2f' : '#a3a3a3',
+            },
+            '& .MuiMenu-paper': {
+              backgroundColor: '#232323',
+            }
+          }}
         >
           <InputLabel>{field.label}</InputLabel>
           <Select
             label={field.label}
             value={value ?? field.default ?? ""}
             onChange={(e) => onChange(e.target.value)}
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  bgcolor: '#232323',
+                  color: '#ffffff',
+                  '& .MuiMenuItem-root:hover': {
+                    bgcolor: 'rgba(59, 149, 111, 0.1)',
+                  },
+                  '& .MuiMenuItem-root.Mui-selected': {
+                    bgcolor: 'rgba(59, 149, 111, 0.2)',
+                  },
+                }
+              }
+            }}
           >
             {!field.required && field.default === undefined && (
               <MenuItem value="">
@@ -1036,7 +1088,7 @@ const RenderInput: React.FC<RenderInputProps> = ({
       );
     case "switch":
       return (
-        <Box>
+        <Box sx={{ width: '100%' }}>
           <Box
             sx={{
               display: "flex",
@@ -1048,7 +1100,7 @@ const RenderInput: React.FC<RenderInputProps> = ({
           >
             <Typography
               variant="body2"
-              sx={{ color: disabled ? "text.disabled" : "inherit", mr: 1 }}
+              sx={{ color: disabled ? "text.disabled" : "#ffffff", mr: 1 }}
             >
               {field.label || ""}
             </Typography>
@@ -1057,10 +1109,24 @@ const RenderInput: React.FC<RenderInputProps> = ({
               checked={!!value}
               onChange={(e) => onChange(e.target.checked)}
               disabled={disabled}
+              sx={{
+                '& .MuiSwitch-switchBase.Mui-checked': {
+                  color: '#3b956f',
+                },
+                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                  backgroundColor: '#3b956f',
+                },
+              }}
             />
           </Box>
           {(error || field.helperText) && (
-            <FormHelperText error={!!error} sx={{ ml: 1 }}>
+            <FormHelperText 
+              error={!!error} 
+              sx={{ 
+                ml: 1,
+                color: !!error ? '#d32f2f' : '#a3a3a3',
+              }}
+            >
               {error || field.helperText}
             </FormHelperText>
           )}
@@ -1068,8 +1134,12 @@ const RenderInput: React.FC<RenderInputProps> = ({
       );
     case "slider":
       return (
-        <Box sx={{ px: 1 }}>
-          <Typography gutterBottom id={`${field.id}-label`}>
+        <Box sx={{ px: 1, width: '100%' }}>
+          <Typography 
+            gutterBottom 
+            id={`${field.id}-label`} 
+            sx={{ color: '#ffffff' }}
+          >
             {field.label} ({value ?? field.default ?? field.min})
           </Typography>
           <Slider
@@ -1086,9 +1156,25 @@ const RenderInput: React.FC<RenderInputProps> = ({
             min={field.min ?? 0}
             max={field.max ?? 100}
             disabled={disabled}
+            sx={{
+              color: '#3b956f',
+              '& .MuiSlider-thumb': {
+                '&:hover, &.Mui-focusVisible': {
+                  boxShadow: '0 0 0 8px rgba(59, 149, 111, 0.16)',
+                },
+              },
+              '& .MuiSlider-valueLabel': {
+                backgroundColor: '#3b956f',
+              },
+            }}
           />
           {(error || field.helperText) && (
-            <FormHelperText error={!!error}>
+            <FormHelperText 
+              error={!!error}
+              sx={{ 
+                color: !!error ? '#d32f2f' : '#a3a3a3',
+              }}
+            >
               {error || field.helperText}
             </FormHelperText>
           )}
@@ -1096,14 +1182,14 @@ const RenderInput: React.FC<RenderInputProps> = ({
       );
     case "color":
       return (
-        <FormControl fullWidth size="small">
+        <FormControl fullWidth size="small" sx={{ width: '100%' }}>
           <Typography
             variant="body2"
-            sx={{ mb: 1, color: disabled ? "text.disabled" : "inherit" }}
+            sx={{ mb: 1, color: disabled ? "text.disabled" : "#ffffff" }}
           >
             {field.label}
           </Typography>
-          <Box sx={{ display: "flex", alignItems: "center" }}>
+          <Box sx={{ display: "flex", alignItems: "center", width: '100%' }}>
             <input
               type="color"
               id={`color-input-${field.id}`}
@@ -1111,7 +1197,7 @@ const RenderInput: React.FC<RenderInputProps> = ({
               value={value ?? field.default ?? "#000000"}
               onChange={(e) => onChange(e.target.value)}
               style={{
-                border: "1px solid #ccc",
+                border: "1px solid #525252",
                 borderRadius: "4px",
                 padding: 0,
                 height: "40px",
@@ -1125,14 +1211,30 @@ const RenderInput: React.FC<RenderInputProps> = ({
               size="small"
               variant="outlined"
               disabled={disabled}
-              sx={{ flexGrow: 1 }}
+              sx={{ 
+                flexGrow: 1,
+                '& .MuiOutlinedInput-root': {
+                  color: '#ffffff',
+                  '& fieldset': {
+                    borderColor: '#525252',
+                  },
+                },
+              }}
               value={value ?? field.default ?? "#000000"}
               onChange={(e) => onChange(e.target.value)}
               error={!!error}
+              inputProps={{
+                style: { color: '#ffffff' }
+              }}
             />
           </Box>
           {(error || field.helperText) && (
-            <FormHelperText error={!!error}>
+            <FormHelperText 
+              error={!!error}
+              sx={{ 
+                color: !!error ? '#d32f2f' : '#a3a3a3',
+              }}
+            >
               {error || field.helperText}
             </FormHelperText>
           )}
@@ -1140,8 +1242,8 @@ const RenderInput: React.FC<RenderInputProps> = ({
       );
     case "file":
       return (
-        <Box>
-          <Typography variant="body2" sx={{ mb: 1 }}>
+        <Box sx={{ width: '100%' }}>
+          <Typography variant="body2" sx={{ mb: 1, color: '#ffffff' }}>
             {field.label}
           </Typography>
           <Button
@@ -1149,6 +1251,14 @@ const RenderInput: React.FC<RenderInputProps> = ({
             variant="outlined"
             size="small"
             disabled={disabled}
+            sx={{
+              borderColor: '#525252',
+              color: '#ffffff',
+              '&:hover': {
+                borderColor: '#3b956f',
+                backgroundColor: 'rgba(59, 149, 111, 0.1)',
+              },
+            }}
           >
             Upload File
             <input
@@ -1196,7 +1306,12 @@ const RenderInput: React.FC<RenderInputProps> = ({
             />
           )}
           {(error || field.helperText) && (
-            <FormHelperText error={!!error}>
+            <FormHelperText 
+              error={!!error}
+              sx={{ 
+                color: !!error ? '#d32f2f' : '#a3a3a3',
+              }}
+            >
               {error || field.helperText}
             </FormHelperText>
           )}
@@ -1228,6 +1343,12 @@ const RenderInput: React.FC<RenderInputProps> = ({
             }
           }}
           disabled={disabled}
+          sx={{
+            backgroundColor: "#3b956f",
+            '&:hover': {
+              backgroundColor: "#2d7d5b"
+            }
+          }}
         >
           {field.label}
         </Button>
@@ -1238,15 +1359,16 @@ const RenderInput: React.FC<RenderInputProps> = ({
       return (
         <Box
           sx={{
-            border: "1px dashed grey",
+            border: "1px dashed #525252",
             minHeight: 200,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             bgcolor: "black",
+            width: '100%'
           }}
         >
-          <Typography sx={{ color: "grey" }}>
+          <Typography sx={{ color: '#525252' }}>
             Webcam Preview Area (Requires Frontend JS)
           </Typography>
         </Box>
@@ -1316,7 +1438,12 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
       sx={{ mt: 1, display: "flex", gap: 0.5, justifyContent: "flex-start" }}
     >
       {output.buttons?.includes("copy") && isValueNotNull && (
-        <IconButton size="small" title="Copy" onClick={handleCopy}>
+        <IconButton 
+          size="small" 
+          title="Copy" 
+          onClick={handleCopy}
+          sx={{ color: theme.palette.custom?.icon }}
+        >
           <ContentCopyIcon sx={{ fontSize: "1rem" }} />
         </IconButton>
       )}
@@ -1326,6 +1453,7 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
           title="Refresh/Regenerate"
           onClick={onRefresh}
           disabled={disabled}
+          sx={{ color: theme.palette.custom?.icon }}
         >
           <RefreshIcon sx={{ fontSize: "1rem" }} />
         </IconButton>
@@ -1333,7 +1461,12 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
       {output.buttons?.includes("download") &&
         output.type === "image" &&
         isValueStringImage && (
-          <IconButton size="small" title="Download" onClick={handleDownload}>
+          <IconButton 
+            size="small" 
+            title="Download" 
+            onClick={handleDownload}
+            sx={{ color: theme.palette.custom?.icon }}
+          >
             <DownloadIcon sx={{ fontSize: "1rem" }} />
           </IconButton>
         )}
@@ -1350,8 +1483,8 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
               whiteSpace: "pre-wrap",
               wordBreak: "break-all",
               fontFamily: output.monospace ? "monospace" : "inherit",
-              color:
-                output.style === "error" ? theme.palette.error.main : "inherit",
+              color: output.style === "error" ? theme.palette.error.main : "#ffffff",
+              width: '100%',
             }}
           >
             {String(displayValue)}
@@ -1364,14 +1497,15 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
               display: "flex",
               justifyContent: "flex-start",
               alignItems: "center",
-              width: "fit-content",
-              maxWidth: output.maxWidth || 350,
-              maxHeight: output.maxHeight || 350,
+              width: "100%",
+              maxWidth: output.maxWidth || { xs: '100%', sm: '350px', md: '450px' },
+              height: "auto",
               border: "1px solid",
-              borderColor: "divider",
+              borderColor: "#525252",
               borderRadius: 1,
               p: 0.5,
               mt: 1,
+              overflow: "auto",
             }}
           >
             {displayValue ? (
@@ -1383,6 +1517,7 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
                   width: "100%",
                   height: "auto",
                   objectFit: "contain",
+                  maxHeight: output.maxHeight || "500px",
                 }}
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = "none";
@@ -1390,7 +1525,7 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
               />
             ) : (
               <Typography
-                sx={{ p: 2, fontStyle: "italic", color: "text.secondary" }}
+                sx={{ p: 2, fontStyle: "italic", color: "#a3a3a3" }}
               >
                 No Image
               </Typography>
@@ -1402,13 +1537,15 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
           <Box
             component="pre"
             sx={{
-              bgcolor: theme.palette.mode === "dark" ? "#2e2e2e" : "#f5f5f5",
-              color: theme.palette.mode === "dark" ? "#fff" : "#000",
+              bgcolor: "#2e2e2e",
+              color: "#ffffff",
               p: 1.5,
               borderRadius: 1,
               overflowX: "auto",
+              overflowY: "auto",
               fontSize: "0.875rem",
-              maxHeight: "400px",
+              maxHeight: { xs: "200px", sm: "300px", md: "400px" },
+              width: '100%',
               wordBreak: "break-all",
               whiteSpace: "pre-wrap",
               mt: 1,
@@ -1425,9 +1562,18 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
         );
       case "chips":
         return isArrayValue ? (
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1 }}>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1, width: '100%' }}>
             {displayValue.map((item, i) => (
-              <Chip key={i} label={String(item)} size="small" />
+              <Chip 
+                key={i} 
+                label={String(item)} 
+                size="small"
+                sx={{
+                  backgroundColor: 'rgba(59, 149, 111, 0.1)',
+                  color: '#ffffff',
+                  border: '1px solid #3b956f'
+                }} 
+              />
             ))}
           </Box>
         ) : (
@@ -1437,7 +1583,7 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
         );
       case "list":
         return isArrayValue ? (
-          <List dense sx={{ py: 0, listStyle: "disc", pl: 2.5 }}>
+          <List dense sx={{ py: 0, listStyle: "disc", pl: 2.5, width: '100%' }}>
             {displayValue.map((item, i) => (
               <ListItem
                 key={i}
@@ -1446,7 +1592,10 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
               >
                 <ListItemText
                   primary={String(item)}
-                  primaryTypographyProps={{ variant: "body2" }}
+                  primaryTypographyProps={{ 
+                    variant: "body2",
+                    sx: { color: '#ffffff' }
+                  }}
                 />
               </ListItem>
             ))}
@@ -1458,7 +1607,7 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
         );
       case "progressBar":
         return (
-          <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", mt: 1, width: '100%' }}>
             <Box sx={{ width: "100%", mr: 1 }}>
               <LinearProgress
                 variant="determinate"
@@ -1468,9 +1617,12 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
               />
             </Box>
             <Box sx={{ minWidth: 50 }}>
-              <Typography variant="body2" color="text.secondary">{`${Math.round(
-                progressValue
-              )}${suffix}`}</Typography>
+              <Typography 
+                variant="body2" 
+                sx={{ color: "#a3a3a3" }}
+              >
+                {`${Math.round(progressValue)}${suffix}`}
+              </Typography>
             </Box>
           </Box>
         );
@@ -1480,7 +1632,7 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
             return (
               <Typography
                 variant="body2"
-                sx={{ fontStyle: "italic", color: "text.secondary", mt: 1 }}
+                sx={{ fontStyle: "italic", color: "#a3a3a3", mt: 1 }}
               >
                 No data.
               </Typography>
@@ -1491,20 +1643,28 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
               component={Paper}
               elevation={0}
               variant="outlined"
-              sx={{ mt: 1 }}
+              sx={{ 
+                mt: 1,
+                backgroundColor: '#232323',
+                borderColor: '#525252',
+                width: '100%',
+                overflowX: 'auto',
+              }}
             >
               <Table size="small">
                 <TableHead
                   sx={{
-                    bgcolor:
-                      theme.palette.mode === "dark" ? "grey.800" : "grey.100",
+                    bgcolor: "#2e2e2e",
                   }}
                 >
                   <TableRow>
                     {output.columns!.map((col, cIndex) => (
                       <TableCell
                         key={`${output.id}-h-${cIndex}`}
-                        sx={{ fontWeight: "bold" }}
+                        sx={{ 
+                          fontWeight: "bold",
+                          color: '#ffffff'
+                        }}
                       >
                         {col.header}
                       </TableCell>
@@ -1516,10 +1676,18 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
                     <TableRow
                       key={`${output.id}-r-${rIndex}`}
                       hover
-                      sx={{ "&:last-child td, &:last-child th": { border: 0 } }}
+                      sx={{ 
+                        "&:last-child td, &:last-child th": { border: 0 },
+                        '&:hover': {
+                          backgroundColor: 'rgba(59, 149, 111, 0.1)'
+                        }
+                      }}
                     >
                       {output.columns!.map((col, cIndex) => (
-                        <TableCell key={`${output.id}-c-${rIndex}-${cIndex}`}>
+                        <TableCell 
+                          key={`${output.id}-c-${rIndex}-${cIndex}`}
+                          sx={{ color: '#ffffff' }}
+                        >
                           {String(
                             col.field
                               .split(".")
@@ -1553,11 +1721,11 @@ const RenderOutput: React.FC<RenderOutputProps> = ({
     }
   };
   return (
-    <Box sx={{ mb: 1.5 }}>
+    <Box sx={{ mb: 1.5, width: '100%' }}>
       {output.label && (
         <Typography
           variant="body2"
-          sx={{ mb: 0.5, fontWeight: "medium", color: "text.secondary" }}
+          sx={{ mb: 0.5, fontWeight: "medium", color: "#a3a3a3" }}
         >
           {output.label}
         </Typography>
