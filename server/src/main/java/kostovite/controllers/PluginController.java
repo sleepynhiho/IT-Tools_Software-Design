@@ -67,15 +67,17 @@ public class PluginController {
     }
 
     @PostMapping("/{pluginName}/process")
-    @PreAuthorize("isAuthenticated()")
+    // Removed @PreAuthorize("isAuthenticated()") to allow anonymous access
     public ResponseEntity<Map<String, Object>> processPlugin(
             @PathVariable String pluginName,
             @RequestBody Map<String, Object> input,
             Authentication authentication) {
 
-        log.info("Processing request for plugin: {} by user {}", pluginName, authentication.getName());
+        log.info("Processing request for plugin: {} by user {}", pluginName,
+                (authentication != null ? authentication.getName() : "anonymous"));
 
         try {
+            // Pass authentication (which might be null) to the service
             Map<String, Object> result = pluginService.processPlugin(pluginName, input, authentication);
             return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {
@@ -91,20 +93,21 @@ public class PluginController {
     }
 
     @PostMapping("/debug/{pluginName}/process")
-    @PreAuthorize("isAuthenticated()")
+    // Removed @PreAuthorize("isAuthenticated()") to allow anonymous access
     public ResponseEntity<Map<String, Object>> processPluginDebug(
             @PathVariable String pluginName,
             @RequestBody Map<String, Object> input,
             Authentication authentication) {
 
-        log.info("Debug processing request for plugin: {} by user {}", pluginName, authentication.getName());
+        log.info("Debug processing request for plugin: {} by user {}", pluginName,
+                (authentication != null ? authentication.getName() : "anonymous"));
 
         try {
             Map<String, Object> result = pluginService.processPlugin(pluginName, input, authentication);
 
             result.put("debug_request_info", Map.of(
                     "plugin", pluginName,
-                    "user", authentication.getName(),
+                    "user", (authentication != null ? authentication.getName() : "anonymous"),
                     "timestamp", System.currentTimeMillis()
             ));
 
@@ -144,7 +147,7 @@ public class PluginController {
             if (!pluginService.canUserAccess(userType, pluginAccessLevel)) {
                 log.warn("Metadata access denied for plugin {} to user type {}", pluginName, userType);
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
-                        Map.of("success", false, "error", "Access denied to plugin: " + pluginName));
+                        Map.of("success", false, "error", "Access denied to plugin metadata: " + pluginName));
             }
 
             return ResponseEntity.ok(metadata);
@@ -161,10 +164,7 @@ public class PluginController {
         log.info("Request for loaded plugins list by user {}", authentication.getName());
 
         try {
-            // Get user type to filter plugins
             String userType = pluginService.extractUserType(authentication);
-
-            // Get all plugins
             List<PluginInterface> allPlugins = manualPluginLoader.getLoadedPlugins();
 
             // Filter plugins based on access level
@@ -198,13 +198,14 @@ public class PluginController {
     }
 
     @PostMapping("/universal/{pluginName}/process")
-    @PreAuthorize("isAuthenticated()")
+    // Removed @PreAuthorize("isAuthenticated()") to allow anonymous access
     public ResponseEntity<Map<String, Object>> processUniversalPlugin(
             @PathVariable String pluginName,
             @RequestBody Map<String, Object> input,
             Authentication authentication) {
 
-        log.info("Universal processing request for plugin: {} by user {}", pluginName, authentication.getName());
+        log.info("Universal processing request for plugin: {} by user {}", pluginName,
+                (authentication != null ? authentication.getName() : "anonymous"));
 
         try {
             Map<String, Object> result = pluginService.processPlugin(pluginName, input, authentication);

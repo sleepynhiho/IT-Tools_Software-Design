@@ -509,15 +509,6 @@ export const useAllPluginMetadata = () => {
         console.log(`Found ${loadedPlugins.length} plugins for user type ${userType || 'unknown'}:`, loadedPlugins);
         
         setLoadingProgress(10); // 10% progress - plugin list loaded
-
-        if (loadedPlugins.length === 0) {
-          console.log("No plugins listed by the server. Using fallback data.");
-          setMetadataList(fallbackMetadata);
-          setDataSource('fallback');
-          setLoading(false);
-          setLoadingProgress(100);
-          return;
-        }
         
         // Process plugins in batches - good balance between speed and reliability
         const validMetadata = await processPluginsInBatches(
@@ -533,18 +524,12 @@ export const useAllPluginMetadata = () => {
         if (validMetadata.length > 0) {
           setMetadataList(validMetadata);
           setDataSource('backend');
-        } else {
-          console.log("No plugins fetched successfully, using fallback data");
-          setMetadataList(fallbackMetadata);
-          setDataSource('fallback');
         }
         
         setLoadingProgress(100); // 100% progress - all done
       } catch (err: any) {
         console.error("FATAL: Failed to fetch plugin metadata:", err);
         setError(err.message || "An unknown error occurred while fetching plugin data");
-        setMetadataList(fallbackMetadata);
-        setDataSource('fallback');
         setLoadingProgress(100); // Error, but still complete
       } finally {
         setLoading(false);

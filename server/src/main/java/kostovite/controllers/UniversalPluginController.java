@@ -1,3 +1,4 @@
+// src/main/java/kostovite/controllers/UniversalPluginController.java
 package kostovite.controllers;
 
 import kostovite.ExtendedPluginInterface;
@@ -25,7 +26,7 @@ import java.util.stream.Collectors;
 public class UniversalPluginController {
 
     private final ManualPluginLoader pluginLoader;
-    private final PluginService pluginService; // Add PluginService for access control
+    private final PluginService pluginService;
     private static final Logger logger = Logger.getLogger(UniversalPluginController.class.getName());
 
     @Autowired
@@ -35,10 +36,11 @@ public class UniversalPluginController {
         logger.info("UniversalPluginController initialized with ManualPluginLoader and PluginService");
     }
 
-    // --- Helper Method to Find Plugin (Refactored) ---
+    // --- Helper Method to Find Plugin (No access check) ---
     private PluginInterface findPluginByName(String pluginName) {
         for (PluginInterface p : pluginLoader.getLoadedPlugins()) {
-            if (p.getName().equalsIgnoreCase(pluginName)) {
+            // Using equalsIgnoreCase for robustness
+            if (p.getName() != null && p.getName().equalsIgnoreCase(pluginName)) {
                 return p;
             }
         }
@@ -46,31 +48,32 @@ public class UniversalPluginController {
         return null;
     }
 
-    // --- Helper Method to Find Plugin with Access Control ---
+    // --- Helper Method to Find Plugin WITH Access Control (Used for GET info endpoints) ---
     private PluginInterface findAccessiblePlugin(String pluginName, Authentication authentication) {
         PluginInterface plugin = findPluginByName(pluginName);
         if (plugin == null) {
             return null;
         }
 
-        // Check access control if authentication is available
-        if (authentication != null) {
-            String userType = pluginService.extractUserType(authentication);
-            try {
-                Map<String, Object> metadata = plugin.getMetadata();
-                String pluginAccessLevel = String.valueOf(metadata.getOrDefault("accessLevel", "normal")).toLowerCase();
-                if (!pluginService.canUserAccess(userType, pluginAccessLevel)) {
-                    logger.warning("Access denied: User type '" + userType + "' attempted to access plugin '" +
-                            pluginName + "' with required access level '" + pluginAccessLevel + "'");
-                    return null;
-                }
-            } catch (Exception e) {
-                logger.log(Level.SEVERE, "Error checking access for plugin " + pluginName, e);
-                return null;
-            }
-        }
+        // If authentication is null (anonymous user), check against "normal" access level
+        String userType = pluginService.extractUserType(authentication); // Handles null authentication
 
-        return plugin;
+        try {
+            Map<String, Object> metadata = plugin.getMetadata();
+            String pluginAccessLevel = String.valueOf(metadata.getOrDefault("accessLevel", "normal")).toLowerCase();
+
+            // Use the service to check access for the resolved userType (can be "normal" for anonymous)
+            if (!pluginService.canUserAccess(userType, pluginAccessLevel)) {
+                logger.warning("Access denied: User type '" + userType + "' attempted to access plugin '" +
+                        pluginName + "' with required access level '" + pluginAccessLevel + "'");
+                return null; // Return null if access denied
+            }
+            // User has access
+            return plugin;
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Error checking access for plugin " + pluginName, e);
+            return null; // Deny access on error
+        }
     }
 
     // --- Helper Method for Not Found Response ---
@@ -108,17 +111,18 @@ public class UniversalPluginController {
         return null;
     }
 
-    // --- Updated Endpoints with Access Control ---
+    // --- Controller Endpoints ---
 
+    // GET /api/plugins/universal - Allows anonymous access but filters results based on permissions
     @GetMapping
-    public ResponseEntity<Map<String, Object>> getAllPlugins(Authentication authentication) {
-        String userType = pluginService.extractUserType(authentication);
-        logger.info("Getting all plugins for user type: " + userType);
+    public ResponseEntity<Map<String, Object>> getAllPlugins(Authentication authentication) { // Authentication can be null
+        String userType = pluginService.extractUserType(authentication); // Will return "normal" if null
+        logger.info("Getting all plugins list, checking access for user type: " + userType);
 
         Map<String, Object> response = new HashMap<>();
         List<PluginInterface> allPlugins = pluginLoader.getLoadedPlugins();
 
-        // Filter plugins based on user access level
+        // Filter plugins based on user access level (uses "normal" for anonymous)
         List<String> accessiblePlugins = allPlugins.stream()
                 .filter(plugin -> {
                     try {
@@ -135,26 +139,47 @@ public class UniversalPluginController {
 
         response.put("count", accessiblePlugins.size());
         response.put("plugins", accessiblePlugins);
-        response.put("userType", userType);
+        response.put("userType", userType); // Reflects the type used for filtering
         return ResponseEntity.ok(response);
     }
 
     /**
      * Process data sent as JSON in the request body.
+     * Uses findPluginByName (no authentication check) to allow anonymous access.
      */
     @PostMapping("/{pluginName}")
     public ResponseEntity<Map<String, Object>> processPluginJsonData(
             @PathVariable String pluginName,
             @RequestBody Map<String, Object> input,
-            Authentication authentication) {
+            Authentication authentication) { // Authentication can be null
 
         logger.info("Processing JSON request for plugin: " + pluginName + " by user: " +
                 (authentication != null ? authentication.getName() : "anonymous"));
 
-        PluginInterface plugin = findAccessiblePlugin(pluginName, authentication);
+        // Find plugin by name, does not check access level itself
+        PluginInterface plugin = findPluginByName(pluginName);
         if (plugin == null) {
             return buildPluginNotFoundResponse(pluginName);
         }
+
+        // Optional: If you want to check access even for anonymous users
+        // Uncomment this block if you want to restrict access based on user type
+        /*
+        String userType = pluginService.extractUserType(authentication);
+        try {
+            Map<String, Object> metadata = plugin.getMetadata();
+            String pluginAccessLevel = String.valueOf(metadata.getOrDefault("accessLevel", "normal")).toLowerCase();
+            if (!pluginService.canUserAccess(userType, pluginAccessLevel)) {
+                return buildAccessDeniedResponse(pluginName);
+            }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Error checking access for plugin " + pluginName, e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "success", false,
+                "errorMessage", "Error checking access: " + e.getMessage()
+            ));
+        }
+        */
 
         try {
             if (plugin instanceof ExtendedPluginInterface extendedPlugin) {
@@ -162,7 +187,7 @@ public class UniversalPluginController {
                 logger.info("Plugin " + pluginName + " processed JSON data successfully.");
                 return ResponseEntity.ok(result);
             } else {
-                plugin.execute();
+                plugin.execute(); // Handle basic plugins if necessary
                 logger.info("Executed basic plugin (no data processing): " + pluginName);
                 Map<String, Object> fallbackResponse = new HashMap<>();
                 fallbackResponse.put("success", true);
@@ -181,19 +206,21 @@ public class UniversalPluginController {
 
     /**
      * Handles file uploads via multipart/form-data.
+     * Allows anonymous access but you can add access control if needed.
      */
     @PostMapping(value = "/{pluginName}/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> processPluginMultipartData(
             @PathVariable String pluginName,
             @RequestParam("file") MultipartFile file,
             @RequestParam Map<String, String> allParams,
-            Authentication authentication) {
+            Authentication authentication) { // Authentication can be null
 
         long startTime = System.currentTimeMillis();
         logger.info(String.format("Received multipart upload for plugin '%s': file='%s', size=%d, params=%s",
                 pluginName, file.getOriginalFilename(), file.getSize(), allParams.keySet()));
 
-        PluginInterface plugin = findAccessiblePlugin(pluginName, authentication);
+        // Find plugin by name, does not check access level itself
+        PluginInterface plugin = findPluginByName(pluginName);
         if (plugin == null) {
             return buildPluginNotFoundResponse(pluginName);
         }
@@ -260,6 +287,7 @@ public class UniversalPluginController {
 
     /**
      * Handles file uploads as raw binary data in the request body.
+     * Allows anonymous access but you can add access control if needed.
      */
     @PostMapping(value = "/{pluginName}/binary", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     public ResponseEntity<Map<String, Object>> processPluginBinaryData(
@@ -269,13 +297,14 @@ public class UniversalPluginController {
             @RequestHeader(value = "X-Data-Field-Name", required = false) String dataFieldNameHeader,
             @RequestHeader(value = "X-Mime-Type-Field-Name", required = false) String mimeTypeFieldNameHeader,
             @RequestHeader(value = "X-File-Name", required = false) String fileNameHeader,
-            Authentication authentication) {
+            Authentication authentication) { // Authentication can be null
 
         long startTime = System.currentTimeMillis();
         logger.info(String.format("Received binary upload for plugin '%s': size=%d, Content-Type=%s",
                 pluginName, fileData.length, contentType));
 
-        PluginInterface plugin = findAccessiblePlugin(pluginName, authentication);
+        // Find plugin by name, does not check access level itself
+        PluginInterface plugin = findPluginByName(pluginName);
         if (plugin == null) {
             return buildPluginNotFoundResponse(pluginName);
         }
@@ -333,11 +362,11 @@ public class UniversalPluginController {
         }
     }
 
-    // --- CHANGED: Renamed endpoint to avoid conflict with PluginController ---
+    // GET /api/plugins/universal/load-plugins - Allows anonymous access but filters results based on permissions
     @GetMapping("/load-plugins")
-    public ResponseEntity<Map<String, Object>> loadPlugins(Authentication authentication) {
+    public ResponseEntity<Map<String, Object>> loadPlugins(Authentication authentication) { // Authentication can be null
         String userType = pluginService.extractUserType(authentication);
-        logger.info("Loading plugins for user type: " + userType);
+        logger.info("Loading plugins list, checking access for user type: " + userType);
 
         Map<String, Object> response = new HashMap<>();
         try {
@@ -345,7 +374,7 @@ public class UniversalPluginController {
             Path pluginsPath = Paths.get(workingDir, "plugins-deploy").toAbsolutePath();
             List<PluginInterface> allPlugins = pluginLoader.loadPlugins(pluginsPath);
 
-            // Filter plugins based on user access level
+            // Filter based on resolved userType (e.g., "normal" for anonymous)
             List<String> accessiblePlugins = allPlugins.stream()
                     .filter(plugin -> {
                         try {
@@ -372,12 +401,10 @@ public class UniversalPluginController {
         return ResponseEntity.ok(response);
     }
 
+    // --- Admin Unload Endpoints (Keep Restricted) ---
     @DeleteMapping("/unload/{pluginName}")
-    public ResponseEntity<Map<String, Object>> unloadPlugin(
-            @PathVariable String pluginName,
-            Authentication authentication) {
-
-        // Only allow admin users to unload plugins
+    public ResponseEntity<Map<String, Object>> unloadPlugin(@PathVariable String pluginName, Authentication authentication) {
+        // MUST check authentication and role here
         String userType = pluginService.extractUserType(authentication);
         if (!"admin".equals(userType)) {
             logger.warning("Non-admin user (" + userType + ") attempted to unload plugin: " + pluginName);
@@ -403,7 +430,7 @@ public class UniversalPluginController {
 
     @DeleteMapping("/unload-all")
     public ResponseEntity<Map<String, Object>> unloadAllPlugins(Authentication authentication) {
-        // Only allow admin users to unload all plugins
+        // MUST check authentication and role here
         String userType = pluginService.extractUserType(authentication);
         if (!"admin".equals(userType)) {
             logger.warning("Non-admin user (" + userType + ") attempted to unload all plugins");
@@ -421,40 +448,37 @@ public class UniversalPluginController {
         return ResponseEntity.ok(response);
     }
 
-    // --- CHANGED: Renamed endpoint to avoid conflict with PluginController ---
+    // GET /api/plugins/universal/{pluginName}/plugin-info - Allows anonymous access but filters results based on permissions
     @GetMapping("/{pluginName}/plugin-info")
     public ResponseEntity<Map<String, Object>> getPluginInfo(
             @PathVariable String pluginName,
-            Authentication authentication) {
+            Authentication authentication) { // Authentication can be null
 
         logger.fine("Requesting plugin info for plugin: " + pluginName);
-        String userType = pluginService.extractUserType(authentication);
 
-        PluginInterface plugin = findPluginByName(pluginName);
+        // Use findAccessiblePlugin which handles null authentication and checks access
+        PluginInterface plugin = findAccessiblePlugin(pluginName, authentication);
         if (plugin == null) {
-            return buildPluginNotFoundResponse(pluginName);
+            // Distinguish between not found and access denied
+            if (findPluginByName(pluginName) == null) {
+                return buildPluginNotFoundResponse(pluginName);
+            } else {
+                return buildAccessDeniedResponse(pluginName);
+            }
         }
 
         try {
             Map<String, Object> metadata = plugin.getMetadata();
-            String pluginAccessLevel = String.valueOf(metadata.getOrDefault("accessLevel", "normal")).toLowerCase();
-
-            // Check if user has access to this plugin
-            if (!pluginService.canUserAccess(userType, pluginAccessLevel)) {
-                logger.warning("User type '" + userType + "' attempted to access info for plugin '" +
-                        pluginName + "' with required access level '" + pluginAccessLevel + "'");
-                return buildAccessDeniedResponse(pluginName);
-            }
-
-            // Add user type information to the response
-            metadata.put("userType", userType);
-
-            logger.fine("Returning info for plugin: " + pluginName + " to user type: " + userType);
+            // Add user type used for check if needed by frontend
+            metadata.put("requestingUserType", pluginService.extractUserType(authentication));
+            logger.fine("Returning info for accessible plugin: " + pluginName);
             return ResponseEntity.ok(metadata);
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Error retrieving info for plugin " + pluginName, e);
-            return ResponseEntity.internalServerError().body(Map.of("success", false,
-                    "errorMessage", "Error retrieving plugin info: " + e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "success", false,
+                    "errorMessage", "Error retrieving plugin info: " + e.getMessage()
+            ));
         }
     }
 }
