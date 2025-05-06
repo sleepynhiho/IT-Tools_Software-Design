@@ -50,12 +50,21 @@ public class PluginController {
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    // Removed @PreAuthorize("isAuthenticated()") to allow anonymous access
     public ResponseEntity<List<Map<String, Object>>> getPluginsForCurrentUser(Authentication authentication) {
         if (authentication == null) {
-            log.warn("Authentication object is null in getPluginsForCurrentUser despite @PreAuthorize");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Collections.emptyList());
+            log.info("Anonymous user requesting plugin list");
+            // For anonymous users, return plugins with "public" access level
+            try {
+                // Note: You'll need to update PluginService to handle null authentication
+                List<Map<String, Object>> accessiblePlugins = pluginService.getAccessiblePluginMetadata(authentication);
+                return ResponseEntity.ok(accessiblePlugins);
+            } catch (Exception e) {
+                log.error("Error retrieving accessible plugins for anonymous user: {}", e.getMessage(), e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Collections.emptyList());
+            }
         }
+
         log.info("Request received for GET /api/plugins by user {}", authentication.getName());
         try {
             List<Map<String, Object>> accessiblePlugins = pluginService.getAccessiblePluginMetadata(authentication);

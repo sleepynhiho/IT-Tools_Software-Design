@@ -1,133 +1,117 @@
+// src/context/AllToolsContext.tsx
+
 import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  ReactNode,
-} from "react";
-import usePluginService from "../services/pluginService"; // Import the service hook (assuming it's memoized now)
-import { useAuth } from "./AuthContext"; // Import useAuth to check login status
-
-// Define the Tool interface based on what the backend /api/plugins endpoint returns
-// It should include all necessary details for display. accessLevel is optional
-// on the frontend if the backend handles all filtering.
-interface Tool {
-  id: string;
-  name: string;
-  icon: string;
-  category: string;
-  accessLevel?: 'normal' | 'premium' | 'admin'; // Optional on frontend now
-  description?: string;
-  // Include other properties returned by your backend API
-}
-
-// Define the shape of this context's value
-interface AllToolsContextType {
-  allTools: Tool[]; // This holds the user-specific, filtered list from the backend
-  isLoading: boolean; // True if either auth or tool fetch is in progress
-  error: string | null; // Any error during fetching
-  refetchTools: () => void; // Function to manually trigger a refetch
-}
-
-// Create the context
-const AllToolsContext = createContext<AllToolsContextType | undefined>(
-  undefined
-);
-
-// Create the custom hook for consuming the context
-export const useAllTools = (): AllToolsContextType => {
-  const context = useContext(AllToolsContext);
-  if (!context) {
-    // Ensure this provider is included in your component tree (e.g., in index.tsx)
-    throw new Error("useAllTools must be used within an AllToolsProvider");
+    createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef
+  } from "react";
+  import usePluginService from "../services/pluginService";
+  import { useAuth } from "./AuthContext";
+  
+  // Tool Interface
+  interface Tool {
+    id: string;
+    name: string;
+    icon: string;
+    category: string;
+    accessLevel?: 'normal' | 'premium' | 'admin';
+    description?: string;
+    sections?: any[];
+    uiConfig?: any;
   }
-  return context;
-};
-
-// --- Provider Component (Named Export assumed) ---
-export const AllToolsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    // Get authentication status and user object
+  
+  interface AllToolsContextType {
+    allTools: Tool[];
+    isLoading: boolean;
+    error: string | null;
+    refetchTools: () => void;
+  }
+  
+  const AllToolsContext = createContext<AllToolsContextType | undefined>(undefined);
+  
+  export const useAllTools = (): AllToolsContextType => {
+    const context = useContext(AllToolsContext);
+    if (!context) {
+      throw new Error("useAllTools must be used within an AllToolsProvider");
+    }
+    return context;
+  };
+  
+  export const AllToolsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { currentUser, loading: isAuthLoading } = useAuth();
-    // Get the memoized plugin service hook
     const pluginService = usePluginService();
-
-    // State to hold the final, filtered list of tools received from the backend
+  
     const [allTools, setAllTools] = useState<Tool[]>([]);
-    // Loading state reflects combined auth/tool fetch status
     const [isLoading, setIsLoading] = useState<boolean>(true);
-    // Error state for fetch errors
     const [error, setError] = useState<string | null>(null);
-
-    // --- Function to fetch the user-specific tool list ---
-    // useCallback ensures this function reference is stable unless dependencies change
+    const fetchedForUserRef = useRef<string | null | undefined>(undefined);
+  
     const fetchAllTools = useCallback(async () => {
-        // Don't attempt fetch until authentication status is resolved
-        if (isAuthLoading) {
-            console.log("[AllToolsContext] Waiting for auth process...");
-            // Ensure loading stays true if we haven't loaded tools yet
-            if (allTools.length === 0) setIsLoading(true);
-            return;
+      // Wait for initial auth state resolution
+      if (isAuthLoading) {
+        console.log("[AllToolsContext] Waiting for initial auth process...");
+        if (fetchedForUserRef.current === undefined) {
+             setIsLoading(true);
         }
-
-        // If user is logged out, clear tools and finish loading
-        if (!currentUser) {
-            console.log("[AllToolsContext] No user logged in. Clearing tool list.");
-            setAllTools([]);
-            setIsLoading(false);
-            setError(null);
-            return;
+        return;
+      }
+  
+      // --- CHANGE: Allow fetching even if currentUser is null ---
+      const currentUserId = currentUser?.uid ?? null; // Represent anonymous as null
+  
+      // Skip refetch only if user status hasn't changed since last successful fetch
+      if (fetchedForUserRef.current === currentUserId && fetchedForUserRef.current !== undefined && !error) { // Also check for error state
+          console.log("[AllToolsContext] User status hasn't changed since last successful fetch. Skipping refetch.");
+          setIsLoading(false); // Ensure loading is false if skipped
+          return;
+      }
+  
+      console.log(`[AllToolsContext] Auth resolved or user changed. Fetching tools via service (User: ${currentUserId ?? "anonymous"})`);
+      setIsLoading(true);
+      setError(null); // Clear previous errors before fetching
+  
+      try {
+        // pluginService.getAvailablePlugins() calls GET /api/plugins
+        // fetchWithAuth inside getAvailablePlugins will handle sending token ONLY IF currentUser exists
+        // Backend needs to allow anonymous requests to GET /api/plugins
+        const fetchedTools = await pluginService.getAvailablePlugins();
+        console.log(`[AllToolsContext] Received ${fetchedTools.length} tools from service.`);
+  
+        // --- Ensure fetchedTools is an array before comparing/setting ---
+        if (!Array.isArray(fetchedTools)) {
+            console.error("[AllToolsContext] Received non-array response for tools:", fetchedTools);
+            throw new Error("Invalid data format received from server.");
         }
-
-        // User is logged in and auth is ready, proceed to fetch their accessible tools
-        console.log("[AllToolsContext] Auth ready. Fetching user-specific tools via service...");
-        setIsLoading(true); // Indicate fetching has started
-        setError(null); // Clear previous errors
-
-        try {
-            // Call the service method (which uses fetchWithAuth internally)
-            // This endpoint (`/api/plugins`) should return the filtered list from the backend
-            const fetchedTools = await pluginService.getAvailablePlugins();
-            console.log(`[AllToolsContext] Received ${fetchedTools.length} accessible tools from service.`);
-            
-            // ADDED: Compare with existing state to avoid unnecessary updates
-            if (JSON.stringify(fetchedTools) !== JSON.stringify(allTools)) {
-                // Update state with the received list only if different
-                setAllTools(fetchedTools);
-                console.log("[AllToolsContext] Tools updated, setting new state");
-            } else {
-                console.log("[AllToolsContext] Tools unchanged, skipping state update");
-            }
-        } catch (err: any) {
-            console.error("[AllToolsContext] Error fetching tool data:", err);
-            // Set error state to display feedback to the user
-            setError(err.message || "Failed to load tools. Please try again.");
-            setAllTools([]); // Clear tools state on error
-        } finally {
-            setIsLoading(false); // Mark loading as complete (success or error)
-            console.log("[AllToolsContext] Tool fetching process finished.");
+  
+        // Update state only if data actually changed
+        // Consider a more efficient comparison for very large arrays if needed
+        if (JSON.stringify(fetchedTools) !== JSON.stringify(allTools)) {
+          setAllTools(fetchedTools);
+          console.log("[AllToolsContext] Tools updated, setting new state");
+        } else {
+          console.log("[AllToolsContext] Tools unchanged, skipping state update");
         }
-    // Dependencies: Re-run only when auth status changes or the service instance changes (which shouldn't happen often with useMemo)
-    }, [isAuthLoading, currentUser, pluginService]);
-
-    // --- Effect to trigger the fetch on mount and when dependencies change ---
+        fetchedForUserRef.current = currentUserId; // Mark successful fetch for this user state
+  
+      } catch (err: any) {
+        console.error("[AllToolsContext] Error fetching tool data:", err);
+        setError(err.message || "Failed to load tools. Please try again.");
+        setAllTools([]); // Clear tools on error
+        fetchedForUserRef.current = undefined; // Reset fetch status on error
+      } finally {
+         // Set loading false regardless of success/error AFTER attempt
+         setIsLoading(false);
+        console.log("[AllToolsContext] Tool fetching process finished.");
+      }
+    }, [isAuthLoading, currentUser, pluginService, allTools, error]); // Added 'error' to dependencies
+  
     useEffect(() => {
-        fetchAllTools();
-    }, [fetchAllTools]); // Dependency array contains the stable fetchAllTools function
-
-    // --- Provide the context value to children ---
+      fetchAllTools();
+    }, [fetchAllTools]); // fetchAllTools is stable due to useCallback
+  
     return (
-        <AllToolsContext.Provider
-            value={{
-                allTools, // Provide the list of tools (already filtered by backend)
-                isLoading, // Provide the current loading status
-                error,     // Provide any error message
-                refetchTools: fetchAllTools, // Provide the function to allow manual refetching
-            }}
-        >
-            {children}
-        </AllToolsContext.Provider>
+      <AllToolsContext.Provider value={{ allTools, isLoading, error, refetchTools: fetchAllTools }}>
+        {children}
+      </AllToolsContext.Provider>
     );
-};
-
-export default AllToolsProvider;
+  };
+  
+export default AllToolsProvider; 
