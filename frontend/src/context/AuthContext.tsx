@@ -8,7 +8,7 @@ import React, {
   useCallback, // Added useCallback
   ReactNode
 } from 'react';
-import { onAuthStateChanged, signOut, User, getIdToken } from 'firebase/auth';
+import { onAuthStateChanged, signOut, User as FirebaseUser, getIdToken } from 'firebase/auth';
 import { auth, db } from '../firebaseConfig'; // Import db
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"; // Import Firestore functions
 import { CircularProgress, Box } from '@mui/material';
@@ -133,6 +133,79 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      } catch (error) { console.error("[AuthProvider] Error signing out:", error); throw error; }
   }, []); // Dependency: none
 
+    // Fetch user data from Firestore
+    const fetchUserData = useCallback(async (user: FirebaseUser) => {
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        const docSnap = await getDoc(userDocRef);
+        
+        if (docSnap.exists()) {
+          // Set user type from Firestore
+          const userData = docSnap.data();
+          setUserType(userData.userType || 'normal');
+          
+          // Update last login
+          await setDoc(userDocRef, {
+            lastLogin: serverTimestamp()
+          }, { merge: true });
+          
+        } else {
+          // Create new user document if it doesn't exist
+          await setDoc(userDocRef, {
+            email: user.email,
+            createdAt: serverTimestamp(),
+            lastLogin: serverTimestamp(),
+            userType: 'normal',
+            favoritePluginIds: []
+          });
+          setUserType('normal');
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        setUserType('normal'); // Default to normal user on error
+      }
+    }, []);
+
+  const refreshUserData = useCallback(async () => {
+    try {
+      if (currentUser) {
+        const userDocRef = doc(db, "users", currentUser.uid);
+        const docSnap = await getDoc(userDocRef);
+        
+        if (docSnap.exists()) {
+          const userData = docSnap.data();
+          
+          // Update the context state with fresh data
+          setUserType(userData.userType || 'normal');
+          // Update any other user data as needed
+          
+          console.log("User data refreshed:", userData.userType);
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error("Error refreshing user data:", error);
+      return false;
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setCurrentUser(user);
+      
+      if (user) {
+        await fetchUserData(user);
+      } else {
+        setUserType(null);
+      }
+      
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [fetchUserData]);
+
 
   // Show loading indicator while auth state or user type is being determined
   if (loading) {
@@ -143,9 +216,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
   }
 
+
+
   // Provide the context value including userType
   return (
-    <AuthContext.Provider value={{ currentUser, userType, loading, getIdToken: getToken, logout: handleLogout }}>
+    <AuthContext.Provider value={{ currentUser, userType, loading, refreshUserData, getIdToken: getToken, logout: handleLogout }}>
       {children}
     </AuthContext.Provider>
   );

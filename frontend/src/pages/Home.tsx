@@ -1,34 +1,89 @@
-// src/pages/Home.tsx
-import React from 'react'; // Import React
 import { Box, Container, Grid, Typography, CircularProgress } from "@mui/material";
-import ToolCard from "../components/ToolCard"; // Ensure path is correct
+import ToolCard from "../components/ToolCard";
 import { useFavoriteTools } from "../context/FavoriteToolsContext";
-// --- Use the CORRECT Context Hook ---
-import { useAllTools } from "../context/AllToolsContext"; // <<<--- IMPORT THIS
-// --- Remove the OLD Hook Import ---
-// import { useAllPluginMetadata } from "../data/pluginList"; // DELETE or COMMENT OUT
+import { useAllTools } from "../context/AllToolsContext";
+import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const Home = () => {
-  // Get state and functions from contexts
-  // Favorite tools data comes from its own context
+  const navigate = useNavigate();
   const { favoriteTools, toggleFavorite, isFavorite } = useFavoriteTools();
-  // All tools data now comes from AllToolsContext
-  const { allTools, isLoading, error } = useAllTools(); // <<<--- USE THIS HOOK
+  const { 
+    allTools, 
+    isLoading, 
+    error, 
+    updateToolStatus,
+    updateToolAccessLevel 
+  } = useAllTools();
+  const { userType } = useAuth();
+  const isAdmin = userType === 'admin';
 
-  // --- Remove the OLD Hook Call ---
-  // const { metadataList = [], loading: oldLoading, loadingProgress, error: oldError } = useAllPluginMetadata();
-
-  // Log the state from the correct contexts for debugging
-  console.log("Home - Render", {
-      favoriteToolsCount: favoriteTools.length,
-      allToolsCount: allTools.length,
-      isLoadingAllTools: isLoading, // Use isLoading from useAllTools
-      allToolsError: error       // Use error from useAllTools
+  // Only show enabled tools to non-admin users
+  const visibleTools = isAdmin
+    ? allTools
+    : allTools.filter(tool => tool.status !== 'disabled');
+    
+  // Get only visible favorite tools
+  const visibleFavoriteTools = favoriteTools.filter(tool => {
+    // For non-admin users, filter out disabled tools
+    if (!isAdmin && tool.status === 'disabled') return false;
+    return true;
   });
 
-  // Helper function remains the same, uses isFavorite from useFavoriteTools
+  console.log("Home - Render", {
+      favoriteToolsCount: visibleFavoriteTools.length,
+      allToolsCount: visibleTools.length,
+      isLoadingAllTools: isLoading,
+      allToolsError: error,
+      isUserAdmin: isAdmin
+  });
+
   const checkIsFavorite = (toolId: string): boolean => {
      return isFavorite(toolId);
+  };
+
+  // Handler for removing a tool
+  const handleRemoveTool = async (toolId: string) => {
+    if (isAdmin) {
+      try {
+        // await removeTool(toolId);
+        // Success feedback could be added here
+      } catch (error) {
+        console.error("Failed to remove tool:", error);
+        // Error feedback could be added here
+      }
+    }
+  };
+
+  // Handler for toggling tool status
+  const handleToolStatusToggle = async (toolId: string, newStatus: 'enabled' | 'disabled') => {
+    if (isAdmin) {
+      try {
+        await updateToolStatus(toolId, newStatus);
+        // Success feedback could be added here
+      } catch (error) {
+        console.error("Failed to update tool status:", error);
+        // Error feedback could be added here
+      }
+    }
+  };
+
+  // Handler for changing tool access level
+  const handleToolAccessLevelChange = async (toolId: string, newLevel: 'normal' | 'premium') => {
+    if (isAdmin) {
+      try {
+        await updateToolAccessLevel(toolId, newLevel);
+        // Success feedback could be added here
+      } catch (error) {
+        console.error("Failed to update tool access level:", error);
+        // Error feedback could be added here
+      }
+    }
+  };
+
+  // Handler for navigating to add tool page
+  const handleAddToolClick = () => {
+    navigate("/admin/tools/new");
   };
 
   return (
@@ -37,8 +92,8 @@ const Home = () => {
       sx={{
         display: "flex",
         justifyContent: "center",
-        alignItems: "flex-start", // Align content to the top
-        minHeight: "calc(100vh - 64px)", // Example: Adjust for header height
+        alignItems: "flex-start",
+        minHeight: "calc(100vh - 64px)",
         paddingTop: "10px",
       }}
     >
@@ -48,12 +103,10 @@ const Home = () => {
             display: "flex",
             flexDirection: "column",
             padding: "20px",
-            // Removed justifyContent center to allow top alignment
           }}
         >
-          {/* Favorite Tools Section */}
-          {/* This section correctly uses favoriteTools from useFavoriteTools */}
-          {favoriteTools && favoriteTools.length > 0 && (
+          {/* Favorite Tools Section - only show if there are visible favorites */}
+          {visibleFavoriteTools && visibleFavoriteTools.length > 0 && (
             <>
               <Typography sx={{ mb: 1 }} variant="h4" component="h1">
                 <span style={{ fontSize: "1rem", fontWeight: "bold", color: "#a3a3a3" }}>
@@ -61,12 +114,15 @@ const Home = () => {
                 </span>
               </Typography>
               <Grid container spacing={3} justifyContent="flex-start">
-                {favoriteTools.map((tool) => (
+                {visibleFavoriteTools.map((tool) => (
                   <Grid item xs={12} sm={6} md={4} lg={2.4} key={`favorite-${tool.id}`}>
                     <ToolCard
                       tool={tool}
-                      isFavorite={true} // Items in this list are always favorites
+                      isFavorite={true}
                       onFavoriteToggle={toggleFavorite}
+                      onToolRemove={isAdmin ? handleRemoveTool : undefined}
+                      onToolStatusToggle={isAdmin ? handleToolStatusToggle : undefined}
+                      onToolAccessLevelChange={isAdmin ? handleToolAccessLevelChange : undefined}
                     />
                   </Grid>
                 ))}
@@ -75,39 +131,37 @@ const Home = () => {
           )}
 
           {/* All Tools Section */}
-          <Typography sx={{ mb: 1, mt: favoriteTools.length > 0 ? 3 : 0 }} variant="h4" component="h1">
+          <Typography sx={{ mb: 1, mt: visibleFavoriteTools.length > 0 ? 3 : 0 }} variant="h4" component="h1">
             <span style={{ fontSize: "1rem", fontWeight: "bold", color: "#a3a3a3" }}>
               All the tools
             </span>
           </Typography>
 
-          {/* Use isLoading state FROM useAllTools */}
           {isLoading ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 4 }}>
               <CircularProgress
                 size={60}
                 thickness={4}
-                sx={{ color: '#1ea54c' }} // Example color
+                sx={{ color: '#1ea54c' }}
               />
               <Typography variant="body2" sx={{ mt: 2, color: '#a3a3a3' }}>
                 Loading Tools...
               </Typography>
-              {/* Removed the complex loadingProgress text */}
             </Box>
           ) : error ? (
-             // Use error state FROM useAllTools
             <Typography color="error">Error loading tools: {error}</Typography>
           ) : (
-            // Use allTools FROM useAllTools
             <Grid container spacing={3} justifyContent="flex-start">
-              {allTools && allTools.length > 0 ? (
-                  allTools.map((tool) => (
+              {visibleTools && visibleTools.length > 0 ? (
+                  visibleTools.map((tool) => (
                     <Grid item xs={12} sm={6} md={4} lg={2.4} key={`all-${tool.id}`}>
                       <ToolCard
                         tool={tool}
-                        // Check against the isFavorite function from FavoriteToolsContext
                         isFavorite={checkIsFavorite(tool.id)}
                         onFavoriteToggle={toggleFavorite}
+                        onToolRemove={isAdmin ? handleRemoveTool : undefined}
+                        onToolStatusToggle={isAdmin ? handleToolStatusToggle : undefined}
+                        onToolAccessLevelChange={isAdmin ? handleToolAccessLevelChange : undefined}
                       />
                     </Grid>
                   ))

@@ -8,6 +8,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import SignUpPage from "./pages/SignUp";
 import LoginPage from "./pages/Login";
+import UpgradePage from "./pages/UpgradePage"; // Import the new upgrade page
 import { AuthProvider } from "./context/AuthContext";
 
 // Create a wrapper component that applies MainLayout
@@ -33,7 +34,11 @@ function App() {
               {/* Routes with MainLayout */}
               <Route path="/" element={<WithMainLayout component={Home} />} />
               <Route path="/tools/:id" element={<WithMainLayout component={ToolRenderer} />} />
+              <Route path="/upgrade" element={<WithMainLayout component={UpgradePage} />} />
               
+              {/* Admin routes with MainLayout
+              <Route path="/admin/tools/new" element={<WithMainLayout component={AddToolPage} />} />
+               */}
               {/* 404 route with MainLayout */}
               <Route path="*" element={<WithMainLayout component={() => <div>404 Not Found</div>} />} />
             </Routes>
