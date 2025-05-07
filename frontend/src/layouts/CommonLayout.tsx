@@ -39,6 +39,7 @@ const CommonLayout: React.FC<CommonLayoutProps> = ({
           display: "flex",
           flexDirection: "column",
           justifyContent: "flex-start",
+          minWidth: "500px",
         }}
       >
         <Box sx={{ display: "flex", justifyContent: "space-between" }}>

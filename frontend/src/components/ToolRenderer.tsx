@@ -1,119 +1,65 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom"; // Add useNavigate
+import { useParams, useNavigate } from "react-router-dom";
 import debounce from "lodash.debounce";
-import CustomPluginUIs from "./plugins/CustomPluginUIs"; // Adjust path if needed
+import CustomPluginUIs from "./plugins/CustomPluginUIs";
 
 // MUI Imports
 import {
   Box,
   Typography,
   Paper,
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Button,
-  FormHelperText,
   CircularProgress,
   Grid,
-  Card,
-  CardContent,
-  CardHeader,
-  Switch,
-  FormControlLabel,
-  Slider,
-  CssBaseline,
-  Container,
   Alert,
-  IconButton,
-  Chip,
-  LinearProgress,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Dialog,
-  DialogTitle,
   DialogContent,
   DialogActions,
+  Fade,
+  AlertTitle,
+  alpha,
+  Divider,
+  Slide,
 } from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import DownloadIcon from "@mui/icons-material/Download";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import CancelIcon from "@mui/icons-material/Cancel";
-import LabelIcon from "@mui/icons-material/Label"; // Example list icon
-import StarIcon from "@mui/icons-material/Star"; // Added for premium icon
-import { useTheme } from "@mui/material/styles";
+import StarIcon from "@mui/icons-material/Star";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import TuneIcon from "@mui/icons-material/Tune";
+import InputIcon from "@mui/icons-material/Input";
+import AssessmentIcon from "@mui/icons-material/Assessment";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import OutputIcon from "@mui/icons-material/Output";
 
 // Local Imports
-import CommonLayout from "../layouts/CommonLayout"; // Adjust path if needed
-// --- CHANGE 1: Import from AllToolsContext and AuthContext, and use fetchWithAuth ---
-import { useAllTools } from "../context/AllToolsContext"; // Use the correct context
-import { useAuth } from "../context/AuthContext"; // Need this for getIdToken
-import { fetchWithAuth } from "../utils/fetchWithAuth"; // Use your auth utility
-// Keep interfaces from original source, ensure path is correct
+import CommonLayout from "../layouts/CommonLayout";
+import { useAllTools } from "../context/AllToolsContext";
+import { useAuth } from "../context/AuthContext";
+import { fetchWithAuth } from "../utils/fetchWithAuth";
 import {
   PluginMetadata,
   Section,
   InputField,
   OutputField,
-} from "../data/pluginList"; // Adjust path if needed
-// --- End CHANGE 1 ---
-
-// Configuration (API_BASE_URL might not be needed if using relative paths + proxy)
-// const API_BASE_URL = "http://localhost:8081";
-
-// --- Helper Functions ---
-function downloadDataUrl(dataUrl: string, filename: string) {
-  try {
-    if (
-      !dataUrl ||
-      typeof dataUrl !== "string" ||
-      !dataUrl.startsWith("data:")
-    ) {
-      console.error("Invalid data URL provided for download:", dataUrl);
-      alert("Could not initiate download: Invalid image data.");
-      return;
-    }
-    const link = document.createElement("a");
-    link.href = dataUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } catch (e) {
-    console.error("Download failed:", e);
-    alert("Download failed. See console for details.");
-  }
-}
+} from "../data/pluginList";
+import { SettingsIcon } from "lucide-react";
+import RenderInput from "./RenderInput";
+import RenderOutput from "./RenderOutput";
 
 // --- Main Component ---
 const ToolRenderer: React.FC = () => {
   // --- Hooks ---
   const { id: toolIdFromUrl } = useParams<{ id: string }>();
   const navigate = useNavigate(); // Add useNavigate hook
-  // --- CHANGE 2: Use useAllTools hook ---
   const {
     allTools: allPluginMetadata, // Get list from the context
     isLoading: loadingMetadataList,
     error: metadataListError,
-    // refetchTools // You can use this if needed, e.g., for a manual refresh button for the list
   } = useAllTools();
-  // --- End CHANGE 2 ---
 
-  // --- CHANGE 3: Get getIdToken and userType from useAuth ---
   const { getIdToken, userType } = useAuth();
-  const isAdmin = userType === 'admin';
-  const isPremiumUser = userType === 'premium' || userType === 'admin';
-  // --- End CHANGE 3 ---
+  const isAdmin = userType === "admin";
+  const isPremiumUser = userType === "premium" || userType === "admin";
 
   const [metadata, setMetadata] = useState<PluginMetadata | null>(null);
   const [loadingMetadata, setLoadingMetadata] = useState<boolean>(true);
@@ -126,13 +72,9 @@ const ToolRenderer: React.FC = () => {
   const [resultData, setResultData] = useState<Record<string, any> | null>(
     null
   );
-  
-  // Add state for premium upgrade dialog
-  const [showPremiumDialog, setShowPremiumDialog] = useState<boolean>(false);
-  
-  const theme = useTheme();
 
-  // --- Condition Evaluation ---
+  const [showPremiumDialog, setShowPremiumDialog] = useState<boolean>(false);
+
   const evaluateCondition = useCallback(
     (
       conditionStr?: string,
@@ -177,7 +119,6 @@ const ToolRenderer: React.FC = () => {
         });
         return;
       }
-      // --- CHANGE 4: Add check for getIdToken ---
       if (!getIdToken) {
         console.error("Process skipped: Auth token function not available.");
         setResultData({
@@ -186,17 +127,13 @@ const ToolRenderer: React.FC = () => {
         });
         return;
       }
-      // --- End CHANGE 4 ---
-      
-      // --- ADD PREMIUM CHECK ---
-      if (metadata.accessLevel === 'premium' && !isPremiumUser) {
+
+      if (metadata.accessLevel === "premium" && !isPremiumUser) {
         console.log("Process skipped: Premium feature, user is not premium.");
         setShowPremiumDialog(true);
         return;
       }
-      // --- End PREMIUM CHECK ---
 
-      // --- Client-side validation ---
       let clientSideValid = true;
       const tempErrors: Record<string, string> = {};
       metadata.sections?.forEach((section) => {
@@ -256,16 +193,12 @@ const ToolRenderer: React.FC = () => {
         setIsProcessing(false);
         return;
       }
-      // --- End Validation ---
 
       setIsProcessing(true);
 
-      // --- CHANGE 5: Define URL and use fetchWithAuth ---
-      // Using the URL from the error log. Ensure your proxy handles '/api' if path is relative.
       const processURL = `/api/debug/${metadata.id}/process`;
 
       try {
-        // Build payload
         const payload: Record<string, any> = {};
         metadata.sections?.forEach((section) => {
           section.inputs?.forEach((field) => {
@@ -303,20 +236,16 @@ const ToolRenderer: React.FC = () => {
           Object.keys(payload)
         );
 
-        // Make the API call using fetchWithAuth
         const response = await fetchWithAuth(
-          // Use fetchWithAuth
           processURL,
           {
             method: "POST",
-            // fetchWithAuth sets Content-Type, Accept automatically for JSON
             body: JSON.stringify(payload),
           },
-          getIdToken // Pass the function to get the token
+          getIdToken
         );
-        // --- End CHANGE 5 ---
 
-        const result = await response.json(); // Assuming response is always JSON, even for errors
+        const result = await response.json();
         console.log("Backend process response:", result);
 
         const errorKey =
@@ -326,7 +255,6 @@ const ToolRenderer: React.FC = () => {
           "errorMessage";
 
         if (!response.ok || result.success === false) {
-          // Handle 403 specifically if possible
           const errorMessage =
             response.status === 403
               ? "Access Denied. You may not have permission for this tool or action."
@@ -357,14 +285,12 @@ const ToolRenderer: React.FC = () => {
         setIsProcessing(false);
       }
     },
-    [metadata, resultData, evaluateCondition, getIdToken, isPremiumUser] // --- CHANGE 6: Add isPremiumUser ---
+    [metadata, resultData, evaluateCondition, getIdToken, isPremiumUser]
   );
 
   const debouncedProcessRequest = useCallback(debounce(processRequest, 500), [
     processRequest,
   ]);
-
-  // --- Effects ---
 
   // 1. Load metadata for the specific tool and initialize form
   useEffect(() => {
@@ -397,19 +323,22 @@ const ToolRenderer: React.FC = () => {
 
       if (toolMetadata) {
         // Check if tool is disabled and user is not admin - redirect to home
-        if (toolMetadata.status === 'disabled' && !isAdmin) {
-          console.log("[ToolRenderer] Tool is disabled and user is not admin, redirecting to home");
-          navigate('/');
+        if (toolMetadata.status === "disabled" && !isAdmin) {
+          console.log(
+            "[ToolRenderer] Tool is disabled and user is not admin, redirecting to home"
+          );
+          navigate("/");
           return;
         }
 
         // Check if tool is premium and user is not premium/admin - show premium dialog
-        if (toolMetadata.accessLevel === 'premium' && !isPremiumUser) {
-          console.log("[ToolRenderer] Premium tool detected, user is not premium");
-          // Still load the tool data but show premium dialog when trying to use it
+        if (toolMetadata.accessLevel === "premium" && !isPremiumUser) {
+          console.log(
+            "[ToolRenderer] Premium tool detected, user is not premium"
+          );
           setShowPremiumDialog(true);
         }
-        
+
         if (!metadata || metadata.id !== toolMetadata.id) {
           console.log("[ToolRenderer] Setting metadata:", toolMetadata);
           setMetadata(toolMetadata);
@@ -427,9 +356,7 @@ const ToolRenderer: React.FC = () => {
               else if (input.type === "slider")
                 initialFormData[key] = input.min ?? 0;
               else if (input.type === "number")
-                initialFormData[key] =
-                  input.min ??
-                  0; // Or null/undefined? Consider desired behavior
+                initialFormData[key] = input.min ?? 0;
               else if (input.type === "color")
                 initialFormData[key] = input.default ?? "#000000";
               else initialFormData[key] = ""; // Default empty string for text/other
@@ -456,9 +383,9 @@ const ToolRenderer: React.FC = () => {
     loadingMetadataList,
     metadataListError,
     metadata,
-    isAdmin, 
+    isAdmin,
     isPremiumUser,
-    navigate
+    navigate,
   ]); // Added isAdmin, isPremiumUser, navigate to dependencies
 
   // 2. Effect to Trigger initial processing AFTER formData is initialized
@@ -469,7 +396,7 @@ const ToolRenderer: React.FC = () => {
       !isProcessing &&
       !resultData &&
       // Don't auto-process premium tools for non-premium users
-      !(metadata.accessLevel === 'premium' && !isPremiumUser)
+      !(metadata.accessLevel === "premium" && !isPremiumUser)
     ) {
       console.log(
         "[ToolRenderer] Effect Triggering initial process request with formData:",
@@ -484,7 +411,7 @@ const ToolRenderer: React.FC = () => {
     processRequest,
     isProcessing,
     resultData,
-    isPremiumUser // Added isPremiumUser
+    isPremiumUser, // Added isPremiumUser
   ]);
 
   // --- Event Handlers ---
@@ -504,7 +431,7 @@ const ToolRenderer: React.FC = () => {
           `[ToolRenderer] Debouncing process request due to change in ${inputId}`
         );
         // Don't auto-process premium tools for non-premium users
-        if (!(metadata.accessLevel === 'premium' && !isPremiumUser)) {
+        if (!(metadata.accessLevel === "premium" && !isPremiumUser)) {
           debouncedProcessRequest(newFormData);
         }
       }
@@ -522,28 +449,29 @@ const ToolRenderer: React.FC = () => {
   // Function to render custom UI components
   const renderCustomUI = useCallback(() => {
     if (!metadata?.customUI || !metadata.id) return null;
-    
+
     // Check if premium tool and user is not premium/admin
-    if (metadata.accessLevel === 'premium' && !isPremiumUser) {
+    if (metadata.accessLevel === "premium" && !isPremiumUser) {
       return (
-        <Alert 
-          severity="warning" 
+        <Alert
+          severity="warning"
           sx={{ mb: 2 }}
           action={
-            <Button 
-              color="inherit" 
+            <Button
+              color="inherit"
               size="small"
-              onClick={() => navigate('/upgrade')}
+              onClick={() => navigate("/upgrade")}
             >
               UPGRADE
             </Button>
           }
         >
-          This premium tool requires an upgrade to use. You can see a preview, but functionality is limited.
+          This premium tool requires an upgrade to use. You can see a preview,
+          but functionality is limited.
         </Alert>
       );
     }
-    
+
     const CustomUIComponent = CustomPluginUIs[metadata.id];
     if (CustomUIComponent) {
       return (
@@ -570,7 +498,7 @@ const ToolRenderer: React.FC = () => {
     resultData,
     isProcessing,
     isPremiumUser,
-    navigate
+    navigate,
   ]);
 
   // Handle premium dialog close
@@ -580,7 +508,7 @@ const ToolRenderer: React.FC = () => {
 
   // Handle upgrade button click
   const handleUpgradeClick = () => {
-    navigate('/upgrade');
+    navigate("/upgrade");
     setShowPremiumDialog(false);
   };
 
@@ -622,8 +550,8 @@ const ToolRenderer: React.FC = () => {
       .find((o) => o.style === "error" && o.type === "text")?.id ||
     "errorMessage";
 
-  const isPremiumTool = metadata.accessLevel === 'premium';
-  const isDisabledTool = metadata.status === 'disabled';
+  const isPremiumTool = metadata.accessLevel === "premium";
+  const isDisabledTool = metadata.status === "disabled";
 
   return (
     <CommonLayout
@@ -634,111 +562,212 @@ const ToolRenderer: React.FC = () => {
     >
       {/* Premium Tool Badge */}
       {isPremiumTool && (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            mb: 2,
-            p: 1,
-            backgroundColor: isPremiumUser ? 'rgba(255, 179, 0, 0.1)' : 'rgba(255, 179, 0, 0.05)',
-            border: '1px solid',
-            borderColor: 'warning.main',
-            borderRadius: 1,
-          }}
-        >
-          <StarIcon sx={{ color: 'warning.main', mr: 1 }} />
-          <Typography variant="body2" sx={{ fontWeight: 'medium', color: isPremiumUser ? 'text.primary' : 'text.secondary' }}>
-            {isPremiumUser 
-              ? 'Premium Tool - You have full access to this feature' 
-              : 'Premium Tool - Some features may be limited'}
-          </Typography>
-        </Box>
+        <Fade in={true}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              mb: 3,
+              p: 1.5,
+              backgroundColor: isPremiumUser
+                ? alpha("#FFB300", 0.15)
+                : alpha("#FFB300", 0.08),
+              border: "1px solid",
+              borderColor: isPremiumUser
+                ? "warning.main"
+                : alpha("#FFB300", 0.3),
+              borderRadius: 2,
+              backdropFilter: "blur(8px)",
+              boxShadow: isPremiumUser
+                ? `0 2px 8px ${alpha("#FFB300", 0.2)}`
+                : "none",
+              transition: "all 0.3s ease",
+            }}
+          >
+            <StarIcon
+              sx={{
+                color: "warning.main",
+                mr: 1.5,
+                fontSize: "1.2rem",
+                animation: isPremiumUser ? "pulse 2s infinite" : "none",
+                "@keyframes pulse": {
+                  "0%": { opacity: 0.8 },
+                  "50%": { opacity: 1 },
+                  "100%": { opacity: 0.8 },
+                },
+              }}
+            />
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: isPremiumUser ? "500" : "400",
+                color: isPremiumUser ? "#FFB300" : alpha("#FFB300", 0.8),
+                letterSpacing: "0.01em",
+              }}
+            >
+              {isPremiumUser
+                ? "Premium Tool - You have full access to this feature"
+                : "Premium Tool - Some features may be limited"}
+            </Typography>
+          </Box>
+        </Fade>
       )}
 
       {/* Admin Warning for Disabled Tool */}
       {isDisabledTool && isAdmin && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          This tool is currently disabled. Only administrators can view it.
-        </Alert>
+        <Fade in={true}>
+          <Alert
+            severity="warning"
+            variant="outlined"
+            icon={<WarningAmberIcon />}
+            sx={{
+              mb: 3,
+              borderRadius: 2,
+              "& .MuiAlert-icon": {
+                color: "#f5b82e",
+              },
+            }}
+          >
+            <AlertTitle sx={{ fontWeight: 500 }}>
+              Administrator Notice
+            </AlertTitle>
+            This tool is currently disabled and only visible to administrators.
+            Regular users cannot access this tool.
+          </Alert>
+        </Fade>
       )}
 
       {/* Display Processing Errors */}
       {resultData?.success === false && resultData[errorOutputFieldId] && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={() =>
-            setResultData((prev) => ({
-              ...prev,
-              success: undefined,
-              [errorOutputFieldId]: null,
-            }))
-          }
-        >
-          {String(resultData[errorOutputFieldId])}
-        </Alert>
+        <Fade in={true}>
+          <Alert
+            severity="error"
+            variant="filled"
+            sx={{
+              mb: 3,
+              borderRadius: 2,
+              boxShadow: `0 3px 8px ${alpha("#d32f2f", 0.2)}`,
+            }}
+            onClose={() =>
+              setResultData((prev) => ({
+                ...prev,
+                success: undefined,
+                [errorOutputFieldId]: null,
+              }))
+            }
+          >
+            <AlertTitle>Error</AlertTitle>
+            {String(resultData[errorOutputFieldId])}
+          </Alert>
+        </Fade>
       )}
 
       {/* Render either custom UI or standard UI */}
       {metadata.customUI ? (
         renderCustomUI()
       ) : (
-        <>
-          <Grid container spacing={3}>
-            {metadata.sections
-              ?.filter((section) => evaluateCondition(section.condition))
-              .map((section: Section, index: number) => (
-                <Grid
-                  item
-                  xs={12}
-                  key={`${metadata.id}-${section.id}-${index}`}
-                >
-                  {/* Render Inputs */}
-                  {section.inputs &&
-                    section.inputs.filter((field) =>
-                      evaluateCondition(field.condition, formData, resultData)
-                    ).length > 0 && (
-                      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }} elevation={2}>
-                        {section.label && (
-                          <Typography
-                            variant="h6"
-                            sx={{
-                              mb: 2.5,
-                              borderBottom: 1,
-                              borderColor: "divider",
-                              pb: 1,
-                            }}
-                          >
-                            {section.label}
-                          </Typography>
-                        )}
-                        <Grid container spacing={2.5}>
-                          {section.inputs
-                            .filter((field) =>
-                              evaluateCondition(
-                                field.condition,
-                                formData,
-                                resultData
-                              )
+        <Box>
+          {metadata.sections
+            ?.filter((section) => evaluateCondition(section.condition))
+            .map((section: Section, index: number) => (
+              <Box key={`${metadata.id}-${section.id}-${index}`} sx={{ mb: 3 }}>
+                {/* Render Inputs */}
+                {section.inputs &&
+                  section.inputs.filter((field) =>
+                    evaluateCondition(field.condition, formData, resultData)
+                  ).length > 0 && (
+                    <Paper
+                      sx={{
+                        p: { xs: 2.5, sm: 3.5 },
+                        mb: 3.5,
+                        width: "100%",
+                        borderRadius: 2.5,
+                        boxShadow: (theme) => "0 4px 20px rgba(0,0,0,0.25)",
+                        border: (theme) =>
+                          `1px solid ${alpha("#ffffff", 0.05)}`,
+                        overflow: "hidden",
+                        position: "relative",
+                        "&::before": {
+                          content: '""',
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: "3px",
+                          backgroundImage:
+                            "linear-gradient(90deg, #3b956f, #1ea54c, #3b956f)",
+                        },
+                        transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                        "&:hover": {
+                          boxShadow: (theme) => "0 6px 24px rgba(0,0,0,0.3)",
+                          transform: "translateY(-2px)",
+                        },
+                      }}
+                      elevation={0}
+                    >
+                      {section.label && (
+                        <Typography
+                          variant="h6"
+                          sx={{
+                            mb: 3,
+                            borderBottom: 1,
+                            borderColor: "divider",
+                            pb: 1.5,
+                            fontWeight: 600,
+                            display: "flex",
+                            alignItems: "center",
+                            "& svg": {
+                              mr: 1.5,
+                              color: "#3b956f",
+                            },
+                          }}
+                        >
+                          {/* Add section icon based on section id/type if needed */}
+                          {section.label.toLowerCase().includes("input") && (
+                            <InputIcon />
+                          )}
+                          {section.label.toLowerCase().includes("config") && (
+                            <SettingsIcon />
+                          )}
+                          {section.label.toLowerCase().includes("option") && (
+                            <TuneIcon />
+                          )}
+                          {section.label}
+                        </Typography>
+                      )}
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection: "row",
+                          flexWrap: "wrap",
+                          mx: -1.5,
+                        }}
+                      >
+                        {section.inputs
+                          .filter((field) =>
+                            evaluateCondition(
+                              field.condition,
+                              formData,
+                              resultData
                             )
-                            .map((field: InputField) => (
-                              <Grid
-                                xs={12}
-                                sm={
-                                  field.type === "switch" ||
-                                  field.type === "color" ||
-                                  field.type === "slider"
-                                    ? 6
-                                    : 12
-                                }
-                                md={
-                                  field.type === "color" ||
-                                  field.type === "switch"
-                                    ? 4
-                                    : field.type === "slider"
-                                    ? 8
-                                    : 12
-                                }
+                          )
+                          .map((field: InputField) => {
+                            // Determine width based on field type
+                            const fieldWidth =
+                              field.type === "color" || field.type === "switch"
+                                ? { xs: "100%", sm: "50%", md: "33.333%" }
+                                : field.type === "slider"
+                                ? { xs: "100%", sm: "50%", md: "66.666%" }
+                                : "100%";
+
+                            return (
+                              <Box
+                                sx={{
+                                  px: 1.5, // padding for better spacing
+                                  pb: 3, // bottom padding between items
+                                  width: fieldWidth,
+                                  boxSizing: "border-box",
+                                }}
                                 key={field.id}
                               >
                                 <RenderInput
@@ -747,191 +776,416 @@ const ToolRenderer: React.FC = () => {
                                   onChange={(value) =>
                                     handleInputChange(field.id, value)
                                   }
-                                  disabled={isProcessing || (isPremiumTool && !isPremiumUser)}
+                                  disabled={
+                                    isProcessing ||
+                                    (isPremiumTool && !isPremiumUser)
+                                  }
                                   error={formErrors[field.id]}
                                 />
-                              </Grid>
-                            ))}
-                        </Grid>
-                      </Paper>
-                    )}
-                  {/* Render Outputs */}
-                  {section.outputs &&
-                    section.outputs.filter((field) =>
-                      evaluateCondition(field.condition, formData, resultData)
-                    ).length > 0 &&
-                    evaluateCondition(
-                      section.condition,
-                      formData,
-                      resultData
-                    ) &&
-                    (resultData ||
-                      isProcessing ||
-                      section.id === "errorDisplay") && (
-                      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }} elevation={2}>
-                        {section.label && (
-                          <Typography
-                            variant="h6"
-                            sx={{
-                              mb: 2.5,
-                              borderBottom: 1,
-                              borderColor: "divider",
-                              pb: 1,
-                            }}
-                          >
-                            {section.label}
-                          </Typography>
-                        )}
-                        {(resultData || section.id === "errorDisplay") &&
-                          section.outputs
-                            .filter((field) =>
-                              evaluateCondition(
-                                field.condition,
-                                formData,
-                                resultData
-                              )
+                              </Box>
+                            );
+                          })}
+                      </Box>
+                    </Paper>
+                  )}
+                {/* Render Outputs */}
+                {section.outputs &&
+                  section.outputs.filter((field) =>
+                    evaluateCondition(field.condition, formData, resultData)
+                  ).length > 0 &&
+                  evaluateCondition(section.condition, formData, resultData) &&
+                  (resultData ||
+                    isProcessing ||
+                    section.id === "errorDisplay") && (
+                    <Paper
+                      sx={{
+                        p: { xs: 2.5, sm: 3.5 },
+                        mb: 3.5,
+                        borderRadius: 2.5,
+                        boxShadow: (theme) => "0 4px 20px rgba(0,0,0,0.25)",
+                        border: (theme) =>
+                          `1px solid ${alpha("#ffffff", 0.05)}`,
+                        backgroundColor: (theme) => alpha("#111", 0.4),
+                        position: "relative",
+                        "&::before": {
+                          content: '""',
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: "3px",
+                          backgroundImage:
+                            "linear-gradient(90deg, #647dee, #7f53ac)",
+                        },
+                      }}
+                      elevation={0}
+                    >
+                      {section.label && (
+                        <Typography
+                          variant="h6"
+                          sx={{
+                            mb: 3,
+                            borderBottom: 1,
+                            borderColor: "divider",
+                            pb: 1.5,
+                            fontWeight: 600,
+                            display: "flex",
+                            alignItems: "center",
+                            "& svg": {
+                              mr: 1.5,
+                              color: "#7f53ac",
+                            },
+                          }}
+                        >
+                          {/* Add section icon based on section id/type if needed */}
+                          {section.label.toLowerCase().includes("result") && (
+                            <AssessmentIcon />
+                          )}
+                          {section.label.toLowerCase().includes("output") && (
+                            <OutputIcon />
+                          )}
+                          {section.label}
+                        </Typography>
+                      )}
+                      {(resultData || section.id === "errorDisplay") &&
+                        section.outputs
+                          .filter((field) =>
+                            evaluateCondition(
+                              field.condition,
+                              formData,
+                              resultData
                             )
-                            .map((output: OutputField) => {
-                              const outputValue = resultData?.[output.id];
-                              const isErrorField =
-                                output.id === errorOutputFieldId;
-                              const shouldRender =
-                                (resultData?.success === false &&
-                                  isErrorField &&
-                                  outputValue !== undefined &&
-                                  outputValue !== null) ||
-                                (resultData?.success !== false &&
-                                  outputValue !== undefined &&
-                                  outputValue !== null); // Show normal field if not error state or no specific error value
-                              if (shouldRender) {
-                                return (
-                                  <Box key={output.id} sx={{ mb: 2 }}>
-                                    {" "}
-                                    <RenderOutput
-                                      output={output}
-                                      value={outputValue}
-                                      resultData={resultData}
-                                      onRefresh={handleExecute}
-                                      disabled={isProcessing || (isPremiumTool && !isPremiumUser)}
-                                    />{" "}
-                                  </Box>
-                                );
-                              }
-                              return null;
-                            })}
-                        {isProcessing && section.id !== "errorDisplay" && (
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              pt: 1,
-                            }}
+                          )
+                          .map((output: OutputField) => {
+                            const outputValue = resultData?.[output.id];
+                            const isErrorField =
+                              output.id === errorOutputFieldId;
+                            const shouldRender =
+                              (resultData?.success === false &&
+                                isErrorField &&
+                                outputValue !== undefined &&
+                                outputValue !== null) ||
+                              (resultData?.success !== false &&
+                                outputValue !== undefined &&
+                                outputValue !== null);
+                            if (shouldRender) {
+                              return (
+                                <Box
+                                  key={output.id}
+                                  sx={{
+                                    mb: 3,
+                                    animation: "fadeIn 0.5s ease",
+                                    "@keyframes fadeIn": {
+                                      "0%": {
+                                        opacity: 0,
+                                        transform: "translateY(10px)",
+                                      },
+                                      "100%": {
+                                        opacity: 1,
+                                        transform: "translateY(0)",
+                                      },
+                                    },
+                                  }}
+                                >
+                                  <RenderOutput
+                                    output={output}
+                                    value={outputValue}
+                                    resultData={resultData}
+                                    onRefresh={handleExecute}
+                                    disabled={
+                                      isProcessing ||
+                                      (isPremiumTool && !isPremiumUser)
+                                    }
+                                  />
+                                </Box>
+                              );
+                            }
+                            return null;
+                          })}
+                      {isProcessing && section.id !== "errorDisplay" && (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            py: 4,
+                            opacity: 0.8,
+                          }}
+                        >
+                          <CircularProgress
+                            size={40}
+                            thickness={4}
+                            sx={{ mb: 2, color: "#7f53ac" }}
+                          />
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            Processing your request...
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ mt: 0.5 }}
                           >
-                            <CircularProgress size={20} />{" "}
-                            <Typography variant="body2" sx={{ ml: 1 }}>
-                              Processing...
-                            </Typography>
-                          </Box>
-                        )}
-                      </Paper>
-                    )}
-                </Grid>
-              ))}
-          </Grid>
+                            This may take a few moments
+                          </Typography>
+                        </Box>
+                      )}
+                    </Paper>
+                  )}
+              </Box>
+            ))}
 
           {/* Manual Process Button */}
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={isPremiumTool && !isPremiumUser ? () => setShowPremiumDialog(true) : handleExecute}
-            disabled={isProcessing || loadingMetadata}
-            sx={{ mt: 1 }}
-            startIcon={
-              isProcessing ? (
-                <CircularProgress size={20} color="inherit" />
-              ) : isPremiumTool && !isPremiumUser ? (
-                <StarIcon />
-              ) : (
-                <RefreshIcon />
-              )
-            }
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              mt: 2,
+              mb: 4,
+            }}
           >
-            {isProcessing
-              ? "Processing..."
-              : isPremiumTool && !isPremiumUser
-              ? "Upgrade to Use"
-              : metadata.triggerUpdateOnChange
-              ? "Regenerate Manually"
-              : "Process"}
-          </Button>
-        </>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={
+                isPremiumTool && !isPremiumUser
+                  ? () => setShowPremiumDialog(true)
+                  : handleExecute
+              }
+              disabled={isProcessing || loadingMetadata}
+              size="large"
+              sx={{
+                py: 1.5,
+                px: 4,
+                borderRadius: 2,
+                textTransform: "none",
+                fontWeight: 600,
+                fontSize: "1rem",
+                minWidth: "200px",
+                background:
+                  isPremiumTool && !isPremiumUser
+                    ? "linear-gradient(45deg, #FF8E01 30%, #FFB300 90%)"
+                    : "linear-gradient(48deg,#25636c 0%,#3b956f 60%,#14a058 100%)",
+                boxShadow:
+                  isPremiumTool && !isPremiumUser
+                    ? "0 4px 12px rgba(255, 179, 0, 0.4)"
+                    : "0 4px 12px rgba(30, 165, 76, 0.3)",
+                "&:hover": {
+                  background:
+                    isPremiumTool && !isPremiumUser
+                      ? "linear-gradient(45deg, #FFA000 30%, #FFD54F 90%)"
+                      : "linear-gradient(48deg,#1f525a 0%,#337d5e 60%,#108048 100%)",
+                  boxShadow:
+                    isPremiumTool && !isPremiumUser
+                      ? "0 6px 14px rgba(255, 179, 0, 0.5)"
+                      : "0 6px 14px rgba(30, 165, 76, 0.4)",
+                },
+                transition: "all 0.3s ease",
+              }}
+              startIcon={
+                isProcessing ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : isPremiumTool && !isPremiumUser ? (
+                  <StarIcon />
+                ) : (
+                  <PlayArrowIcon />
+                )
+              }
+              endIcon={
+                !isProcessing &&
+                !isPremiumTool &&
+                metadata.triggerUpdateOnChange ? (
+                  <RefreshIcon />
+                ) : null
+              }
+            >
+              {isProcessing
+                ? "Processing..."
+                : isPremiumTool && !isPremiumUser
+                ? "Upgrade to Use"
+                : metadata.triggerUpdateOnChange
+                ? "Regenerate Results"
+                : "Process Data"}
+            </Button>
+          </Box>
+        </Box>
       )}
-      
+
       {/* Premium Upgrade Dialog */}
       <Dialog
         open={showPremiumDialog}
         onClose={handlePremiumDialogClose}
         aria-labelledby="premium-dialog-title"
+        TransitionComponent={(props) => <Slide {...props} direction="up" />}
         PaperProps={{
           sx: {
-            backgroundColor: "#2e2e2e",
+            backgroundColor: "#1e1e2f",
             color: "#ffffff",
-            borderRadius: "8px",
-            border: "1px solid #3b956f",
-            maxWidth: "500px"
-          }
+            borderRadius: 3,
+            border: "1px solid",
+            borderColor: alpha("#ffb300", 0.3),
+            maxWidth: "550px",
+            overflow: "hidden",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+          },
         }}
       >
-        <DialogTitle id="premium-dialog-title" sx={{ 
-          borderBottom: "1px solid rgba(255,255,255,0.1)",
-          display: "flex",
-          alignItems: "center"
-        }}>
-          <StarIcon sx={{ color: "#ffb300", mr: 1.5 }} />
-          Premium Feature
-        </DialogTitle>
-        <DialogContent sx={{ py: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            {metadata.name} is a Premium Tool
+        {/* Premium badge decorative element */}
+        <Box
+          sx={{
+            height: "100px",
+            background: "linear-gradient(45deg, #FF8E01 30%, #FFB300 90%)",
+            position: "relative",
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Box
+            sx={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundImage:
+                "radial-gradient(circle, rgba(255,255,255,0.3) 1px, transparent 1px)",
+              backgroundSize: "15px 15px",
+              opacity: 0.5,
+            }}
+          />
+
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              position: "relative",
+              zIndex: 1,
+            }}
+          >
+            <StarIcon sx={{ fontSize: "40px", color: "#fff", mb: 1 }} />
+            <Typography variant="h6" sx={{ color: "#fff", fontWeight: "bold" }}>
+              Premium Feature
+            </Typography>
+          </Box>
+        </Box>
+
+        <DialogContent sx={{ py: 4, px: 4 }}>
+          <Typography
+            variant="h5"
+            sx={{ mb: 2, fontWeight: 600, textAlign: "center" }}
+          >
+            {metadata.name}
           </Typography>
-          <Typography variant="body1" sx={{ mb: 2 }}>
-            This feature requires a premium subscription to access. Upgrade your account to unlock this tool and all other premium features.
+          <Typography variant="body1" sx={{ mb: 3, textAlign: "center" }}>
+            This premium tool requires a subscription to unlock its full
+            capabilities. Upgrade your account today to access this and all
+            other premium features.
           </Typography>
-          <Box sx={{ display: "flex", alignItems: "center", background: "rgba(0,0,0,0.2)", p: 2, borderRadius: "4px", mb: 2 }}>
-            <Box sx={{ mr: 2, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <StarIcon sx={{ color: "#ffb300", fontSize: "32px" }} />
-            </Box>
-            <Box>
-              <Typography variant="body1" sx={{ fontWeight: "bold", mb: 0.5 }}>
-                Premium Benefits:
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 0.5 }}>
-                • Access to all premium tools
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 0.5 }}>
-                • Priority customer support
-              </Typography>
+
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              background: alpha("#000", 0.3),
+              p: 3,
+              borderRadius: 2,
+              mb: 3,
+              border: `1px solid ${alpha("#ffb300", 0.2)}`,
+            }}
+          >
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 600, mb: 2, color: "#ffb300" }}
+            >
+              Premium Benefits:
+            </Typography>
+
+            <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
+              <CheckCircleIcon
+                sx={{ color: "#ffb300", mr: 1.5, fontSize: "1.2rem" }}
+              />
               <Typography variant="body2">
-                • Early access to new features
+                Access to all premium tools
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
+              <CheckCircleIcon
+                sx={{ color: "#ffb300", mr: 1.5, fontSize: "1.2rem" }}
+              />
+              <Typography variant="body2">
+                Priority customer support with 24/7 assistance
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
+              <CheckCircleIcon
+                sx={{ color: "#ffb300", mr: 1.5, fontSize: "1.2rem" }}
+              />
+              <Typography variant="body2">
+                Early access to beta features and new tools
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <CheckCircleIcon
+                sx={{ color: "#ffb300", mr: 1.5, fontSize: "1.2rem" }}
+              />
+              <Typography variant="body2">
+                Unlimited usage with no daily limits
               </Typography>
             </Box>
           </Box>
-          <Typography variant="caption" sx={{ color: "#a3a3a3", display: "block", textAlign: "center" }}>
-            Current Time (UTC): 2025-05-06 13:54:02
-          </Typography>
+
+          <Divider sx={{ my: 3 }} />
+
+          <Box sx={{ textAlign: "center" }}>
+            <Typography
+              variant="caption"
+              sx={{ color: "#a3a3a3", fontSize: "0.75rem" }}
+            >
+              Current Time (UTC): 2025-05-06 20:16:51 • User: hanhiho
+            </Typography>
+          </Box>
         </DialogContent>
-        <DialogActions sx={{ borderTop: "1px solid rgba(255,255,255,0.1)", p: 2, justifyContent: "space-between" }}>
-          <Button onClick={handlePremiumDialogClose} color="inherit">
+
+        <DialogActions
+          sx={{
+            borderTop: `1px solid ${alpha("#fff", 0.1)}`,
+            p: 3,
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <Button
+            onClick={handlePremiumDialogClose}
+            color="inherit"
+            sx={{
+              fontWeight: 400,
+              opacity: 0.7,
+              "&:hover": { opacity: 1 },
+            }}
+          >
             Maybe Later
           </Button>
-          <Button 
+          <Button
             onClick={handleUpgradeClick}
             variant="contained"
-            sx={{ 
-              background: "linear-gradient(48deg,#25636c 0%,#3b956f 60%,#14a058 100%)",
-              "&:hover": { 
-                background: "linear-gradient(48deg,#1f525a 0%,#337d5e 60%,#108048 100%)" 
-              }
+            startIcon={<StarIcon />}
+            sx={{
+              background: "linear-gradient(45deg, #FF8E01 30%, #FFB300 90%)",
+              color: "#000",
+              fontWeight: "bold",
+              px: 4,
+              py: 1,
+              boxShadow: "0 4px 12px rgba(255,179,0,0.3)",
+              "&:hover": {
+                background: "linear-gradient(45deg, #FFA000 30%, #FFD54F 90%)",
+                boxShadow: "0 6px 16px rgba(255,179,0,0.4)",
+              },
             }}
           >
             Upgrade to Premium
@@ -939,632 +1193,6 @@ const ToolRenderer: React.FC = () => {
         </DialogActions>
       </Dialog>
     </CommonLayout>
-  );
-};
-
-// ========================================================================
-// Inline RenderInput and RenderOutput Components (Keep Implementations)
-// ========================================================================
-interface RenderInputProps {
-  field: InputField;
-  value: any;
-  onChange: (value: any) => void;
-  disabled?: boolean;
-  error?: string;
-}
-const RenderInput: React.FC<RenderInputProps> = ({
-  field,
-  value,
-  onChange,
-  disabled,
-  error,
-}) => {
-  const commonProps = {
-    fullWidth: true,
-    size: "small",
-    variant: "outlined",
-    label: field.label,
-    disabled: disabled,
-    required: field.required,
-    error: !!error,
-    helperText: error || field.helperText,
-    placeholder: field.placeholder,
-  } as const;
-  switch (field.type) {
-    case "text":
-    case "password":
-      return (
-        <TextField
-          {...commonProps}
-          type={field.type}
-          multiline={field.multiline}
-          rows={field.rows}
-          value={value ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      );
-    case "number":
-      return (
-        <TextField
-          {...commonProps}
-          type="number"
-          value={value ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-          inputProps={{
-            min: field.min,
-            max: field.max,
-            step: field.step ?? "any",
-          }}
-        />
-      );
-    case "select":
-      return (
-        <FormControl
-          fullWidth
-          size="small"
-          variant="outlined"
-          disabled={disabled}
-          required={field.required}
-          error={!!error}
-        >
-          <InputLabel>{field.label}</InputLabel>
-          <Select
-            label={field.label}
-            value={value ?? field.default ?? ""}
-            onChange={(e) => onChange(e.target.value)}
-          >
-            {!field.required && field.default === undefined && (
-              <MenuItem value="">
-                <em>None</em>
-              </MenuItem>
-            )}
-            {field.options?.map((option: any, index: number) => (
-              <MenuItem
-                key={index}
-                value={typeof option === "object" ? option.value : option}
-              >
-                {typeof option === "object" ? option.label : option}
-              </MenuItem>
-            ))}
-          </Select>
-          {(error || field.helperText) && (
-            <FormHelperText error={!!error}>
-              {error || field.helperText}
-            </FormHelperText>
-          )}
-        </FormControl>
-      );
-    case "switch":
-      return (
-        <Box>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              width: "100%",
-              minHeight: "40px",
-            }}
-          >
-            <Typography
-              variant="body2"
-              sx={{ color: disabled ? "text.disabled" : "inherit", mr: 1 }}
-            >
-              {field.label || ""}
-            </Typography>
-            <Switch
-              name={field.id}
-              checked={!!value}
-              onChange={(e) => onChange(e.target.checked)}
-              disabled={disabled}
-            />
-          </Box>
-          {(error || field.helperText) && (
-            <FormHelperText error={!!error} sx={{ ml: 1 }}>
-              {error || field.helperText}
-            </FormHelperText>
-          )}
-        </Box>
-      );
-    case "slider":
-      return (
-        <Box sx={{ px: 1 }}>
-          <Typography gutterBottom id={`${field.id}-label`}>
-            {field.label} ({value ?? field.default ?? field.min})
-          </Typography>
-          <Slider
-            aria-labelledby={`${field.id}-label`}
-            value={
-              typeof value === "number"
-                ? value
-                : field.default ?? field.min ?? 0
-            }
-            onChange={(event, newValue) => onChange(newValue as number)}
-            valueLabelDisplay="auto"
-            step={field.step ?? 1}
-            marks={!!field.step}
-            min={field.min ?? 0}
-            max={field.max ?? 100}
-            disabled={disabled}
-          />
-          {(error || field.helperText) && (
-            <FormHelperText error={!!error}>
-              {error || field.helperText}
-            </FormHelperText>
-          )}
-        </Box>
-      );
-    case "color":
-      return (
-        <FormControl fullWidth size="small">
-          <Typography
-            variant="body2"
-            sx={{ mb: 1, color: disabled ? "text.disabled" : "inherit" }}
-          >
-            {field.label}
-          </Typography>
-          <Box sx={{ display: "flex", alignItems: "center" }}>
-            <input
-              type="color"
-              id={`color-input-${field.id}`}
-              disabled={disabled}
-              value={value ?? field.default ?? "#000000"}
-              onChange={(e) => onChange(e.target.value)}
-              style={{
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                padding: 0,
-                height: "40px",
-                width: "45px",
-                marginRight: "10px",
-                cursor: disabled ? "not-allowed" : "pointer",
-                background: "none",
-              }}
-            />
-            <TextField
-              size="small"
-              variant="outlined"
-              disabled={disabled}
-              sx={{ flexGrow: 1 }}
-              value={value ?? field.default ?? "#000000"}
-              onChange={(e) => onChange(e.target.value)}
-              error={!!error}
-            />
-          </Box>
-          {(error || field.helperText) && (
-            <FormHelperText error={!!error}>
-              {error || field.helperText}
-            </FormHelperText>
-          )}
-        </FormControl>
-      );
-    case "file":
-      return (
-        <Box>
-          <Typography variant="body2" sx={{ mb: 1 }}>
-            {field.label}
-          </Typography>
-          <Button
-            component="label"
-            variant="outlined"
-            size="small"
-            disabled={disabled}
-          >
-            Upload File
-            <input
-              type="file"
-              hidden
-              accept={field.accept || "*/*"}
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  const file = e.target.files[0];
-                  if (file.size > 5 * 1024 * 1024) {
-                    alert("File is too large. Maximum size is 5MB.");
-                    return;
-                  }
-                  const reader = new FileReader();
-                  reader.onloadend = () => {
-                    const result = reader.result as string;
-                    if (
-                      typeof result === "string" &&
-                      result.startsWith("data:")
-                    ) {
-                      console.log(
-                        `File read successfully, length: ${result.length}`
-                      );
-                      onChange(result);
-                    } else {
-                      console.error("Invalid file data format");
-                      onChange(null);
-                    }
-                  };
-                  reader.onerror = () => {
-                    console.error("File reading error");
-                    onChange(null);
-                  };
-                  reader.readAsDataURL(file);
-                }
-              }}
-            />
-          </Button>
-          {typeof value === "string" && value.startsWith("data:image") && (
-            <img
-              src={value}
-              alt="Preview"
-              height="50"
-              style={{ marginLeft: "10px", verticalAlign: "middle" }}
-            />
-          )}
-          {(error || field.helperText) && (
-            <FormHelperText error={!!error}>
-              {error || field.helperText}
-            </FormHelperText>
-          )}
-        </Box>
-      );
-    case "button":
-      return (
-        <Button
-          id={`button-${field.id}`}
-          variant="contained"
-          size="small"
-          color={
-            (field.color as
-              | "primary"
-              | "secondary"
-              | "error"
-              | "info"
-              | "success"
-              | "warning"
-              | undefined) || "primary"
-          }
-          onClick={() => {
-            if (field.action) {
-              console.log(`Button clicked: ${field.action}`);
-            } else {
-              alert(
-                `Action '${field.action}' clicked (needs specific frontend logic)`
-              );
-            }
-          }}
-          disabled={disabled}
-        >
-          {field.label}
-        </Button>
-      );
-    case "hidden":
-      return null;
-    case "webcamPreview":
-      return (
-        <Box
-          sx={{
-            border: "1px dashed grey",
-            minHeight: 200,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            bgcolor: "black",
-          }}
-        >
-          <Typography sx={{ color: "grey" }}>
-            Webcam Preview Area (Requires Frontend JS)
-          </Typography>
-        </Box>
-      );
-    default:
-      return (
-        <Typography color="error">
-          Unsupported input type: {field.type}
-        </Typography>
-      );
-  }
-};
-
-interface RenderOutputProps {
-  output: OutputField;
-  value: any;
-  resultData?: Record<string, any> | null;
-  onRefresh?: () => void;
-  disabled?: boolean;
-}
-const RenderOutput: React.FC<RenderOutputProps> = ({
-  output,
-  value,
-  resultData,
-  onRefresh,
-  disabled,
-}) => {
-  const theme = useTheme();
-  const handleCopy = () => {
-    const textToCopy =
-      typeof value === "object"
-        ? JSON.stringify(value, null, 2)
-        : String(value ?? "");
-    navigator.clipboard
-      .writeText(textToCopy)
-      .catch((err) => console.error("Copy failed", err));
-  };
-  const handleDownload = () => {
-    const filenameKey = output.downloadFilenameKey || "imageFileName";
-    const filename =
-      resultData?.[filenameKey] || `${output.id || "download"}.png`;
-    downloadDataUrl(String(value), filename);
-  };
-  const displayValue = value ?? "";
-  const isValueNotNull = value != null;
-  const isValueStringImage =
-    typeof value === "string" && value.startsWith("data:image");
-  const isArrayValue = Array.isArray(displayValue);
-  const hasTableConfig =
-    isArrayValue && output.columns && output.columns.length > 0;
-  const progressValue =
-    typeof displayValue === "number"
-      ? Math.min(Math.max(displayValue, output.min ?? 0), output.max ?? 100)
-      : 0;
-  const score = typeof displayValue === "number" ? displayValue : 0;
-  const progressColor =
-    score >= 90
-      ? "success"
-      : score >= 70
-      ? "info"
-      : score >= 50
-      ? "warning"
-      : "error";
-  const suffix = output.suffix || "";
-  const buttonElements = (
-    <Box
-      sx={{ mt: 1, display: "flex", gap: 0.5, justifyContent: "flex-start" }}
-    >
-      {output.buttons?.includes("copy") && isValueNotNull && (
-        <IconButton size="small" title="Copy" onClick={handleCopy}>
-          <ContentCopyIcon sx={{ fontSize: "1rem" }} />
-        </IconButton>
-      )}
-      {output.buttons?.includes("refresh") && onRefresh && (
-        <IconButton
-          size="small"
-          title="Refresh/Regenerate"
-          onClick={onRefresh}
-          disabled={disabled}
-        >
-          <RefreshIcon sx={{ fontSize: "1rem" }} />
-        </IconButton>
-      )}
-      {output.buttons?.includes("download") &&
-        output.type === "image" &&
-        isValueStringImage && (
-          <IconButton size="small" title="Download" onClick={handleDownload}>
-            <DownloadIcon sx={{ fontSize: "1rem" }} />
-          </IconButton>
-        )}
-    </Box>
-  );
-  const renderContent = () => {
-    switch (output.type) {
-      case "text":
-        return (
-          <Typography
-            variant="body1"
-            component="div"
-            sx={{
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-all",
-              fontFamily: output.monospace ? "monospace" : "inherit",
-              color:
-                output.style === "error" ? theme.palette.error.main : "inherit",
-            }}
-          >
-            {String(displayValue)}
-          </Typography>
-        );
-      case "image":
-        return (
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "flex-start",
-              alignItems: "center",
-              width: "fit-content",
-              maxWidth: output.maxWidth || 350,
-              maxHeight: output.maxHeight || 350,
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: 1,
-              p: 0.5,
-              mt: 1,
-            }}
-          >
-            {displayValue ? (
-              <img
-                src={String(displayValue)}
-                alt={output.label || "Output Image"}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  height: "auto",
-                  objectFit: "contain",
-                }}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
-            ) : (
-              <Typography
-                sx={{ p: 2, fontStyle: "italic", color: "text.secondary" }}
-              >
-                No Image
-              </Typography>
-            )}
-          </Box>
-        );
-      case "json":
-        return (
-          <Box
-            component="pre"
-            sx={{
-              bgcolor: theme.palette.mode === "dark" ? "#2e2e2e" : "#f5f5f5",
-              color: theme.palette.mode === "dark" ? "#fff" : "#000",
-              p: 1.5,
-              borderRadius: 1,
-              overflowX: "auto",
-              fontSize: "0.875rem",
-              maxHeight: "400px",
-              wordBreak: "break-all",
-              whiteSpace: "pre-wrap",
-              mt: 1,
-            }}
-          >
-            {JSON.stringify(displayValue, null, 2)}
-          </Box>
-        );
-      case "boolean":
-        return displayValue ? (
-          <CheckCircleIcon color="success" sx={{ verticalAlign: "middle" }} />
-        ) : (
-          <CancelIcon color="error" sx={{ verticalAlign: "middle" }} />
-        );
-      case "chips":
-        return isArrayValue ? (
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1 }}>
-            {displayValue.map((item, i) => (
-              <Chip key={i} label={String(item)} size="small" />
-            ))}
-          </Box>
-        ) : (
-          <Typography color="error" variant="caption">
-            Invalid data
-          </Typography>
-        );
-      case "list":
-        return isArrayValue ? (
-          <List dense sx={{ py: 0, listStyle: "disc", pl: 2.5 }}>
-            {displayValue.map((item, i) => (
-              <ListItem
-                key={i}
-                disableGutters
-                sx={{ py: 0, display: "list-item" }}
-              >
-                <ListItemText
-                  primary={String(item)}
-                  primaryTypographyProps={{ variant: "body2" }}
-                />
-              </ListItem>
-            ))}
-          </List>
-        ) : (
-          <Typography color="error" variant="caption">
-            Invalid data
-          </Typography>
-        );
-      case "progressBar":
-        return (
-          <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
-            <Box sx={{ width: "100%", mr: 1 }}>
-              <LinearProgress
-                variant="determinate"
-                value={progressValue}
-                color={progressColor}
-                sx={{ height: 10, borderRadius: 5 }}
-              />
-            </Box>
-            <Box sx={{ minWidth: 50 }}>
-              <Typography variant="body2" color="text.secondary">{`${Math.round(
-                progressValue
-              )}${suffix}`}</Typography>
-            </Box>
-          </Box>
-        );
-      case "table":
-        if (hasTableConfig) {
-          if ((displayValue as any[]).length === 0) {
-            return (
-              <Typography
-                variant="body2"
-                sx={{ fontStyle: "italic", color: "text.secondary", mt: 1 }}
-              >
-                No data.
-              </Typography>
-            );
-          }
-          return (
-            <TableContainer
-              component={Paper}
-              elevation={0}
-              variant="outlined"
-              sx={{ mt: 1 }}
-            >
-              <Table size="small">
-                <TableHead
-                  sx={{
-                    bgcolor:
-                      theme.palette.mode === "dark" ? "grey.800" : "grey.100",
-                  }}
-                >
-                  <TableRow>
-                    {output.columns!.map((col, cIndex) => (
-                      <TableCell
-                        key={`${output.id}-h-${cIndex}`}
-                        sx={{ fontWeight: "bold" }}
-                      >
-                        {col.header}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {(displayValue as any[]).map((row: any, rIndex: number) => (
-                    <TableRow
-                      key={`${output.id}-r-${rIndex}`}
-                      hover
-                      sx={{ "&:last-child td, &:last-child th": { border: 0 } }}
-                    >
-                      {output.columns!.map((col, cIndex) => (
-                        <TableCell key={`${output.id}-c-${rIndex}-${cIndex}`}>
-                          {String(
-                            col.field
-                              .split(".")
-                              .reduce(
-                                (o, k) =>
-                                  o && typeof o === "object" ? o[k] : undefined,
-                                row
-                              ) ?? ""
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          );
-        } else {
-          return (
-            <Typography color="error" variant="caption">
-              Invalid table data/config
-            </Typography>
-          );
-        }
-      default:
-        return (
-          <Typography color="error" variant="caption">
-            Unsupported type: {output.type}
-          </Typography>
-        );
-    }
-  };
-  return (
-    <Box sx={{ mb: 1.5 }}>
-      {output.label && (
-        <Typography
-          variant="body2"
-          sx={{ mb: 0.5, fontWeight: "medium", color: "text.secondary" }}
-        >
-          {output.label}
-        </Typography>
-      )}
-      {renderContent()}
-      {buttonElements}
-    </Box>
   );
 };
 

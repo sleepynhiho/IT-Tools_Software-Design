@@ -6,8 +6,8 @@ import { doc, setDoc, collection, query, getDocs, where } from "firebase/firesto
 import { db } from "../firebaseConfig";
 
 // Current date and time information for logging
-const CURRENT_DATE_TIME = "2025-05-06 16:32:57";
-const CURRENT_USER_LOGIN = "hanhiho";
+const CURRENT_DATE_TIME = "2025-05-06 18:29:03";
+const CURRENT_USER_LOGIN = "Kostovite";
 
 // Tool Interface
 interface Tool {
@@ -257,7 +257,6 @@ const usePluginService = () => {
         }
     };
 
-    // --- Other methods (getPluginMetadata, processPlugin) still require currentUser ---
     const getPluginMetadata = useCallback(async (pluginId: string): Promise<any> => {
         console.log(`[${CURRENT_DATE_TIME}] [pluginService] Attempting to fetch metadata for: ${pluginId}`);
         // These methods *should* check for currentUser
@@ -265,21 +264,52 @@ const usePluginService = () => {
              console.error(`[${CURRENT_DATE_TIME}] [pluginService] getPluginMetadata requires authenticated user.`);
              throw new Error("User not authenticated or auth context error.");
         }
-        const response = await fetchWithAuth( /* ... */ );
-        // ...
-        return {}; // Placeholder - implement the actual logic when needed
+        try {
+            const response = await fetchWithAuth(
+                `/api/plugins/universal/${pluginId}/metadata`, 
+                { method: 'GET' },
+                getIdToken
+            );
+            
+            if (!response.ok) {
+                throw new Error(`Failed to fetch plugin metadata: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error(`[${CURRENT_DATE_TIME}] [pluginService] Error fetching plugin metadata:`, error);
+            throw error;
+        }
     }, [getIdToken, currentUser]);
 
     const processPlugin = useCallback(async (pluginId: string, inputData: any): Promise<any> => {
         console.log(`[${CURRENT_DATE_TIME}] [pluginService] Attempting to process plugin: ${pluginId}`);
-         // These methods *should* check for currentUser
-         if (!currentUser || !getIdToken) {
-             console.error(`[${CURRENT_DATE_TIME}] [pluginService] processPlugin requires authenticated user.`);
-             throw new Error("User not authenticated or auth context error.");
-         }
-        const response = await fetchWithAuth( /* ... */ );
-        // ...
-        return {}; // Placeholder - implement the actual logic when needed
+        try {
+            const response = await fetchWithAuth(
+                `/api/plugins/universal/${pluginId}/process`,
+                { 
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(inputData)
+                },
+                getIdToken // This is optional since our backend allows anonymous access
+            );
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`[${CURRENT_DATE_TIME}] [pluginService] Error processing plugin: ${errorText}`);
+                throw new Error(`Failed to process plugin: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error(`[${CURRENT_DATE_TIME}] [pluginService] Error processing plugin:`, error);
+            throw error;
+        }
     }, [getIdToken, currentUser]);
     
     // Add method to remove a tool
@@ -375,6 +405,86 @@ const usePluginService = () => {
         }
     };
 
+    // --- FIXED: Method to delete a plugin ---
+    const deletePlugin = useCallback(async (pluginNameOrId: string): Promise<any> => {
+        // We need to ensure we're using the plugin ID for the API call, not the name
+        console.log(`[${CURRENT_DATE_TIME}] [pluginService] Attempting to delete plugin: ${pluginNameOrId}`);
+        
+        if (!currentUser || !getIdToken) {
+            console.error(`[${CURRENT_DATE_TIME}] [pluginService] deletePlugin requires an authenticated admin user.`);
+            throw new Error("User not authenticated or auth context error.");
+        }
+        
+        try {
+            // Get all tools to find the correct ID if a name was passed
+            const tools = await getAvailablePlugins();
+            
+            // Determine if what we received is a name or an ID
+            let pluginId = pluginNameOrId; // Default to using as-is
+            const matchingTool = tools.find(tool => 
+                tool.name === pluginNameOrId || // Match by name
+                tool.id === pluginNameOrId      // Or match by ID
+            );
+            
+            // If we found a match, ensure we use its ID
+            if (matchingTool) {
+                pluginId = matchingTool.id; // Always use the ID for the API call
+                console.log(`[${CURRENT_DATE_TIME}] [pluginService] Found matching tool: ${matchingTool.name} with ID: ${pluginId}`);
+            } else {
+                console.warn(`[${CURRENT_DATE_TIME}] [pluginService] No matching tool found for: ${pluginNameOrId}, using as-is`);
+            }
+            
+            // First update Firestore to mark as disabled
+            if (matchingTool && matchingTool.name) {
+                await updateToolInFirestore(matchingTool.name, { enabled: false });
+                console.log(`[${CURRENT_DATE_TIME}] [${CURRENT_USER_LOGIN}] Marked tool as disabled in Firestore`);
+            }
+            
+            // Then call the backend API using the ID (not name)
+            console.log(`[${CURRENT_DATE_TIME}] [pluginService] Calling backend delete API with ID: ${pluginId}`);
+            const response = await fetchWithAuth(
+                `/api/plugins/${pluginId}/delete`, // Using pluginId for the API call
+                { method: 'DELETE' },
+                getIdToken
+            );
+
+            if (!response.ok) {
+                // Try to parse error
+                let errorData;
+                try {
+                    errorData = await response.json();
+                } catch (e) {
+                    errorData = { message: await response.text() || `Failed to delete plugin: ${response.status}` };
+                }
+                console.error(`[${CURRENT_DATE_TIME}] [pluginService] API Error deleting plugin ${pluginId}: ${response.status}`, errorData);
+                
+                // Even if API call fails, return partial success if Firestore was updated
+                if (matchingTool && matchingTool.name) {
+                    return { 
+                        success: true, 
+                        message: "Plugin marked as disabled in Firestore, but backend deletion failed.",
+                        apiError: errorData.message
+                    };
+                }
+                
+                throw new Error(errorData.message || `Failed to delete plugin: ${response.status}`);
+            }
+
+            // For DELETE, often a 200/202/204 with no body or a simple success message
+            try {
+                const data = await response.json(); // If backend sends JSON
+                console.log(`[${CURRENT_DATE_TIME}] [pluginService] Successfully deleted plugin ${pluginId}:`, data);
+                return data;
+            } catch (e) {
+                console.log(`[${CURRENT_DATE_TIME}] [pluginService] Plugin ${pluginId} deleted, no JSON response body.`);
+                return { success: true, message: "Plugin deletion completed." };
+            }
+        } catch (error) {
+            console.error(`[${CURRENT_DATE_TIME}] [pluginService] Error in deletePlugin:`, error);
+            throw error;
+        }
+    }, [getIdToken, currentUser, getAvailablePlugins, updateToolInFirestore]);
+
     // --- Memoize the returned object ---
     return useMemo(() => ({
         getAvailablePlugins,
@@ -384,8 +494,16 @@ const usePluginService = () => {
         updateToolAccessLevel,
         mockUpdateToolAccessLevel,
         removeTool,
-        addTool
-    }), [getAvailablePlugins, getPluginMetadata, processPlugin]);
+        addTool,
+        deletePlugin // NEW: Added the deletePlugin method
+    }), [
+        getAvailablePlugins, 
+        getPluginMetadata, 
+        processPlugin, 
+        updateToolStatus, 
+        updateToolAccessLevel,
+        deletePlugin
+    ]);
 };
 
 export default usePluginService;

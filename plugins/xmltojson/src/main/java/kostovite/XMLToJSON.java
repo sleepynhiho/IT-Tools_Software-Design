@@ -1,12 +1,8 @@
 package kostovite;
 
 import java.io.StringReader;
-import java.io.StringWriter;
 import java.util.*;
 import javax.xml.parsers.*;
-import javax.xml.transform.*;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 import org.w3c.dom.*;
 import org.xml.sax.InputSource;
 
@@ -21,7 +17,7 @@ public class XMLToJSON implements PluginInterface {
 
     @Override
     public void execute() {
-        System.out.println("XMLToJSON Plugin executed (standalone test)");
+        System.out.println("[2025-05-06 21:27:55] [hanhihofix] XMLToJSON Plugin executed (standalone test)");
         try {
             Map<String, Object> params = new HashMap<>();
 
@@ -34,6 +30,11 @@ public class XMLToJSON implements PluginInterface {
             params.put("inputXML", "<root attrib=\"value\"><element>Text</element></root>");
             Map<String, Object> result2 = process(params);
             System.out.println("Test 2 (XML with attributes): " + result2);
+
+            // Test specific case with nested attributes
+            params.put("inputXML", "<a x=\"1.234\" y=\"It's\"/>");
+            Map<String, Object> result2a = process(params);
+            System.out.println("Test 2a (XML with specific attributes): " + result2a);
 
             // Test nested XML structure
             params.put("inputXML", "<library><book><title>Java Programming</title><author>John Doe</author><year>2020</year></book><book><title>XML Basics</title><author>Jane Smith</author><year>2018</year></book></library>");
@@ -51,7 +52,7 @@ public class XMLToJSON implements PluginInterface {
             System.out.println("Test 5 (Empty input): " + result5);
 
         } catch (Exception e) {
-            System.err.println("Standalone test failed: " + e.getMessage());
+            System.err.println("[2025-05-06 21:27:55] [hanhihofix] Standalone test failed: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -158,7 +159,7 @@ public class XMLToJSON implements PluginInterface {
             return result;
 
         } catch (Exception e) {
-            System.err.println("Error processing XML to JSON conversion: " + e.getMessage());
+            System.err.println("[2025-05-06 21:27:55] [hanhihofix] Error processing XML to JSON conversion: " + e.getMessage());
             e.printStackTrace();
             return Map.of("success", false, ERROR_OUTPUT_ID, "An unexpected error occurred: " + e.getMessage());
         }
@@ -205,15 +206,30 @@ public class XMLToJSON implements PluginInterface {
             // Element has child elements, create an object
             jsonBuilder.append("{\n");
 
-            // Add attributes as properties
+            // Add attributes as properties in _attributes object
             if (hasAttributes) {
+                jsonBuilder.append(indentStr + "  \"_attributes\": {\n");
                 for (int i = 0; i < attributes.getLength(); i++) {
                     Node attr = attributes.item(i);
-                    jsonBuilder.append(indentStr + "  \"@")
+                    jsonBuilder.append(indentStr + "    \"")
                             .append(attr.getNodeName())
                             .append("\": \"")
                             .append(escapeJsonString(attr.getNodeValue()))
-                            .append("\",\n");
+                            .append("\"");
+                    
+                    if (i < attributes.getLength() - 1) {
+                        jsonBuilder.append(",\n");
+                    } else {
+                        jsonBuilder.append("\n");
+                    }
+                }
+                jsonBuilder.append(indentStr + "  }");
+                
+                // Add comma if there will be more content
+                if (childNodes.getLength() > 0) {
+                    jsonBuilder.append(",\n");
+                } else {
+                    jsonBuilder.append("\n");
                 }
             }
 
@@ -291,37 +307,54 @@ public class XMLToJSON implements PluginInterface {
             // Element has only text content or is empty
             String content = element.getTextContent().trim();
             if (content.isEmpty() && hasAttributes) {
-                // Only attributes, no content
-                jsonBuilder.append("{\n");
+                // Only attributes, no content - use _attributes format
+                jsonBuilder.append("{\n")
+                         .append(indentStr + "  \"_attributes\": {\n");
+                
                 for (int i = 0; i < attributes.getLength(); i++) {
                     Node attr = attributes.item(i);
-                    jsonBuilder.append(indentStr + "  \"@")
+                    jsonBuilder.append(indentStr + "    \"")
                             .append(attr.getNodeName())
                             .append("\": \"")
                             .append(escapeJsonString(attr.getNodeValue()))
                             .append("\"");
+                    
                     if (i < attributes.getLength() - 1) {
                         jsonBuilder.append(",\n");
+                    } else {
+                        jsonBuilder.append("\n");
                     }
                 }
-                jsonBuilder.append("\n").append(indentStr).append("}");
+                
+                jsonBuilder.append(indentStr + "  }\n")
+                         .append(indentStr).append("}");
             } else if (!content.isEmpty()) {
                 // Has text content
                 if (hasAttributes) {
                     // Text content with attributes
-                    jsonBuilder.append("{\n");
+                    jsonBuilder.append("{\n")
+                             .append(indentStr + "  \"_attributes\": {\n");
+                    
                     for (int i = 0; i < attributes.getLength(); i++) {
                         Node attr = attributes.item(i);
-                        jsonBuilder.append(indentStr + "  \"@")
+                        jsonBuilder.append(indentStr + "    \"")
                                 .append(attr.getNodeName())
                                 .append("\": \"")
                                 .append(escapeJsonString(attr.getNodeValue()))
-                                .append("\",\n");
+                                .append("\"");
+                        
+                        if (i < attributes.getLength() - 1) {
+                            jsonBuilder.append(",\n");
+                        } else {
+                            jsonBuilder.append("\n");
+                        }
                     }
-                    jsonBuilder.append(indentStr + "  \"#text\": \"")
-                            .append(escapeJsonString(content))
-                            .append("\"")
-                            .append("\n").append(indentStr).append("}");
+                    
+                    jsonBuilder.append(indentStr + "  },\n")
+                             .append(indentStr + "  \"#text\": \"")
+                             .append(escapeJsonString(content))
+                             .append("\"\n")
+                             .append(indentStr).append("}");
                 } else {
                     // Just text content
                     jsonBuilder.append("\"").append(escapeJsonString(content)).append("\"");

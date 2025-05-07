@@ -3,7 +3,6 @@ import { fallbackMetadata } from "./fallbackMetadata"; // Import the fallback da
 import { auth } from "../firebaseConfig"; // Import Firebase auth
 
 // Configuration constants
-const USE_FALLBACK_METADATA = false; // Set to true to always use fallback data
 const BATCH_SIZE = 4; // Number of plugins to load in parallel
 const BATCH_DELAY = 100; // Delay between batches in milliseconds
 const MAX_RETRIES = 3; // Maximum number of retries for failed requests
@@ -14,6 +13,7 @@ const API_BASE_URL = "http://localhost:8081"; // Fallback for safety
 // --- Interfaces (with proper exports) ---
 
 export interface PluginMetadata {
+  status: string;
   triggerUpdateOnChange: any;
   id: string;
   name: string;
@@ -41,6 +41,7 @@ export interface Section {
 }
 
 export interface InputField {
+  marks: boolean;
   color: "primary" | "secondary" | "success" | "error" | "info" | "warning" | undefined;
   value(value: any): void;
   id: string;
@@ -342,16 +343,6 @@ export const useAllPluginMetadata = () => {
   const fetchInitiatedRef = useRef<boolean>(false);
 
   useEffect(() => {
-    // Use fallback data directly if configured to do so
-    if (USE_FALLBACK_METADATA) {
-      console.log("Using fallback metadata (configured)");
-      setMetadataList(fallbackMetadata);
-      setDataSource('fallback');
-      setLoading(false);
-      setLoadingProgress(100);
-      return;
-    }
-    
     // Prevent multiple fetches in development mode with React.StrictMode
     if (fetchInitiatedRef.current) {
       console.log('Fetch already initiated, skipping duplicate fetch');
@@ -403,7 +394,6 @@ export const useAllPluginMetadata = () => {
 
         if (loadedPlugins.length === 0) {
           console.log("No plugins listed by the server. Using fallback data.");
-          setMetadataList(fallbackMetadata);
           setDataSource('fallback');
           setLoading(false);
           setLoadingProgress(100);
@@ -426,7 +416,6 @@ export const useAllPluginMetadata = () => {
           setDataSource('backend');
         } else {
           console.log("No plugins fetched successfully, using fallback data");
-          setMetadataList(fallbackMetadata);
           setDataSource('fallback');
         }
         
@@ -434,7 +423,6 @@ export const useAllPluginMetadata = () => {
       } catch (err: any) {
         console.error("FATAL: Failed to fetch plugin metadata:", err);
         setError(err.message || "An unknown error occurred while fetching plugin data");
-        setMetadataList(fallbackMetadata);
         setDataSource('fallback');
         setLoadingProgress(100); // Error, but still complete
       } finally {
