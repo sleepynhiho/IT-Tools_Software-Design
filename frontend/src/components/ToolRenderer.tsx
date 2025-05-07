@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import debounce from "lodash.debounce";
 import CustomPluginUIs from "./plugins/CustomPluginUIs";
 
-// MUI Imports
 import {
   Box,
   Typography,
@@ -20,6 +19,8 @@ import {
   alpha,
   Divider,
   Slide,
+  useTheme,
+  Stack,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -30,8 +31,9 @@ import InputIcon from "@mui/icons-material/Input";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import OutputIcon from "@mui/icons-material/Output";
-
-// Local Imports
+import CancelIcon from "@mui/icons-material/Cancel";
+import LabelIcon from "@mui/icons-material/Label";
+import StarIcon from "@mui/icons-material/Star";
 import CommonLayout from "../layouts/CommonLayout";
 import { useAllTools } from "../context/AllToolsContext";
 import { useAuth } from "../context/AuthContext";
@@ -46,13 +48,39 @@ import { SettingsIcon } from "lucide-react";
 import RenderInput from "./RenderInput";
 import RenderOutput from "./RenderOutput";
 
-// --- Main Component ---
+const CURRENT_DATE_TIME = "2025-05-06 21:20:11";
+const CURRENT_USER_LOGIN = "Kostovite";
+
+function downloadDataUrl(dataUrl: string, filename: string) {
+  try {
+    if (
+      !dataUrl ||
+      typeof dataUrl !== "string" ||
+      !dataUrl.startsWith("data:")
+    ) {
+      console.error("Invalid data URL provided for download:", dataUrl);
+      alert("Could not initiate download: Invalid image data.");
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (e) {
+    console.error("Download failed:", e);
+    alert("Download failed. See console for details.");
+  }
+}
+
 const ToolRenderer: React.FC = () => {
-  // --- Hooks ---
   const { id: toolIdFromUrl } = useParams<{ id: string }>();
-  const navigate = useNavigate(); // Add useNavigate hook
+  const navigate = useNavigate();
+  const theme = useTheme();
+
   const {
-    allTools: allPluginMetadata, // Get list from the context
+    allTools: allPluginMetadata,
     isLoading: loadingMetadataList,
     error: metadataListError,
   } = useAllTools();
@@ -72,9 +100,7 @@ const ToolRenderer: React.FC = () => {
   const [resultData, setResultData] = useState<Record<string, any> | null>(
     null
   );
-
   const [showPremiumDialog, setShowPremiumDialog] = useState<boolean>(false);
-
   const evaluateCondition = useCallback(
     (
       conditionStr?: string,
@@ -108,7 +134,6 @@ const ToolRenderer: React.FC = () => {
     [formData, resultData]
   );
 
-  // --- API Call Logic ---
   const processRequest = useCallback(
     async (currentFormData: Record<string, any>) => {
       if (!metadata?.id) {
@@ -127,8 +152,7 @@ const ToolRenderer: React.FC = () => {
         });
         return;
       }
-
-      if (metadata.accessLevel === "premium" && !isPremiumUser) {
+      if (metadata.accessLevel === 'premium' && !isPremiumUser) {
         console.log("Process skipped: Premium feature, user is not premium.");
         setShowPremiumDialog(true);
         return;
@@ -292,13 +316,11 @@ const ToolRenderer: React.FC = () => {
     processRequest,
   ]);
 
-  // 1. Load metadata for the specific tool and initialize form
   useEffect(() => {
-    setLoadingMetadata(true); // Start loading specific tool metadata
+    setLoadingMetadata(true);
 
     if (loadingMetadataList) {
       console.log("[ToolRenderer] Waiting for main plugin list to load...");
-      // Don't return immediately, wait for list or error
     } else if (metadataListError) {
       console.error(
         "[ToolRenderer] Error loading main plugin list:",
@@ -313,7 +335,6 @@ const ToolRenderer: React.FC = () => {
       setToolMetadataError("Invalid plugin list format.");
       setLoadingMetadata(false);
     } else {
-      // List is loaded (or empty) and no error from context
       console.log(
         `[ToolRenderer] Finding metadata for id: ${toolIdFromUrl} in list of ${allPluginMetadata.length} from Context`
       );
@@ -359,7 +380,7 @@ const ToolRenderer: React.FC = () => {
                 initialFormData[key] = input.min ?? 0;
               else if (input.type === "color")
                 initialFormData[key] = input.default ?? "#000000";
-              else initialFormData[key] = ""; // Default empty string for text/other
+              else initialFormData[key] = "";
             });
           });
           console.log("[ToolRenderer] Initializing formData:", initialFormData);
@@ -385,18 +406,16 @@ const ToolRenderer: React.FC = () => {
     metadata,
     isAdmin,
     isPremiumUser,
-    navigate,
-  ]); // Added isAdmin, isPremiumUser, navigate to dependencies
+    navigate
+  ]);
 
-  // 2. Effect to Trigger initial processing AFTER formData is initialized
   useEffect(() => {
     if (
       metadata?.triggerUpdateOnChange === true &&
       Object.keys(formData).length > 0 &&
       !isProcessing &&
       !resultData &&
-      // Don't auto-process premium tools for non-premium users
-      !(metadata.accessLevel === "premium" && !isPremiumUser)
+      !(metadata.accessLevel === 'premium' && !isPremiumUser)
     ) {
       console.log(
         "[ToolRenderer] Effect Triggering initial process request with formData:",
@@ -407,14 +426,13 @@ const ToolRenderer: React.FC = () => {
   }, [
     formData,
     metadata?.triggerUpdateOnChange,
-    metadata?.accessLevel, // Added accessLevel
+    metadata?.accessLevel,
     processRequest,
     isProcessing,
     resultData,
-    isPremiumUser, // Added isPremiumUser
+    isPremiumUser
   ]);
 
-  // --- Event Handlers ---
   const handleInputChange = useCallback(
     (inputId: string, value: any) => {
       const newFormData = { ...formData, [inputId]: value };
@@ -430,8 +448,7 @@ const ToolRenderer: React.FC = () => {
         console.log(
           `[ToolRenderer] Debouncing process request due to change in ${inputId}`
         );
-        // Don't auto-process premium tools for non-premium users
-        if (!(metadata.accessLevel === "premium" && !isPremiumUser)) {
+        if (!(metadata.accessLevel === 'premium' && !isPremiumUser)) {
           debouncedProcessRequest(newFormData);
         }
       }
@@ -446,10 +463,8 @@ const ToolRenderer: React.FC = () => {
     }
   }, [formData, metadata, processRequest]);
 
-  // Function to render custom UI components
   const renderCustomUI = useCallback(() => {
     if (!metadata?.customUI || !metadata.id) return null;
-
     // Check if premium tool and user is not premium/admin
     if (metadata.accessLevel === "premium" && !isPremiumUser) {
       return (
@@ -486,7 +501,14 @@ const ToolRenderer: React.FC = () => {
       );
     }
     return (
-      <Alert severity="warning" sx={{ mb: 2 }}>
+      <Alert 
+        severity="warning" 
+        sx={{ 
+          mb: 2,
+          backgroundColor: 'rgba(237, 108, 2, 0.1)', 
+          color: '#ffffff' 
+        }}
+      >
         This tool requires a custom UI component that is not available.
       </Alert>
     );
@@ -501,18 +523,15 @@ const ToolRenderer: React.FC = () => {
     navigate,
   ]);
 
-  // Handle premium dialog close
   const handlePremiumDialogClose = () => {
     setShowPremiumDialog(false);
   };
 
-  // Handle upgrade button click
   const handleUpgradeClick = () => {
     navigate("/upgrade");
     setShowPremiumDialog(false);
   };
 
-  // --- Render Logic ---
   if (loadingMetadataList || loadingMetadata) {
     return (
       <CommonLayout
@@ -522,7 +541,7 @@ const ToolRenderer: React.FC = () => {
         icon=""
       >
         <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-          <CircularProgress />
+          <CircularProgress sx={{ color: "#3b956f" }} />
         </Box>
       </CommonLayout>
     );
@@ -537,7 +556,14 @@ const ToolRenderer: React.FC = () => {
         toolId={toolIdFromUrl || ""}
         icon=""
       >
-        <Alert severity="error" sx={{ m: 2 }}>
+        <Alert 
+          severity="error" 
+          sx={{ 
+            m: 2, 
+            backgroundColor: 'rgba(211, 47, 47, 0.1)',
+            color: '#ffffff'
+          }}
+        >
           {displayError || "Tool metadata could not be loaded."}
         </Alert>
       </CommonLayout>
@@ -560,7 +586,6 @@ const ToolRenderer: React.FC = () => {
       toolId={metadata.id}
       icon={metadata.icon}
     >
-      {/* Premium Tool Badge */}
       {isPremiumTool && (
         <Fade in={true}>
           <Box
@@ -613,7 +638,6 @@ const ToolRenderer: React.FC = () => {
         </Fade>
       )}
 
-      {/* Admin Warning for Disabled Tool */}
       {isDisabledTool && isAdmin && (
         <Fade in={true}>
           <Alert
@@ -637,7 +661,6 @@ const ToolRenderer: React.FC = () => {
         </Fade>
       )}
 
-      {/* Display Processing Errors */}
       {resultData?.success === false && resultData[errorOutputFieldId] && (
         <Fade in={true}>
           <Alert
@@ -662,7 +685,6 @@ const ToolRenderer: React.FC = () => {
         </Fade>
       )}
 
-      {/* Render either custom UI or standard UI */}
       {metadata.customUI ? (
         renderCustomUI()
       ) : (
@@ -671,7 +693,6 @@ const ToolRenderer: React.FC = () => {
             ?.filter((section) => evaluateCondition(section.condition))
             .map((section: Section, index: number) => (
               <Box key={`${metadata.id}-${section.id}-${index}`} sx={{ mb: 3 }}>
-                {/* Render Inputs */}
                 {section.inputs &&
                   section.inputs.filter((field) =>
                     evaluateCondition(field.condition, formData, resultData)
@@ -788,7 +809,6 @@ const ToolRenderer: React.FC = () => {
                       </Box>
                     </Paper>
                   )}
-                {/* Render Outputs */}
                 {section.outputs &&
                   section.outputs.filter((field) =>
                     evaluateCondition(field.condition, formData, resultData)
@@ -1011,7 +1031,6 @@ const ToolRenderer: React.FC = () => {
         </Box>
       )}
 
-      {/* Premium Upgrade Dialog */}
       <Dialog
         open={showPremiumDialog}
         onClose={handlePremiumDialogClose}
