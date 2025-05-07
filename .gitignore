@@ -26,3 +26,4 @@ replay_pid*
 .gradle
 .idea
 node_modules/
+server/src/main/resources/firebase/firebase-service.json
